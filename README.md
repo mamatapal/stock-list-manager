@@ -49,7 +49,9 @@ Design and plan: see the "Technical Implementation Plan" doc in the claude.ai pr
 
 Never commit `.env`, `local.properties`, `keystore.properties` or keystores.
 
-## Build on GitHub (no local tools needed)
+## Build and deploy on GitHub (no local tools needed)
+
+Step-by-step: [docs/GITHUB_SETUP.md](docs/GITHUB_SETUP.md).
 
 Every push to `main` (and every pull request) runs two GitHub Actions workflows:
 
