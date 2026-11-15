@@ -1,0 +1,15 @@
+# Shared by the server (StockListCalculatorTest) and the Android app (ListCalculatorTest).
+# basis,quantity,enteredPrice,expectedLineTotal,expectedEffectiveUnitPrice   (empty = none)
+PER_UNIT,20,140,2800.00,140
+TOTAL,20,2800,2800.00,140
+TOTAL,1.5,270,270.00,180
+PER_UNIT,1.5,180,270.00,180
+PER_UNIT,2.75,56.40,155.10,56.4
+PER_UNIT,0.5,99.99,50.00,99.99
+PER_UNIT,3,33.3333,100.00,33.3333
+TOTAL,3,100,100.00,33.3333
+PER_UNIT,0.001,1,0.00,1
+PER_UNIT,12,0,0.00,0
+TOTAL,7,0.10,0.10,0.0143
+PER_UNIT,100,,,
+TOTAL,2,,,

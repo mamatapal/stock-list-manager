@@ -1,0 +1,8 @@
+# Shared by the server and the Android app. requested,received,remaining,overBy,status
+100,0,100,0,PENDING
+100,60,40,0,PARTIAL
+100,100,0,0,FULL
+100,110,0,10,FULL
+2.5,1.25,1.25,0,PARTIAL
+10,-0,10,0,PENDING
+0.5,0.5,0,0,FULL

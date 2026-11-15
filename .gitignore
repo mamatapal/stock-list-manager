@@ -1,0 +1,7 @@
+.transfer/
+**/build-log*.txt
+dist/
+deploy/.env
+*.tgz
+*.md5
+crash-log.txt

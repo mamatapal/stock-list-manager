@@ -1,0 +1,15 @@
+# Local development database only. Production settings are in Phase 6.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: stocklist
+      MYSQL_USER: stocklist
+      MYSQL_PASSWORD: stocklist-dev
+      MYSQL_ROOT_PASSWORD: stocklist-root-dev
+    ports:
+      - "3307:3306"   # 3307 on your PC, because 3306 is often taken by a locally installed MySQL
+    volumes:
+      - stocklist-mysql:/var/lib/mysql
+volumes:
+  stocklist-mysql:

@@ -1,0 +1,16 @@
+# Shared by the server (ExpiryCalculatorTest) and the Android app. Empty expiry = no expiry date.
+# today,expiry,daysLeft,expired,within7,within30,within90,all,label
+2026-11-14,2026-11-13,-1,true,false,false,false,true,Expired 1 day ago
+2026-11-14,2026-10-15,-30,true,false,false,false,true,Expired 30 days ago
+2026-11-14,2026-11-14,0,false,true,true,true,true,Expires today
+2026-11-14,2026-11-15,1,false,true,true,true,true,Expires in 1 day
+2026-11-14,2026-11-21,7,false,true,true,true,true,Expires in 7 days
+2026-11-14,2026-11-22,8,false,false,true,true,true,Expires in 8 days
+2026-11-14,2026-12-14,30,false,false,true,true,true,Expires in 30 days
+2026-11-14,2026-12-15,31,false,false,false,true,true,Expires in 31 days
+2026-11-14,2027-02-12,90,false,false,false,true,true,Expires in 90 days
+2026-11-14,2027-02-13,91,false,false,false,false,true,Expires in 91 days
+2026-12-31,2027-01-01,1,false,true,true,true,true,Expires in 1 day
+2028-02-28,2028-03-01,2,false,true,true,true,true,Expires in 2 days
+2027-02-28,2027-03-01,1,false,true,true,true,true,Expires in 1 day
+2026-11-14,,,false,false,false,false,false,No expiry date

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Simple original mark: a clipboard with three list lines. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M38,30h32a4,4 0,0 1,4 4v42a4,4 0,0 1,-4 4h-32a4,4 0,0 1,-4 -4v-42a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#1B5E50"
+        android:pathData="M44,26h20a2,2 0,0 1,2 2v6h-24v-6a2,2 0,0 1,2 -2z" />
+    <path android:fillColor="#1B5E50" android:pathData="M42,44h24v4h-24z" />
+    <path android:fillColor="#1B5E50" android:pathData="M42,54h24v4h-24z" />
+    <path android:fillColor="#1B5E50" android:pathData="M42,64h16v4h-16z" />
+</vector>

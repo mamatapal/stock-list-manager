@@ -1,0 +1,16 @@
+# HTTPS for the API. Caddy obtains and renews the certificate for {$API_DOMAIN} automatically.
+{$API_DOMAIN} {
+	encode gzip
+	# Health check stays reachable for monitoring; everything else goes to the API.
+	reverse_proxy backend:8080 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	# API documentation is switched off in production (SWAGGER_ENABLED=false); block the paths anyway.
+	@docs path /swagger-ui* /v3/api-docs*
+	respond @docs 404
+}
