@@ -42,6 +42,8 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
+          # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
+          token: ${{ github.token }}
 
       # The legacy "tools" package the action installs by default no longer exists; ask for platform-tools only.
       - name: Set up Android SDK
@@ -173,6 +175,8 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
+          # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
+          token: ${{ github.token }}
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools

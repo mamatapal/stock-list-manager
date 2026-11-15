@@ -33,6 +33,8 @@ jobs:
         with:
           distribution: jetbrains
           java-version: "21"
+          # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
+          token: ${{ github.token }}
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
