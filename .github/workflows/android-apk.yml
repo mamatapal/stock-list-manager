@@ -66,8 +66,13 @@ jobs:
         env:
           INPUT_URL: ${{ github.event.inputs.api_base_url }}
           VAR_URL: ${{ vars.API_BASE_URL }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
         run: |
           URL="${INPUT_URL:-$VAR_URL}"
+          # A server set up with deploy/server-setup.sh and no own domain answers at <ip-with-dashes>.sslip.io
+          if [ -z "$URL" ] && echo "$DEPLOY_HOST" | grep -Eq '^[0-9]+(\.[0-9]+){3}$'; then
+            URL="https://$(echo "$DEPLOY_HOST" | tr . -).sslip.io/"
+          fi
           if [ -n "$URL" ]; then
             case "$URL" in */) ;; *) URL="$URL/";; esac
             echo "api.baseUrl=$URL" > local.properties
@@ -150,5 +155,63 @@ jobs:
             android/app/build/reports/
             android/app/build/test-results/
             android/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The release build exactly (R8 minified, not debuggable) but signed with a throw-away debug key: proves the
+  # minified app builds without needing the release key. Install it next to the debug app to test it.
+  staging-apk:
+    name: Minified (staging) APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Accept Android SDK licences and install SDK 35
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" > /dev/null
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Choose the server address
+        env:
+          VAR_URL: ${{ vars.API_BASE_URL }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          chmod +x gradlew
+          URL="$VAR_URL"
+          if [ -z "$URL" ] && echo "$DEPLOY_HOST" | grep -Eq '^[0-9]+(\.[0-9]+){3}$'; then
+            URL="https://$(echo "$DEPLOY_HOST" | tr . -).sslip.io/"
+          fi
+          if [ -n "$URL" ]; then echo "api.baseUrl=$URL" > local.properties; fi
+      - name: Build minified staging APK
+        run: ./gradlew --stacktrace assembleStaging
+      - name: Collect APK
+        run: |
+          APK=$(find app/build/outputs/apk/staging -maxdepth 1 -name '*.apk' | head -n 1)
+          [ -n "$APK" ] || { echo "::error::No staging APK produced"; exit 1; }
+          mkdir -p ../apk-out && cp "$APK" "../apk-out/Stock-List-Manager-staging-$(date -u +%Y-%m-%d)-${GITHUB_SHA::7}.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Stock-List-Manager-staging-APK
+          path: apk-out/*.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload build reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-staging-reports
+          path: |
+            android/app/build/outputs/mapping/
+            android/app/build/reports/
           if-no-files-found: ignore
           retention-days: 14
