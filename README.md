@@ -48,3 +48,17 @@ Design and plan: see the "Technical Implementation Plan" doc in the claude.ai pr
    `api.baseUrl=http://<your PC's IP>:8080/` to `android/local.properties`.
 
 Never commit `.env`, `local.properties`, `keystore.properties` or keystores.
+
+## Build on GitHub (no local tools needed)
+
+Every push to `main` (and every pull request) runs two GitHub Actions workflows:
+
+- **Android APK** (`.github/workflows/android-apk.yml`): JetBrains JDK 21, Android SDK 35, Gradle 8.13 wrapper;
+  runs `./gradlew testDebugUnitTest assembleDebug` in `android/` and uploads the installable debug APK as the
+  artifact **Stock-List-Manager-debug-APK** (kept 30 days). Open the run under the repository's **Actions** tab and
+  download it from **Artifacts**. To point the APK at your server, set the repository variable `API_BASE_URL`
+  (Settings → Secrets and variables → Actions → Variables) or enter it when starting the workflow by hand
+  (**Run workflow**). Without it the APK uses `http://10.0.2.2:8080/`, which only works in an emulator on the PC
+  running the backend.
+- **Backend tests** (`.github/workflows/backend-ci.yml`): JDK 21, `./mvnw verify` in `backend/` against a
+  throw-away MySQL 8.4 (Testcontainers). It never deploys anything.
