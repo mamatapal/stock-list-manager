@@ -1,0 +1,80 @@
+# Builds and tests the Spring Boot backend (backend/) on GitHub. It does NOT deploy anything.
+# The tests start their own throw-away MySQL 8.4 in Docker (Testcontainers); no database credentials are needed.
+name: Backend tests
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+  pull_request:
+    branches: [main]
+    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+  workflow_dispatch:
+
+concurrency:
+  group: backend-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and test backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Make Maven wrapper executable
+        run: chmod +x mvnw
+
+      - name: Run tests (unit + integration against MySQL 8.4)
+        run: ./mvnw -B -ntp verify
+
+      - name: Summary
+        if: always()
+        run: |
+          TESTS=0; FAILED=0
+          for f in target/surefire-reports/TEST-*.xml; do
+            [ -f "$f" ] || continue
+            TESTS=$((TESTS + $(grep -o 'tests="[0-9]*"' "$f" | head -1 | tr -dc 0-9)))
+            FAILED=$((FAILED + $(grep -o 'failures="[0-9]*"' "$f" | head -1 | tr -dc 0-9) + $(grep -o 'errors="[0-9]*"' "$f" | head -1 | tr -dc 0-9)))
+          done
+          {
+            echo "## Stock List Manager — backend"
+            echo ""
+            echo "Tests: **$TESTS run, $FAILED failed** (commit \`${GITHUB_SHA::7}\`)."
+            [ -f target/openapi.json ] && echo "API description and jar: artifact **backend-build**."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload jar and API description
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: |
+            backend/target/openapi.json
+            backend/target/stock-list-backend-*.jar
+          retention-days: 14
+
+      - name: Upload test reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 14

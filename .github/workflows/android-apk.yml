@@ -1,0 +1,148 @@
+# Builds the Stock List Manager Android app on GitHub: runs the unit tests and produces an installable debug APK.
+# Project: android/ (Gradle 8.13 wrapper, AGP 8.10.1, Kotlin 2.1.21), module :app (app.stocklist.manager).
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["backend/**", "deploy/**", "docs/**", "**/*.md"]
+  pull_request:
+    branches: [main]
+    paths-ignore: ["backend/**", "deploy/**", "docs/**", "**/*.md"]
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Server the debug APK talks to, e.g. https://api.yourshop.in/ (empty: repository variable API_BASE_URL, else the emulator default http://10.0.2.2:8080/)"
+        required: false
+        default: ""
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  debug-apk:
+    name: Unit tests and debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # The project asks Gradle for a JetBrains JDK 21 (android/gradle/gradle-daemon-jvm.properties); use exactly that.
+      - name: Set up JDK 21 (JetBrains Runtime)
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licences
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      # Debug builds read the server address from local.properties (never committed). Only an address is written here.
+      - name: Choose the server address for the debug APK
+        env:
+          INPUT_URL: ${{ github.event.inputs.api_base_url }}
+          VAR_URL: ${{ vars.API_BASE_URL }}
+        run: |
+          URL="${INPUT_URL:-$VAR_URL}"
+          if [ -n "$URL" ]; then
+            case "$URL" in */) ;; *) URL="$URL/";; esac
+            echo "api.baseUrl=$URL" > local.properties
+          else
+            URL="http://10.0.2.2:8080/ (Android emulator on the developer PC)"
+          fi
+          echo "API_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: ./gradlew --stacktrace testDebugUnitTest
+
+      - name: Build debug APK
+        run: ./gradlew --stacktrace assembleDebug
+
+      - name: Locate APK
+        id: apk
+        run: |
+          DIR=app/build/outputs/apk/debug
+          APK=$(find "$DIR" -maxdepth 1 -name '*.apk' | head -n 1)
+          if [ -z "$APK" ]; then echo "::error::No APK was produced in $DIR"; exit 1; fi
+          VERSION_NAME=$(jq -r '.elements[0].versionName' "$DIR/output-metadata.json")
+          VERSION_CODE=$(jq -r '.elements[0].versionCode' "$DIR/output-metadata.json")
+          DATE=$(date -u +%Y-%m-%d)
+          NAME="Stock-List-Manager-${VERSION_NAME}-debug-${DATE}-${GITHUB_SHA::7}.apk"
+          mkdir -p ../apk-out
+          cp "$APK" "../apk-out/$NAME"
+          echo "file=apk-out/$NAME" >> "$GITHUB_OUTPUT"
+          {
+            echo "name=$NAME"
+            echo "version_name=$VERSION_NAME"
+            echo "version_code=$VERSION_CODE"
+            echo "date=$DATE"
+            echo "sha256=$(sha256sum "../apk-out/$NAME" | cut -d' ' -f1)"
+            echo "size=$(du -h "../apk-out/$NAME" | cut -f1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Stock-List-Manager-debug-APK
+          path: ${{ steps.apk.outputs.file }}
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Build summary
+        if: always()
+        run: |
+          TESTS=0; FAILED=0
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            [ -f "$f" ] || continue
+            TESTS=$((TESTS + $(grep -o 'tests="[0-9]*"' "$f" | head -1 | tr -dc 0-9)))
+            FAILED=$((FAILED + $(grep -o 'failures="[0-9]*"' "$f" | head -1 | tr -dc 0-9) + $(grep -o 'errors="[0-9]*"' "$f" | head -1 | tr -dc 0-9)))
+          done
+          {
+            echo "## Stock List Manager — debug APK"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Version | ${{ steps.apk.outputs.version_name || 'not built' }} (code ${{ steps.apk.outputs.version_code || '-' }}) |"
+            echo "| Build date (UTC) | $(date -u '+%Y-%m-%d %H:%M') |"
+            echo "| Commit | \`${GITHUB_SHA::7}\` on \`${GITHUB_REF_NAME}\` |"
+            echo "| Unit tests | $TESTS run, $FAILED failed |"
+            echo "| Server address in APK | ${API_URL:-not set} |"
+            echo "| APK | ${{ steps.apk.outputs.name || 'not produced' }} (${{ steps.apk.outputs.size || '-' }}) |"
+            echo "| SHA-256 | \`${{ steps.apk.outputs.sha256 || '-' }}\` |"
+            echo ""
+            if [ -n "${{ steps.apk.outputs.name }}" ]; then
+              echo "Download: **Artifacts → Stock-List-Manager-debug-APK** at the bottom of this page (kept 30 days)."
+            else
+              echo "**No APK was produced.** See the failed step and the uploaded reports."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports and build logs (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-build-reports
+          path: |
+            android/app/build/reports/
+            android/app/build/test-results/
+            android/build/reports/
+          if-no-files-found: ignore
+          retention-days: 14

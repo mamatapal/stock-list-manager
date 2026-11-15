@@ -5,3 +5,12 @@ deploy/.env
 *.tgz
 *.md5
 crash-log.txt
+.idea/
+*.iml
+**/local.properties
+**/keystore.properties
+*.jks
+*.keystore
+.env
+package-log.txt
+**/staging-log.txt
