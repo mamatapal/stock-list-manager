@@ -41,7 +41,9 @@ On AWS (free plan): follow [AWS_SETUP.md](AWS_SETUP.md) instead of the generic s
    run: `curl -fsSL https://raw.githubusercontent.com/mamatapal/stock-list-manager/main/deploy/server-setup.sh | bash`)
 3. Wait ~5 minutes, then put the server's IP address in the variable `DEPLOY_HOST`.
 4. Actions → **Deploy backend** → **Run workflow**. When it is green, its summary shows the app server address.
-5. Actions → **Android release APK** → **Run workflow**. Download the APK from the run's **Artifacts** and install it.
+5. Actions → **Android release APK** → **Run workflow**. When it finishes, open the repository's **Releases** page on the phone
+   (or `https://github.com/mamatapal/stock-list-manager/releases/latest/download/Stock-List-Manager.apk` for the newest build),
+   tap the `.apk` and install it. The same APK is also kept in the run's **Artifacts** (as a zip).
 6. In the app, **Register your business** to create the owner account.
 
 ### Own domain (optional)
