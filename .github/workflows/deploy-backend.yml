@@ -80,6 +80,11 @@ jobs:
           scp -i ~/.ssh/deploy_key -o BatchMode=yes bundle/* bundle/.env.example "$DEPLOY_USER@$DEPLOY_HOST:/opt/stocklist/"
           $SSH 'set -e
             cd /opt/stocklist
+            # A free <ip>.sslip.io name follows the server if its public IP changed (e.g. an Elastic IP added later).
+            if grep -q "^API_DOMAIN=.*\.sslip\.io$" .env; then
+              IP=$(curl -fsS --max-time 10 https://api.ipify.org)
+              [ -n "$IP" ] && sed -i "s/^API_DOMAIN=.*/API_DOMAIN=$(echo "$IP" | tr . -).sslip.io/" .env
+            fi
             # Back up the database before every update (skipped on the very first deploy).
             if [ -n "$(docker compose -f docker-compose.prod.yml ps -q mysql 2>/dev/null)" ]; then ./backup.sh; else echo "First deploy: nothing to back up yet"; fi
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans

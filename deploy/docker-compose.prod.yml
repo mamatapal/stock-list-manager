@@ -10,7 +10,10 @@ services:
       MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?set DB_ROOT_PASSWORD in .env}
       TZ: UTC
-    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci"]
+    # Sized for a 2 GB server: the whole database of a few shops fits in 256 MB of cache.
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_0900_ai_ci",
+              "--innodb-buffer-pool-size=256M", "--max-connections=60", "--performance-schema=OFF"]
+    mem_limit: 700m
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -23,6 +26,8 @@ services:
   backend:
     build: .
     image: stock-list-backend:${APP_VERSION:-1.0.0}
+    # The JVM takes 75% of this limit for its heap (see Dockerfile).
+    mem_limit: 900m
     restart: unless-stopped
     depends_on:
       mysql:
