@@ -63,8 +63,24 @@ jobs:
           DEPLOY_HOST_KEY: ${{ vars.DEPLOY_HOST_KEY }}
         run: |
           install -d -m 700 ~/.ssh
-          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          # Pasting into the GitHub secret box can add Windows line endings or join the lines; rebuild the key file
+          # in the exact OpenSSH layout so either way works.
+          printf '%s' "$DEPLOY_SSH_KEY" | python3 -c '
+          import re, sys
+          t = sys.stdin.read().replace("\r", "")
+          m = re.search(r"-----BEGIN OPENSSH PRIVATE KEY-----(.*?)-----END OPENSSH PRIVATE KEY-----", t, re.S)
+          if not m:
+              sys.exit("DEPLOY_SSH_KEY must contain the lines -----BEGIN OPENSSH PRIVATE KEY----- ... -----END OPENSSH PRIVATE KEY-----")
+          body = re.sub(r"\s+", "", m.group(1))
+          lines = [body[i:i + 70] for i in range(0, len(body), 70)]
+          print("-----BEGIN OPENSSH PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END OPENSSH PRIVATE KEY-----")
+          ' > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
+          if ! PUB=$(ssh-keygen -y -f ~/.ssh/deploy_key 2>&1); then
+            echo "::error::DEPLOY_SSH_KEY is not a valid private key ($PUB). Copy it again from the secrets file, BEGIN to END lines included."
+            exit 1
+          fi
+          echo "Deploy key in use (public half): $PUB"
           if [ -n "$DEPLOY_HOST_KEY" ]; then
             echo "$DEPLOY_HOST_KEY" > ~/.ssh/known_hosts
           else
