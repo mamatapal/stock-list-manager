@@ -13,6 +13,9 @@ object Bilingual {
 
     fun both(main: String, other: String): String = if (main == other) main else "$START$main$SEPARATOR$other$END"
 
+    /** Text that appears in the main-language line only (for example a description under a name in a PDF cell). */
+    fun mainOnly(text: String): String = if (text.isEmpty()) text else "$START$text$SEPARATOR$END"
+
     fun isBilingual(text: String): Boolean = text.indexOf(START) >= 0
 
     /** The text as it reads in one language. */

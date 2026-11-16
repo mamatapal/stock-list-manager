@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.trMessage
@@ -95,7 +96,7 @@ fun expiryColor(expiry: String?, today: LocalDate): Color {
 @Composable
 private fun BatchRow(b: BatchEntity, today: LocalDate, onClick: () -> Unit) {
     ListItem(
-        headlineContent = { Text(b.itemName) },
+        headlineContent = { Text(b.itemName.bi()) },
         supportingContent = {
             Column {
                 Text(listOfNotNull(b.batchNo?.let { tr("Batch %1\$s", it) }, "${b.quantity} ${b.unitCode}", b.supplierName,
@@ -275,7 +276,7 @@ fun BatchDetailScreen(access: Access, onBack: () -> Unit, onOpenPurchase: (Strin
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(ExpiryCalculator.label(x.expiryDate?.let(LocalDate::parse), vm.today), color = expiryColor(x.expiryDate, vm.today),
                 style = MaterialTheme.typography.titleMedium)
-            SectionCard(x.itemName) {
+            SectionCard(x.itemName.bi()) {
                 LabelValue(tr("Batch number"), x.batchNo)
                 LabelValue(tr("Expiry date"), x.expiryDate.displayDate())
                 LabelValue(tr("Quantity left"), "${x.quantity} ${x.unitCode}")

@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.BilingualName
 import app.stocklist.app.core.designsystem.BilingualNameFields
 import app.stocklist.app.core.i18n.Bilingual
@@ -300,7 +301,7 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 Column {
-                    DropdownField(tr("Supplier *"), vm.supplierId, suppliers.map { Choice(it.id, it.name) }, { vm.supplierId = it; vm.dirty = true })
+                    DropdownField(tr("Supplier *"), vm.supplierId, suppliers.map { Choice(it.id, it.name.bi()) }, { vm.supplierId = it; vm.dirty = true })
                     FormField(vm.invoiceNo, { vm.invoiceNo = it; vm.dirty = true }, tr("Invoice number"))
                     DateField(tr("Purchase date"), vm.purchaseDate, { it?.let { d -> vm.purchaseDate = d; vm.dirty = true } }, Modifier.fillMaxWidth())
                     vm.listTitle?.let { Text(tr("For list: %1\$s", it), style = MaterialTheme.typography.bodySmall) }
@@ -371,7 +372,7 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(l.itemName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                Text(l.itemName.bi(), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                 if (got.signum() == 0) IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, Bilingual.oneLine(tr("Remove item"))) }
             }
             if (got.signum() != 0) Text(tr("Already received %1\$s", Decimals.format(got)), style = MaterialTheme.typography.bodySmall)
@@ -468,7 +469,7 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                                 verticalAlignment = Alignment.CenterVertically) {
                                 Checkbox(checked = item.id in chosen, onCheckedChange = null)
                                 Column {
-                                    Text(item.name)
+                                    Text(item.name.bi())
                                     val last = listOfNotNull(item.latestPurchasePrice?.let { tr("buy %1\$s", Decimals.rupees(it)) },
                                         item.latestSellingPrice?.let { tr("sell %1\$s", Decimals.rupees(it)) }).joinToString(" · ")
                                     if (last.isNotEmpty()) Text(last, style = MaterialTheme.typography.bodySmall)

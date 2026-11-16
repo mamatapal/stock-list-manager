@@ -5,6 +5,7 @@ import app.stocklist.app.core.i18n.Bilingual
 import app.stocklist.app.core.i18n.BilingualName
 import app.stocklist.app.core.i18n.Lang
 import app.stocklist.app.core.i18n.Transliterate
+import app.stocklist.app.core.i18n.bi
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -77,5 +78,27 @@ class NameFillTest {
         assertEquals("Rice" to null, Bilingual.lines("Rice"))
         assertEquals("Salt / Pepper" to null, Bilingual.lines("Salt / Pepper"))
         assertFalse(Bilingual.isBilingual("Sugar / शुगर"))
+    }
+
+    @Test fun oldEnglishOnlyNamesAreShownInBothLanguages() {
+        Lang.setForTest(AppLanguage.ENGLISH, true)
+        assertEquals("Sugar" to "शुगर", Bilingual.lines("Sugar".bi()))
+        assertEquals("चीनी" to "Cheeni", Bilingual.lines("चीनी".bi()).let { it.first to it.second })
+        assertEquals("Sugar" to "शुगर", Bilingual.lines("Sugar / शुगर".bi()))
+        Lang.setForTest(AppLanguage.HINDI, true)
+        assertEquals("शुगर" to "Sugar", Bilingual.lines("Sugar".bi()))
+        // joined with other text, still one line per language
+        assertEquals("शुगर · 5 kg\nSugar · 5 kg", Bilingual.twoLines("Sugar".bi() + " · 5 kg"))
+        // a description goes under the main-language name only
+        assertEquals("Sugar\nलाल\nशुगर", Bilingual.twoLines(Bilingual.both("Sugar", "शुगर") + Bilingual.mainOnly("\nलाल"))
+        Lang.setForTest(AppLanguage.ENGLISH, false)
+        assertEquals("Sugar", "Sugar".bi())
+    }
+
+    @Test fun editingAnOldNameStartsWithBothSpellings() {
+        assertEquals("Sugar / शुगर", BilingualName.withBothSpellings("Sugar"))
+        assertEquals("Sugar / शुगर", BilingualName.withBothSpellings("शुगर"))
+        assertEquals("Sugar / शुगर", BilingualName.withBothSpellings("Sugar / शुगर"))
+        assertEquals("", BilingualName.withBothSpellings(""))
     }
 }

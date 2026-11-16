@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.trOne
@@ -156,7 +157,7 @@ fun StockListsScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOp
                 }
                 FilterChip(selected = f.from != null || f.to != null || showDates, onClick = { showDates = !showDates }, label = { Text(tr("Dates"), maxLines = 1) })
             }
-            DropdownField(tr("Supplier"), f.supplierId, listOf(Choice("", tr("All suppliers"))) + suppliers.map { Choice(it.id, it.name) },
+            DropdownField(tr("Supplier"), f.supplierId, listOf(Choice("", tr("All suppliers"))) + suppliers.map { Choice(it.id, it.name.bi()) },
                 { vm.filter.value = f.copy(supplierId = it.orEmpty()) }, Modifier.padding(horizontal = 16.dp))
             if (showDates) {
                 Row(Modifier.padding(horizontal = 16.dp)) {
@@ -175,7 +176,7 @@ fun StockListsScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOp
                             headlineContent = { Text(s.title) },
                             supportingContent = {
                                 Column {
-                                    Text(listOfNotNull(s.listDate.displayDate(), suppliers.firstOrNull { it.id == s.supplierId }?.name,
+                                    Text(listOfNotNull(s.listDate.displayDate(), suppliers.firstOrNull { it.id == s.supplierId }?.name?.bi(),
                                         statusLabel(s.status)).joinToString(" · "))
                                     SyncBadge(s.syncState, s.syncError)
                                 }
@@ -275,7 +276,7 @@ fun StockListDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp)) {
                         Row {
-                            Text(l.itemName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Text(l.itemName.bi(), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                             Text(Decimals.rupees(l.lineTotal), fontWeight = FontWeight.SemiBold)
                         }
                         Text("${l.quantity} ${units.code(l.unitId)}" + (l.enteredPrice?.let {
@@ -455,7 +456,7 @@ fun StockListEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Stock
               Column {
                 FormField(vm.title, { vm.title = it; vm.dirty = true }, tr("List title *"))
                 DateField(tr("Date"), vm.date, { it?.let { d -> vm.date = d; vm.dirty = true } }, Modifier.fillMaxWidth())
-                DropdownField(tr("Supplier"), vm.supplierId, listOf(Choice(null, tr("Not decided"))) + suppliers.map { Choice(it.id, it.name) },
+                DropdownField(tr("Supplier"), vm.supplierId, listOf(Choice(null, tr("Not decided"))) + suppliers.map { Choice(it.id, it.name.bi()) },
                     { vm.supplierId = it; vm.dirty = true })
                 FormField(vm.notes, { vm.notes = it; vm.dirty = true }, tr("Notes"), singleLine = false)
               }
@@ -548,8 +549,8 @@ private fun ItemPickerDialog(vm: StockListEditViewModel, onDismiss: () -> Unit) 
                             verticalAlignment = Alignment.CenterVertically) {
                             Checkbox(checked = item.id in chosen, onCheckedChange = null)
                             Column {
-                                Text(item.name)
-                                item.category?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                Text(item.name.bi())
+                                item.category?.let { Text(it.bi(), style = MaterialTheme.typography.bodySmall) }
                             }
                         }
                     }

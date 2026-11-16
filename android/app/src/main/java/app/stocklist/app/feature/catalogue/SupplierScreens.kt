@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.BilingualName
 import app.stocklist.app.core.designsystem.BilingualNameFields
 import app.stocklist.app.core.i18n.Bilingual
@@ -128,7 +129,7 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
                 else -> LazyColumn {
                     items(l, key = { it.id }) { s ->
                         ListItem(
-                            headlineContent = { Text(s.name) },
+                            headlineContent = { Text(s.name.bi()) },
                             supportingContent = {
                                 Column {
                                     Text(listOfNotNull(s.city, s.mobile, s.contactPerson).joinToString(" · ").ifEmpty { "-" })
@@ -216,7 +217,7 @@ fun SupplierDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SyncBadge(sup.syncState, sup.syncError)
-            SectionCard(sup.name) {
+            SectionCard(sup.name.bi()) {
                 LabelValue(tr("Contact person"), sup.contactPerson)
                 LabelValue(tr("Mobile"), sup.mobile)
                 LabelValue(tr("Other phone"), sup.altPhone)
@@ -299,7 +300,7 @@ class SupplierEditViewModel @Inject constructor(
     init {
         if (id != null) viewModelScope.launch {
             repo.observeOne(id).first()?.let {
-                name = it.name; contactPerson = it.contactPerson.orEmpty(); mobile = it.mobile.orEmpty()
+                name = BilingualName.withBothSpellings(it.name); contactPerson = it.contactPerson.orEmpty(); mobile = it.mobile.orEmpty()
                 altPhone = it.altPhone.orEmpty(); address = it.address.orEmpty(); city = it.city.orEmpty()
                 gstin = it.gstin.orEmpty(); notes = it.notes.orEmpty(); active = it.active
             }
