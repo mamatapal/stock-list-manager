@@ -109,13 +109,15 @@ the profit you actually made**: the app does not record sales.
 - Staff only see what their permissions allow; the server checks every action.
 - Profit figures never reach a phone whose user may not see them.
 
-## 11. Language (हिन्दी / English)
+## 11. Language (हिन्दी + English)
 
-- Choose **English** or **हिन्दी** at the top right of the first screen, or later in **My account → Language**.
-  Until you choose, the app follows the phone's language. Each phone keeps its own choice, so the owner and each
-  staff member can use the language they prefer.
-- The choice changes the screens, messages, notifications and the PDFs made on that phone.
-- You can always type names, notes, list titles and descriptions in Hindi or English, whatever the screen language.
-  Everyone sees the text exactly as it was typed. Search works with Hindi words.
+- Every screen, message, notification and PDF shows **both Hindi and English**: the main language first, the other
+  language underneath in smaller, lighter text. Short labels inside boxes and chips show both on one line:
+  "मात्रा / Quantity".
+- Choose which language comes first at the top right of the first screen, or later in **My account → Main language**.
+  Until you choose, the phone's language decides. Each phone keeps its own choice.
+- You can always type names, notes, list titles and descriptions in Hindi or English. Everyone sees the text exactly
+  as it was typed (it is not translated). Search works with Hindi words.
 - Numbers typed with a Hindi keyboard (१२३) are read as normal numbers (123).
 - Usernames, mobile numbers, PIN codes and GST numbers use English letters and digits 0-9.
+- PDF file names use the main language, for example `खरीद_K-1_2026-11-16.pdf`.

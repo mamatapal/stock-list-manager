@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.account
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.LanguageSwitch
 import app.stocklist.app.core.i18n.tr
 
@@ -16,7 +18,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,7 +64,7 @@ fun AccountScreen(user: MeDto, onBack: () -> Unit, onChangePassword: () -> Unit,
     val unsentDetail by vm.unsentDetail.collectAsStateWithLifecycle()
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("My account")) }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back"))) }
         })
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -72,8 +74,8 @@ fun AccountScreen(user: MeDto, onBack: () -> Unit, onChangePassword: () -> Unit,
                 LabelValue(tr("Role"), if (user.isOwner) tr("Owner") else tr("Staff"))
                 LabelValue(tr("Business"), user.businessName)
             }
-            SectionCard(tr("Language")) {
-                Text(tr("Screens are shown in this language. You can type names and notes in Hindi or English either way."),
+            SectionCard(tr("Main language")) {
+                Text(tr("Screens show Hindi and English together. The language you choose here is shown first. You can type names and notes in either language."),
                     style = MaterialTheme.typography.bodySmall)
                 LanguageSwitch(Modifier.padding(top = 8.dp))
             }

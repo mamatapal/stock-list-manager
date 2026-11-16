@@ -1,5 +1,9 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
+import app.stocklist.app.core.i18n.trOne
+
 import app.stocklist.app.core.i18n.asciiDigits
 
 import app.stocklist.app.core.i18n.tr
@@ -49,7 +53,7 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -132,7 +136,7 @@ fun StockListsScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOp
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(tr("Out-of-stock lists")) }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) }
             }, actions = {
                 if (access.has(Permission.LIST_CREATE)) {
                     TextButton(onClick = onNew) {
@@ -145,12 +149,12 @@ fun StockListsScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOp
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(f.q, { vm.filter.value = f.copy(q = it) }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text(tr("Search title, notes or item")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                placeholder = { Text(tr("Search title, notes or item"), maxLines = 1) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("" to tr("All"), STATUS_DRAFT to tr("Drafts"), STATUS_SAVED to tr("Saved")).forEach { (v, l) ->
-                    FilterChip(selected = f.status == v, onClick = { vm.filter.value = f.copy(status = v) }, label = { Text(l) })
+                    FilterChip(selected = f.status == v, onClick = { vm.filter.value = f.copy(status = v) }, label = { Text(l, maxLines = 1) })
                 }
-                FilterChip(selected = f.from != null || f.to != null || showDates, onClick = { showDates = !showDates }, label = { Text(tr("Dates")) })
+                FilterChip(selected = f.from != null || f.to != null || showDates, onClick = { showDates = !showDates }, label = { Text(tr("Dates"), maxLines = 1) })
             }
             DropdownField(tr("Supplier"), f.supplierId, listOf(Choice("", tr("All suppliers"))) + suppliers.map { Choice(it.id, it.name) },
                 { vm.filter.value = f.copy(supplierId = it.orEmpty()) }, Modifier.padding(horizontal = 16.dp))
@@ -230,13 +234,13 @@ fun StockListDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -
     var confirmDelete by remember { mutableStateOf(false) }
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("List")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 val d = data
                 if (d != null && onPdf != null) IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.StockList(d.first.id)) }) { Icon(Icons.Filled.PictureAsPdf, "PDF") }
-                if (d != null && access.has(Permission.LIST_CREATE)) IconButton(onClick = { vm.duplicate(onOpenCopy) }) { Icon(Icons.Filled.ContentCopy, tr("Duplicate")) }
-                if (d != null && access.has(Permission.LIST_EDIT)) IconButton(onClick = { onEdit(d.first.id) }) { Icon(Icons.Filled.Edit, tr("Edit")) }
-                if (d != null && access.has(Permission.LIST_DELETE)) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, tr("Delete")) }
+                if (d != null && access.has(Permission.LIST_CREATE)) IconButton(onClick = { vm.duplicate(onOpenCopy) }) { Icon(Icons.Filled.ContentCopy, Bilingual.oneLine(tr("Duplicate"))) }
+                if (d != null && access.has(Permission.LIST_EDIT)) IconButton(onClick = { onEdit(d.first.id) }) { Icon(Icons.Filled.Edit, Bilingual.oneLine(tr("Edit"))) }
+                if (d != null && access.has(Permission.LIST_DELETE)) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, Bilingual.oneLine(tr("Delete"))) }
             })
     }) { padding ->
         val d = data
@@ -325,7 +329,7 @@ class StockListEditViewModel @Inject constructor(
 
     var loaded by mutableStateOf(id == null)
         private set
-    var title by mutableStateOf(tr("Out-of-stock list %1\$s", LocalDate.now().display()))
+    var title by mutableStateOf(trOne("Out-of-stock list %1\$s", LocalDate.now().display()))
     var date by mutableStateOf(LocalDate.now())
     var supplierId by mutableStateOf<String?>(null)
     var notes by mutableStateOf("")
@@ -426,13 +430,13 @@ fun StockListEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Stock
     var picking by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(vm.error) { vm.error?.let { snackbar.showSnackbar(it) } }
+    LaunchedEffect(vm.error) { vm.error?.let { snackbar.showSnackbar(Bilingual.twoLines(it)) } }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(title = { Text(if (vm.id == null) tr("New list") else tr("Edit list")) },
                 navigationIcon = {
-                    IconButton(onClick = { if (vm.dirty) confirmLeave = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
+                    IconButton(onClick = { if (vm.dirty) confirmLeave = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) }
                 },
                 actions = {
                     if (vm.id == null || vm.isDraft) {
@@ -491,12 +495,12 @@ private fun LineEditor(vm: StockListEditViewModel, i: Int, l: ListLineDraft, uni
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(l.itemName, { v -> vm.update(i) { it.copy(itemName = v) } }, label = { Text(tr("Item")) },
+                OutlinedTextField(l.itemName, { v -> vm.update(i) { it.copy(itemName = v) } }, label = { Text(tr("Item"), maxLines = 1) },
                     singleLine = true, modifier = Modifier.weight(1f))
-                IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, tr("Remove item")) }
+                IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, Bilingual.oneLine(tr("Remove item"))) }
             }
             Row {
-                OutlinedTextField(l.quantity, { v -> vm.update(i) { it.copy(quantity = asciiDigits(v)) } }, label = { Text(tr("Quantity")) },
+                OutlinedTextField(l.quantity, { v -> vm.update(i) { it.copy(quantity = asciiDigits(v)) } }, label = { Text(tr("Quantity"), maxLines = 1) },
                     singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
@@ -509,7 +513,7 @@ private fun LineEditor(vm: StockListEditViewModel, i: Int, l: ListLineDraft, uni
                 }
             }
             OutlinedTextField(l.enteredPrice, { v -> vm.update(i) { it.copy(enteredPrice = asciiDigits(v)) } },
-                label = { Text(if (l.priceBasis == ListCalculator.TOTAL) tr("Total amount for this item (₹)") else tr("Price per unit (₹)")) },
+                label = { Text(if (l.priceBasis == ListCalculator.TOTAL) tr("Total amount for this item (₹)") else tr("Price per unit (₹)"), maxLines = 1) },
                 singleLine = true, keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = KeyboardType.Decimal),
                 modifier = Modifier.fillMaxWidth())
             val total = vm.lineTotal(l)
@@ -520,7 +524,7 @@ private fun LineEditor(vm: StockListEditViewModel, i: Int, l: ListLineDraft, uni
                 else tr("Line total %1\$s", Decimals.rupees(Decimals.money(total))),
                 style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold,
             )
-            OutlinedTextField(l.description, { v -> vm.update(i) { it.copy(description = v) } }, label = { Text(tr("Note for this item")) },
+            OutlinedTextField(l.description, { v -> vm.update(i) { it.copy(description = v) } }, label = { Text(tr("Note for this item"), maxLines = 1) },
                 singleLine = true, modifier = Modifier.fillMaxWidth())
         }
     }
@@ -536,7 +540,7 @@ private fun ItemPickerDialog(vm: StockListEditViewModel, onDismiss: () -> Unit) 
         title = { Text(tr("Add items")) },
         text = {
             Column {
-                OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items")) },
+                OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items"), maxLines = 1) },
                     leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     items(items, key = { it.id }) { item ->

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.dashboard
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -20,7 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -101,8 +103,8 @@ fun OwnerDashboardScreen(
     LaunchedEffect(Unit) { vm.load() }
     Scaffold(topBar = {
         TopAppBar(title = { Text(user.businessName) }, actions = {
-            IconButton(onClick = vm::load, enabled = !vm.loading) { Icon(Icons.Filled.Refresh, tr("Refresh")) }
-            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, tr("My account")) }
+            IconButton(onClick = vm::load, enabled = !vm.loading) { Icon(Icons.Filled.Refresh, Bilingual.oneLine(tr("Refresh"))) }
+            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, Bilingual.oneLine(tr("My account"))) }
         })
     }) { padding ->
         Column(

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.dashboard
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.trMessage
 
 import app.stocklist.app.core.i18n.tr
@@ -20,7 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -47,8 +49,8 @@ fun StaffDashboardScreen(
     val perms = Permission.fromCodes(user.permissions)
     Scaffold(topBar = {
         TopAppBar(title = { Text(user.businessName) }, actions = {
-            IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, tr("Refresh my permissions")) }
-            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, tr("My account")) }
+            IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, Bilingual.oneLine(tr("Refresh my permissions"))) }
+            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, Bilingual.oneLine(tr("My account"))) }
         })
     }) { padding ->
         Column(

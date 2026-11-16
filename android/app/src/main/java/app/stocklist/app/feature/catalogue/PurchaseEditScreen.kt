@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.asciiDigits
 
 import app.stocklist.app.core.i18n.tr
@@ -41,7 +43,7 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -268,13 +270,13 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmComplete by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
-    LaunchedEffect(vm.error) { vm.error?.let { snackbar.showSnackbar(it) } }
+    LaunchedEffect(vm.error) { vm.error?.let { snackbar.showSnackbar(Bilingual.twoLines(it)) } }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(title = { Text(if (vm.id == null) tr("New purchase") else tr("Edit purchase")) },
                 navigationIcon = {
-                    IconButton(onClick = { if (vm.dirty) confirmLeave = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
+                    IconButton(onClick = { if (vm.dirty) confirmLeave = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) }
                 },
                 actions = {
                     if (!vm.completed) {
@@ -368,11 +370,11 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(l.itemName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                if (got.signum() == 0) IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, tr("Remove item")) }
+                if (got.signum() == 0) IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, Bilingual.oneLine(tr("Remove item"))) }
             }
             if (got.signum() != 0) Text(tr("Already received %1\$s", Decimals.format(got)), style = MaterialTheme.typography.bodySmall)
             Row {
-                OutlinedTextField(l.quantity, { v -> vm.update(i) { it.copy(quantity = asciiDigits(v)) } }, label = { Text(tr("Quantity")) }, singleLine = true,
+                OutlinedTextField(l.quantity, { v -> vm.update(i) { it.copy(quantity = asciiDigits(v)) } }, label = { Text(tr("Quantity"), maxLines = 1) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 DropdownField(tr("Unit"), l.unitId, units, { u -> u?.let { vm.update(i) { it.copy(unitId = u) } } }, Modifier.weight(1f),
@@ -386,11 +388,11 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
             }
             Row {
                 OutlinedTextField(l.purchasePrice, { v -> vm.update(i) { it.copy(purchasePrice = asciiDigits(v)) } }, singleLine = true,
-                    label = { Text(if (l.priceBasis == PurchaseCalculator.TOTAL) tr("Total paid (₹)") else tr("Buy price / unit (₹)")) },
+                    label = { Text(if (l.priceBasis == PurchaseCalculator.TOTAL) tr("Total paid (₹)") else tr("Buy price / unit (₹)"), maxLines = 1) },
                     enabled = vm.canBuyPrice, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
                 OutlinedTextField(l.sellingPrice, { v -> vm.update(i) { it.copy(sellingPrice = asciiDigits(v)) } }, singleLine = true,
-                    label = { Text(tr("Sell price / unit (₹)")) }, enabled = vm.canSellPrice,
+                    label = { Text(tr("Sell price / unit (₹)"), maxLines = 1) }, enabled = vm.canSellPrice,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
             }
             if (c == null) {
@@ -417,11 +419,11 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
             }
             if (vm.receiveNow && !vm.completed) {
                 OutlinedTextField(l.receivedNow, { v -> vm.update(i) { it.copy(receivedNow = asciiDigits(v)) } }, singleLine = true,
-                    label = { Text(tr("Received now")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    label = { Text(tr("Received now"), maxLines = 1) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth())
                 Row {
                     OutlinedTextField(l.batchNo, { v -> vm.update(i) { it.copy(batchNo = v) } }, singleLine = true,
-                        label = { Text(tr("Batch no.")) }, modifier = Modifier.weight(1f))
+                        label = { Text(tr("Batch no."), maxLines = 1) }, modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
                     DateField(tr("Expiry"), l.expiryDate.takeIf { it.isNotBlank() }?.let { LocalDate.parse(it) },
                         { d -> vm.update(i) { it.copy(expiryDate = d?.toString().orEmpty()) } }, Modifier.weight(1f), clearable = true)
@@ -456,7 +458,7 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                 }
             } else {
                 Column {
-                    OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items")) },
+                    OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items"), maxLines = 1) },
                         leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
                     LazyColumn(Modifier.heightIn(max = 320.dp)) {
                         items(items, key = { it.id }) { item ->

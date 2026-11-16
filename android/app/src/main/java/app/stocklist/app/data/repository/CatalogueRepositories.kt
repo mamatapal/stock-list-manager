@@ -1,5 +1,7 @@
 package app.stocklist.app.data.repository
 
+import app.stocklist.app.core.i18n.trOne
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.room.withTransaction
@@ -216,7 +218,7 @@ class StockListRepository @Inject constructor(
             ListLineDraft(UUID.randomUUID().toString(), it.itemId, it.itemName, it.description.orEmpty(), it.quantity,
                 it.unitId, it.priceBasis, it.enteredPrice.orEmpty())
         }
-        return save(null, tr("Copy of %1\$s", src.title), LocalDate.now(), src.supplierId, src.notes.orEmpty(), "DRAFT", lines, createdBy)
+        return save(null, trOne("Copy of %1\$s", src.title), LocalDate.now(), src.supplierId, src.notes.orEmpty(), "DRAFT", lines, createdBy)
     }
 
     suspend fun delete(id: String) {

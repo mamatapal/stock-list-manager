@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -19,7 +20,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -48,8 +49,8 @@ fun WelcomeScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onOwnerLogin, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(tr("Owner sign-in")) }
-            OutlinedButton(onClick = onStaffLogin, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(tr("Staff sign-in")) }
+            Button(onClick = onOwnerLogin, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(tr("Owner sign-in")) }
+            OutlinedButton(onClick = onStaffLogin, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) { Text(tr("Staff sign-in")) }
             Spacer(Modifier.height(24.dp))
             Text(tr("Setting up a new shop?"), style = MaterialTheme.typography.bodyMedium)
             TextButton(onClick = onRegister) { Text(tr("Register your business")) }

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.clickable
@@ -35,7 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -112,7 +114,7 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(tr("Items")) }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) }
             }, actions = {
                 if (access.has(Permission.ITEM_ADD)) {
                     TextButton(onClick = onAdd) {
@@ -125,11 +127,11 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(q, { vm.query.value = it }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text(tr("Search name or category")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                placeholder = { Text(tr("Search name or category"), maxLines = 1) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive")) })
-                FilterChip(selected = cat.isEmpty(), onClick = { vm.category.value = "" }, label = { Text(tr("All categories")) })
-                cats.forEach { c -> FilterChip(selected = cat == c, onClick = { vm.category.value = c }, label = { Text(c) }) }
+                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive"), maxLines = 1) })
+                FilterChip(selected = cat.isEmpty(), onClick = { vm.category.value = "" }, label = { Text(tr("All categories"), maxLines = 1) })
+                cats.forEach { c -> FilterChip(selected = cat == c, onClick = { vm.category.value = c }, label = { Text(c, maxLines = 1) }) }
             }
             val l = list
             when {
@@ -196,11 +198,11 @@ fun ItemDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -> Uni
     var confirmDelete by remember { mutableStateOf(false) }
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Item")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 val i = item
-                if (i != null && access.has(Permission.ITEM_EDIT)) IconButton(onClick = { onEdit(i.id) }) { Icon(Icons.Filled.Edit, tr("Edit")) }
-                if (i != null && access.has(Permission.ITEM_DELETE)) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, tr("Delete")) }
+                if (i != null && access.has(Permission.ITEM_EDIT)) IconButton(onClick = { onEdit(i.id) }) { Icon(Icons.Filled.Edit, Bilingual.oneLine(tr("Edit"))) }
+                if (i != null && access.has(Permission.ITEM_DELETE)) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, Bilingual.oneLine(tr("Delete"))) }
             })
     }) { padding ->
         val i = item
@@ -328,7 +330,7 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
     val canSelling = if (isNew) access.has(Permission.SELLING_PRICE_ENTER) else access.has(Permission.CATALOG_SELLING_PRICE_CHANGE)
     Scaffold(topBar = {
         TopAppBar(title = { Text(if (isNew) tr("Add item") else tr("Edit item")) },
-            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 TextButton(onClick = { vm.save(onDone) }, enabled = vm.loaded && !vm.saving) {
                     Text(tr("Save"), style = MaterialTheme.typography.titleMedium)
@@ -343,7 +345,7 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
             val suggestions = categories.filter { it.contains(vm.category.trim(), true) && !it.equals(vm.category.trim(), true) }.take(6)
             if (suggestions.isNotEmpty()) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    suggestions.forEach { c -> FilterChip(selected = false, onClick = { vm.category = c }, label = { Text(c) }) }
+                    suggestions.forEach { c -> FilterChip(selected = false, onClick = { vm.category = c }, label = { Text(c, maxLines = 1) }) }
                 }
             }
             Row {

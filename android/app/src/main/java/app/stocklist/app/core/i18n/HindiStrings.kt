@@ -6,7 +6,7 @@ package app.stocklist.app.core.i18n
  * HindiCatalogueTest fails if a tr("…") text has no entry here, or if the %1$s placeholders do not match.
  */
 internal object HindiStrings {
-    val map: Map<String, String> = HashMap<String, String>(1698).apply {
+    val map: Map<String, String> = HashMap<String, String>(1694).apply {
         part1(this)
         part2(this)
         part3(this)
@@ -216,7 +216,6 @@ internal object HindiStrings {
         m["Contact person"] = "संपर्क व्यक्ति"
         m["Contacts of the people you buy from"] = "जिनसे आप खरीदते हैं उनके संपर्क"
         m["Continue"] = "आगे बढ़ें"
-        m["Copy of %1\$s"] = "%1\$s की कॉपी"
         m["Correct"] = "सुधारें"
         m["Correct a receipt"] = "प्राप्ति सुधारें"
         m["Correct the record and save it again, or discard this change."] = "रिकॉर्ड ठीक करके फिर से सेव करें, या यह बदलाव छोड़ दें।"
@@ -264,10 +263,10 @@ internal object HindiStrings {
         m["Delete items"] = "आइटम हटाएँ"
         m["Delete list?"] = "लिस्ट हटाएँ?"
         m["Delete or cancel purchases"] = "खरीद हटाएँ या रद्द करें"
+        m["Delete out-of-stock lists"] = "स्टॉक खत्म लिस्ट हटाएँ"
     }
 
     private fun part2(m: MutableMap<String, String>) {
-        m["Delete out-of-stock lists"] = "स्टॉक खत्म लिस्ट हटाएँ"
         m["Delete supplier?"] = "सप्लायर हटाएँ?"
         m["Delete suppliers"] = "सप्लायर हटाएँ"
         m["Delete them and sign in"] = "इन्हें हटाएँ और साइन इन करें"
@@ -403,7 +402,6 @@ internal object HindiStrings {
         m["Keep mine"] = "मेरा रखें"
         m["Keep them"] = "इन्हें रखें"
         m["Kilogram"] = "किलोग्राम"
-        m["Language"] = "भाषा"
         m["Last 3 months"] = "पिछले 3 महीने"
         m["Last attempt had a problem"] = "पिछली कोशिश में दिक्कत आई"
         m["Last changed by"] = "आखिरी बार बदलने वाले"
@@ -438,6 +436,7 @@ internal object HindiStrings {
         m["Lowest"] = "सबसे कम"
         m["Lowest %1\$s  ·  highest %2\$s  ·  average %3\$s\nLatest %4\$s on %5\$s from %6\$s  ·  bought %7\$s"] = "सबसे कम %1\$s  ·  सबसे ज़्यादा %2\$s  ·  औसत %3\$s\nनई %4\$s, %5\$s को %6\$s से  ·  खरीदा %7\$s"
         m["Lowest unit cost"] = "सबसे कम यूनिट लागत"
+        m["Main language"] = "मुख्य भाषा"
         m["Manage business settings"] = "बिज़नेस सेटिंग संभालें"
         m["Manage staff accounts"] = "स्टाफ अकाउंट संभालें"
         m["Margin / markup"] = "मार्जिन / मार्कअप"
@@ -517,13 +516,12 @@ internal object HindiStrings {
         m["Open the original purchase"] = "मूल खरीद खोलें"
         m["Originally received"] = "शुरू में आया"
         m["Other"] = "अन्य"
+        m["Other phone"] = "दूसरा फ़ोन"
     }
 
     private fun part3(m: MutableMap<String, String>) {
-        m["Other phone"] = "दूसरा फ़ोन"
         m["Other phones signed in to your account will be signed out."] = "आपके अकाउंट में साइन इन बाकी फ़ोन साइन आउट हो जाएँगे।"
         m["Out-of-stock list"] = "स्टॉक खत्म लिस्ट"
-        m["Out-of-stock list %1\$s"] = "स्टॉक खत्म लिस्ट %1\$s"
         m["Out-of-stock lists"] = "स्टॉक खत्म लिस्ट"
         m["Owner"] = "मालिक"
         m["Owner account (2 of 2)"] = "मालिक का अकाउंट (2 में से 2)"
@@ -636,7 +634,7 @@ internal object HindiStrings {
         m["Saved %1\$s"] = "सेव हुई %1\$s"
         m["Saved on this phone straight away, and sent to the server when online."] = "तुरंत इस फ़ोन पर सेव होता है, और इंटरनेट मिलने पर सर्वर पर भेजा जाता है।"
         m["Saving..."] = "सेव हो रहा है..."
-        m["Screens are shown in this language. You can type names and notes in Hindi or English either way."] = "स्क्रीन इसी भाषा में दिखेंगी। नाम और नोट्स आप हिन्दी या अंग्रेज़ी, किसी में भी लिख सकते हैं।"
+        m["Screens show Hindi and English together. The language you choose here is shown first. You can type names and notes in either language."] = "स्क्रीन पर हिन्दी और अंग्रेज़ी दोनों साथ दिखती हैं। यहाँ चुनी गई भाषा पहले दिखती है। नाम और नोट्स आप किसी भी भाषा में लिख सकते हैं।"
         m["Search invoice, supplier or item"] = "बिल, सप्लायर या आइटम खोजें"
         m["Search item, batch, supplier or invoice"] = "आइटम, बैच, सप्लायर या बिल खोजें"
         m["Search items"] = "आइटम खोजें"
@@ -770,11 +768,11 @@ internal object HindiStrings {
         m["This purchase is no longer available."] = "यह खरीद अब उपलब्ध नहीं है।"
         m["This record was deleted by someone else"] = "यह रिकॉर्ड किसी और ने हटा दिया है"
         m["This reset link is invalid or has expired"] = "यह रीसेट लिंक गलत है या इसकी समय-सीमा खत्म हो गई है"
+        m["This supplier already exists"] = "यह सप्लायर पहले से है"
+        m["This supplier is no longer available."] = "यह सप्लायर अब उपलब्ध नहीं है।"
     }
 
     private fun part4(m: MutableMap<String, String>) {
-        m["This supplier already exists"] = "यह सप्लायर पहले से है"
-        m["This supplier is no longer available."] = "यह सप्लायर अब उपलब्ध नहीं है।"
         m["This unit already exists"] = "यह यूनिट पहले से है"
         m["This username is already in use"] = "यह यूज़रनेम पहले से इस्तेमाल में है"
         m["To"] = "तक"

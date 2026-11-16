@@ -1,5 +1,7 @@
 package app.stocklist.app.core.pdf
 
+import app.stocklist.app.core.i18n.Bilingual
+import app.stocklist.app.core.i18n.Lang
 import app.stocklist.app.core.i18n.tr
 
 import java.math.BigDecimal
@@ -96,6 +98,6 @@ object PdfFormat {
      */
     fun fileName(vararg parts: String?): String =
         parts.filterNot { it.isNullOrBlank() }.joinToString("_") { p ->
-            p!!.trim().replace(Regex("[^\\p{L}\\p{M}\\p{N}-]+"), "-").trim('-').take(40).trimEnd('-')
+            Bilingual.pick(p!!, Lang.language).trim().replace(Regex("[^\\p{L}\\p{M}\\p{N}-]+"), "-").trim('-').take(40).trimEnd('-')
         }.ifEmpty { "document" } + ".pdf"
 }

@@ -1,5 +1,7 @@
 package app.stocklist.app.core.pdf
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import android.graphics.Canvas
@@ -155,8 +157,8 @@ object ReportPdf {
         return cur.pages
     }
 
-    private fun text(s: String, p: TextPaint, width: Float, align: Align = Align.LEFT): StaticLayout =
-        StaticLayout.Builder.obtain(s, 0, s.length, p, max(1, width.toInt()))
+    private fun text(raw: String, p: TextPaint, width: Float, align: Align = Align.LEFT): StaticLayout =
+        Bilingual.twoLines(raw).let { s -> StaticLayout.Builder.obtain(s, 0, s.length, p, max(1, width.toInt()))
             .setAlignment(when (align) {
                 Align.LEFT -> Layout.Alignment.ALIGN_NORMAL
                 Align.CENTER -> Layout.Alignment.ALIGN_CENTER
@@ -164,7 +166,7 @@ object ReportPdf {
             })
             .setIncludePad(false)
             .setLineSpacing(0f, 1.05f)
-            .build()
+            .build() }
 
     private fun heading(cur: Cursor, h: Heading) {
         val l = text(h.text, headingPaint, CONTENT_W)
@@ -313,8 +315,9 @@ object ReportPdf {
         c.drawLine(MARGIN, y, PAGE_W - MARGIN, y, rulePaint)
         val base = y + 12
         val left = doc.generatedBy?.let { tr("Generated %1\$s by %2\$s", doc.generatedAt, it) } ?: tr("Generated %1\$s", doc.generatedAt)
-        c.drawText(left, MARGIN, base, footerPaint)
+        c.drawText(Bilingual.oneLine(left), MARGIN, base, footerPaint)
         val right = tr("Page %1\$s of %2\$s", n, total)
-        c.drawText(right, PAGE_W - MARGIN - footerPaint.measureText(right), base, footerPaint)
+        val r = Bilingual.oneLine(right)
+        c.drawText(r, PAGE_W - MARGIN - footerPaint.measureText(r), base, footerPaint)
     }
 }

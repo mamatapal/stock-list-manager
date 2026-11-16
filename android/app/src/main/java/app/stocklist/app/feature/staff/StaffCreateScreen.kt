@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -24,7 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -114,7 +117,7 @@ fun StaffCreateScreen(onDone: () -> Unit, vm: StaffCreateViewModel = hiltViewMod
             TopAppBar(
                 title = { Text(tr("Add staff")) },
                 navigationIcon = {
-                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
+                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back"))) }
                 },
                 // Always visible, whatever the screen size and even with the keyboard open.
                 actions = {
@@ -145,12 +148,12 @@ fun StaffCreateScreen(onDone: () -> Unit, vm: StaffCreateViewModel = hiltViewMod
                         ShareCredentials.share(context, vm.businessName, done.staff.fullName, done.staff.username,
                             done.temporaryPassword)
                     },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
                 ) {
                     Icon(Icons.Filled.Share, contentDescription = null)
                     Text(tr("  Share sign-in details"))
                 }
-                OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(tr("Done")) }
+                OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(tr("Done")) }
                 return@Column
             }
             val e = vm.errors

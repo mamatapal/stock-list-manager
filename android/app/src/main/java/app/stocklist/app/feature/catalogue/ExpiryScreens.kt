@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.trMessage
 
 import app.stocklist.app.core.i18n.tr
@@ -35,7 +37,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -139,9 +141,9 @@ fun ExpiryScreen(onBack: () -> Unit, onOpenBatch: (String) -> Unit, onBatches: (
     val counts by vm.counts.collectAsStateWithLifecycle()
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Expiry")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
-                if (onPdf != null) IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Expiry(f)) }) { Icon(Icons.Filled.PictureAsPdf, tr("Expiry report PDF")) }
+                if (onPdf != null) IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Expiry(f)) }) { Icon(Icons.Filled.PictureAsPdf, Bilingual.oneLine(tr("Expiry report PDF"))) }
                 TextButton(onClick = onBatches) { Text(tr("All batches")) }
             })
     }) { padding ->
@@ -149,11 +151,11 @@ fun ExpiryScreen(onBack: () -> Unit, onOpenBatch: (String) -> Unit, onBatches: (
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 ExpiryCalculator.Filter.entries.forEach { option ->
                     FilterChip(selected = f == option, onClick = { vm.filter.value = option },
-                        label = { Text("${trMessage(option.label)} (${counts[option] ?: 0})") })
+                        label = { Text("${trMessage(option.label)} (${counts[option] ?: 0})", maxLines = 1) })
                 }
             }
             OutlinedTextField(q, { vm.query.value = it }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text(tr("Search item, batch, supplier or invoice")) },
+                placeholder = { Text(tr("Search item, batch, supplier or invoice"), maxLines = 1) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Text(tr("Stock that is still there; cancelled purchases are not included. Today: %1\$s", vm.today.display()),
                 style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
@@ -222,11 +224,11 @@ fun BatchesScreen(onBack: () -> Unit, onOpenBatch: (String) -> Unit, vm: Batches
     val cancelled by vm.includeCancelled.collectAsStateWithLifecycle()
     Scaffold(topBar = {
         TopAppBar(title = { Text(if (vm.itemId.isEmpty()) tr("Batches") else tr("Batches of this item")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } })
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } })
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(q, { vm.query.value = it }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text(tr("Search item, batch, supplier or invoice")) },
+                placeholder = { Text(tr("Search item, batch, supplier or invoice"), maxLines = 1) },
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp)) {
                 DateField(tr("Received from"), from, { vm.from.value = it }, Modifier.weight(1f), clearable = true)
@@ -235,7 +237,7 @@ fun BatchesScreen(onBack: () -> Unit, onOpenBatch: (String) -> Unit, vm: Batches
             }
             Row(Modifier.padding(horizontal = 16.dp)) {
                 FilterChip(selected = cancelled, onClick = { vm.includeCancelled.value = !cancelled },
-                    label = { Text(tr("Include cancelled purchases")) })
+                    label = { Text(tr("Include cancelled purchases"), maxLines = 1) })
             }
             val l = list
             when {
@@ -265,7 +267,7 @@ fun BatchDetailScreen(access: Access, onBack: () -> Unit, onOpenPurchase: (Strin
     val b by vm.batch.collectAsStateWithLifecycle()
     val names by vm.names.collectAsStateWithLifecycle()
     Scaffold(topBar = {
-        TopAppBar(title = { Text(tr("Batch")) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } })
+        TopAppBar(title = { Text(tr("Batch")) }, navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } })
     }) { padding ->
         val x = b
         if (x == null) { Column(Modifier.padding(padding)) { EmptyState(tr("This batch is no longer available.")) }; return@Scaffold }

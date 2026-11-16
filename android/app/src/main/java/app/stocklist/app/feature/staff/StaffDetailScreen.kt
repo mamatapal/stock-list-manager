@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -21,7 +23,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -207,7 +209,7 @@ class StaffDetailViewModel @Inject constructor(
 fun StaffDetailScreen(onBack: () -> Unit, vm: StaffDetailViewModel = hiltViewModel()) {
     val snackbar = remember { SnackbarHostState() }
     var confirm by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(vm.message) { vm.message?.let { snackbar.showSnackbar(it); vm.message = null } }
+    LaunchedEffect(vm.message) { vm.message?.let { snackbar.showSnackbar(Bilingual.twoLines(it)); vm.message = null } }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -215,7 +217,7 @@ fun StaffDetailScreen(onBack: () -> Unit, vm: StaffDetailViewModel = hiltViewMod
             TopAppBar(
                 title = { Text(vm.staff?.fullName ?: tr("Staff member")) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back"))) }
                 },
                 actions = {
                     if (vm.staff != null) {
