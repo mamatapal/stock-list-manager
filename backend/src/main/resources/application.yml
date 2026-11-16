@@ -64,6 +64,10 @@ springdoc:
     enabled: ${SWAGGER_ENABLED:false}
 
 management:
+  health:
+    # Password-reset email is optional (SMTP_HOST may be empty). An SMTP problem must not mark the whole API as down.
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
