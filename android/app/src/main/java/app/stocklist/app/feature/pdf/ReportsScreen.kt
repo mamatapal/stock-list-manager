@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.trMessage
 
 import app.stocklist.app.core.i18n.trKey
@@ -30,7 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -127,7 +129,7 @@ fun ReportsScreen(canProfitReport: Boolean, onBack: () -> Unit, onPdf: ((PdfJob)
     val state by vm.state.collectAsStateWithLifecycle()
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Reports")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 if (onPdf != null && state is ReportState.Loaded) {
                     TextButton(onClick = { onPdf(PdfJob.Report(kind, from, to)) }) {
@@ -140,7 +142,7 @@ fun ReportsScreen(canProfitReport: Boolean, onBack: () -> Unit, onPdf: ((PdfJob)
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ReportKind.entries.filter { it != ReportKind.EXPECTED_PROFIT || canProfitReport }.forEach { k ->
-                        FilterChip(selected = k == kind, onClick = { vm.setKind(k) }, label = { Text(trMessage(k.title)) })
+                        FilterChip(selected = k == kind, onClick = { vm.setKind(k) }, label = { Text(trMessage(k.title), maxLines = 1) })
                     }
                 }
             }
@@ -148,7 +150,7 @@ fun ReportsScreen(canProfitReport: Boolean, onBack: () -> Unit, onPdf: ((PdfJob)
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Preset.entries.forEach { p ->
                         val (pf, pt) = p.range(LocalDate.now())
-                        FilterChip(selected = pf == from && pt == to, onClick = { vm.setPreset(p) }, label = { Text(p.label) })
+                        FilterChip(selected = pf == from && pt == to, onClick = { vm.setPreset(p) }, label = { Text(p.label, maxLines = 1) })
                     }
                 }
             }

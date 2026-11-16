@@ -1,5 +1,7 @@
 package app.stocklist.app.data.sync
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import android.Manifest
@@ -71,13 +73,13 @@ class ExpiryAlertWorker @AssistedInject constructor(
         @android.annotation.SuppressLint("MissingPermission") // checked in canNotify
         fun show(context: Context, expired: Int, soon: Int) {
             val manager = context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Expiry reminders"), NotificationManager.IMPORTANCE_DEFAULT))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, Bilingual.oneLine(tr("Expiry reminders")), NotificationManager.IMPORTANCE_DEFAULT))
             val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE)
             val n = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle(tr("Expiry alert"))
-                .setContentText(text(expired, soon))
+                .setContentTitle(Bilingual.oneLine(tr("Expiry alert")))
+                .setContentText(Bilingual.oneLine(text(expired, soon)))
                 .setContentIntent(open)
                 .setAutoCancel(true)
                 .build()

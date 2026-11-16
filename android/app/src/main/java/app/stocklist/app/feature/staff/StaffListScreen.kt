@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.clickable
@@ -19,7 +21,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,7 +68,7 @@ fun StaffListScreen(onBack: () -> Unit, onAdd: () -> Unit, onOpen: (String) -> U
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(tr("Staff")) }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back"))) }
             })
         },
         floatingActionButton = {

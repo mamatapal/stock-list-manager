@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -119,7 +121,7 @@ fun RegisterScreen(onBack: () -> Unit, vm: RegisterViewModel = hiltViewModel()) 
             title = { Text(if (vm.step == 1) tr("Your business (1 of 2)") else tr("Owner account (2 of 2)")) },
             navigationIcon = {
                 IconButton(onClick = { if (vm.step == 2) vm.back() else onBack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back")))
                 }
             },
         )

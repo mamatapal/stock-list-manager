@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.clickable
@@ -35,7 +37,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -100,7 +102,7 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(tr("Suppliers")) }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) }
             }, actions = {
                 if (access.has(Permission.SUPPLIER_ADD)) {
                     TextButton(onClick = onAdd) {
@@ -113,9 +115,9 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(q, { vm.query.value = it }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text(tr("Search name, city, phone")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                placeholder = { Text(tr("Search name, city, phone"), maxLines = 1) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp)) {
-                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive")) })
+                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive"), maxLines = 1) })
             }
             val l = list
             when {
@@ -190,17 +192,17 @@ fun SupplierDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
     var confirmDelete by remember { mutableStateOf(false) }
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Supplier")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 val sup = s
                 if (sup != null && onPdf != null && access.canViewPurchases) {
-                    IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Supplier(sup.id, hFrom, hTo)) }) { Icon(Icons.Filled.PictureAsPdf, tr("Purchase report PDF")) }
+                    IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Supplier(sup.id, hFrom, hTo)) }) { Icon(Icons.Filled.PictureAsPdf, Bilingual.oneLine(tr("Purchase report PDF"))) }
                 }
                 if (sup != null && access.has(Permission.SUPPLIER_EDIT)) {
-                    IconButton(onClick = { onEdit(sup.id) }) { Icon(Icons.Filled.Edit, tr("Edit")) }
+                    IconButton(onClick = { onEdit(sup.id) }) { Icon(Icons.Filled.Edit, Bilingual.oneLine(tr("Edit"))) }
                 }
                 if (sup != null && access.has(Permission.SUPPLIER_DELETE)) {
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, tr("Delete")) }
+                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, Bilingual.oneLine(tr("Delete"))) }
                 }
             })
     }) { padding ->
@@ -326,7 +328,7 @@ class SupplierEditViewModel @Inject constructor(
 fun SupplierEditScreen(onDone: () -> Unit, vm: SupplierEditViewModel = hiltViewModel()) {
     Scaffold(topBar = {
         TopAppBar(title = { Text(if (vm.id == null) tr("Add supplier") else tr("Edit supplier")) },
-            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 TextButton(onClick = { vm.save(onDone) }, enabled = vm.loaded && !vm.saving) {
                     Text(tr("Save"), style = MaterialTheme.typography.titleMedium)

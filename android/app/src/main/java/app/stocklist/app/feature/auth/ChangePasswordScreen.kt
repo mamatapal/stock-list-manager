@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +18,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -87,7 +89,7 @@ fun ChangePasswordScreen(forced: Boolean, onDone: () -> Unit, vm: ChangePassword
     Scaffold(topBar = {
         TopAppBar(title = { Text(if (forced) tr("Set your password") else tr("Change password")) }, navigationIcon = {
             if (!forced) {
-                IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
+                IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back"))) }
             }
         })
     }) { padding ->

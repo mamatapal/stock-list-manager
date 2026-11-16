@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.clickable
@@ -37,7 +39,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -117,12 +119,12 @@ fun PurchasesScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOpe
     var showDates by remember { mutableStateOf(false) }
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Purchases")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 // Report of the dates chosen below (one supplier's report when a supplier is picked).
                 if (onPdf != null) IconButton(onClick = {
                     onPdf(if (f.supplierId.isNotEmpty()) app.stocklist.app.feature.pdf.PdfJob.Supplier(f.supplierId, f.from, f.to) else app.stocklist.app.feature.pdf.PdfJob.DateRange(f.from, f.to))
-                }) { Icon(Icons.Filled.PictureAsPdf, tr("Purchase report PDF")) }
+                }) { Icon(Icons.Filled.PictureAsPdf, Bilingual.oneLine(tr("Purchase report PDF"))) }
                 if (access.has(Permission.PURCHASE_RECORD)) {
                     TextButton(onClick = onNew) {
                         Icon(Icons.Filled.Add, null)
@@ -133,13 +135,13 @@ fun PurchasesScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOpe
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(f.q, { vm.filter.value = f.copy(q = it) }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text(tr("Search invoice, supplier or item")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                placeholder = { Text(tr("Search invoice, supplier or item"), maxLines = 1) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("" to tr("All"), "DRAFT" to tr("Drafts"), "PENDING" to tr("Not received"), "PARTIAL" to tr("Partial"),
                     "RECEIVED" to tr("Received"), "CANCELLED" to tr("Cancelled")).forEach { (v, l) ->
-                    FilterChip(selected = f.status == v, onClick = { vm.filter.value = f.copy(status = v) }, label = { Text(l) })
+                    FilterChip(selected = f.status == v, onClick = { vm.filter.value = f.copy(status = v) }, label = { Text(l, maxLines = 1) })
                 }
-                FilterChip(selected = f.from != null || f.to != null || showDates, onClick = { showDates = !showDates }, label = { Text(tr("Dates")) })
+                FilterChip(selected = f.from != null || f.to != null || showDates, onClick = { showDates = !showDates }, label = { Text(tr("Dates"), maxLines = 1) })
             }
             DropdownField(tr("Supplier"), f.supplierId, listOf(Choice("", tr("All suppliers"))) + suppliers.map { Choice(it.id, it.name) },
                 { vm.filter.value = f.copy(supplierId = it.orEmpty()) }, Modifier.padding(horizontal = 16.dp))
@@ -242,15 +244,15 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
         (access.has(Permission.PURCHASE_EDIT) || (isDraft && access.has(Permission.PURCHASE_RECORD) && p.createdBy == vm.me))
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Purchase")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 if (p != null && onPdf != null) IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Purchase(p.id)) }) { Icon(Icons.Filled.PictureAsPdf, "PDF") }
-                if (canEdit) IconButton(onClick = { onEdit(p!!.id) }) { Icon(Icons.Filled.Edit, tr("Edit")) }
+                if (canEdit) IconButton(onClick = { onEdit(p!!.id) }) { Icon(Icons.Filled.Edit, Bilingual.oneLine(tr("Edit"))) }
                 if (isDraft && (access.has(Permission.PURCHASE_DELETE) || p?.createdBy == vm.me)) {
-                    IconButton(onClick = { deleting = true }) { Icon(Icons.Filled.Delete, tr("Delete draft")) }
+                    IconButton(onClick = { deleting = true }) { Icon(Icons.Filled.Delete, Bilingual.oneLine(tr("Delete draft"))) }
                 }
                 if (completed && access.has(Permission.PURCHASE_DELETE)) {
-                    IconButton(onClick = { cancelling = true }) { Icon(Icons.Filled.Block, tr("Cancel purchase")) }
+                    IconButton(onClick = { cancelling = true }) { Icon(Icons.Filled.Block, Bilingual.oneLine(tr("Cancel purchase"))) }
                 }
             })
     }) { padding ->
@@ -472,7 +474,7 @@ fun ReceiveGoodsScreen(onBack: () -> Unit, vm: ReceiveGoodsViewModel = hiltViewM
     androidx.compose.runtime.LaunchedEffect(v != null) { v?.let(vm::prefill) }
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Receive goods")) },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
                 TextButton(onClick = {
                     val over = v?.let { vm.overReceived(it) }.orEmpty()
@@ -502,7 +504,7 @@ fun ReceiveGoodsScreen(onBack: () -> Unit, vm: ReceiveGoodsViewModel = hiltViewM
                         FormField(vm.quantities[l.id].orEmpty(), { vm.quantities[l.id] = it }, tr("Received now (%1\$s)", l.unitCode),
                             keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal)
                         Row {
-                            OutlinedTextField(vm.batches[l.id].orEmpty(), { vm.batches[l.id] = it }, label = { Text(tr("Batch no.")) },
+                            OutlinedTextField(vm.batches[l.id].orEmpty(), { vm.batches[l.id] = it }, label = { Text(tr("Batch no."), maxLines = 1) },
                                 singleLine = true, modifier = Modifier.weight(1f))
                             Spacer(Modifier.width(8.dp))
                             DateField(tr("Expiry"), vm.expiries[l.id], { vm.expiries[l.id] = it }, Modifier.weight(1f), clearable = true)

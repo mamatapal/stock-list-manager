@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 import app.stocklist.app.core.i18n.trMessage
 
@@ -28,7 +30,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -186,7 +188,7 @@ fun SyncProblemsScreen(onBack: () -> Unit, vm: SyncViewModel = hiltViewModel()) 
     var confirm by remember { mutableStateOf<PendingChoice?>(null) }
     Scaffold(topBar = {
         TopAppBar(title = { Text(tr("Sync")) }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) }
         }, actions = {
             TextButton(onClick = vm::syncNow, enabled = !status.running && online) { Text(tr("Sync now")) }
         })

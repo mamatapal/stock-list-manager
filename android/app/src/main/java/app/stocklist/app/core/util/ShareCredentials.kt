@@ -1,5 +1,7 @@
 package app.stocklist.app.core.util
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import android.content.Context
@@ -27,9 +29,9 @@ object ShareCredentials {
     fun share(context: Context, businessName: String, fullName: String, username: String, temporaryPassword: String) {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, tr("Your Stock List Manager sign-in"))
-            putExtra(Intent.EXTRA_TEXT, message(businessName, fullName, username, temporaryPassword))
+            putExtra(Intent.EXTRA_SUBJECT, Bilingual.oneLine(tr("Your Stock List Manager sign-in")))
+            putExtra(Intent.EXTRA_TEXT, Bilingual.twoLines(message(businessName, fullName, username, temporaryPassword)))
         }
-        context.startActivity(Intent.createChooser(send, tr("Share sign-in details")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        context.startActivity(Intent.createChooser(send, Bilingual.oneLine(tr("Share sign-in details"))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }

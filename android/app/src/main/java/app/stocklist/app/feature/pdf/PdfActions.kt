@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import android.content.ClipData
@@ -34,12 +36,12 @@ object PdfActions {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_SUBJECT, listOfNotNull(pdf.title, businessName).joinToString(" - "))
+            putExtra(Intent.EXTRA_SUBJECT, listOfNotNull(Bilingual.oneLine(pdf.title), businessName).joinToString(" - "))
             putExtra(Intent.EXTRA_TITLE, pdf.fileName)
             clipData = ClipData.newRawUri(pdf.fileName, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return Intent.createChooser(send, tr("Share PDF")).apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        return Intent.createChooser(send, Bilingual.oneLine(tr("Share PDF"))).apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
     /** Android's own print dialog (printers, or "Save as PDF"), A4 by default. */

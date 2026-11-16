@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 import app.stocklist.app.core.i18n.trMessage
 
@@ -20,7 +22,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
@@ -88,11 +90,11 @@ fun DropdownField(
     enabled: Boolean = true,
 ) {
     var open by remember { mutableStateOf(false) }
-    val selected = choices.firstOrNull { it.id == selectedId }?.label ?: ""
+    val selected = choices.firstOrNull { it.id == selectedId }?.label?.let { Bilingual.oneLine(it) } ?: ""
     ExposedDropdownMenuBox(expanded = open && enabled, onExpandedChange = { if (enabled) open = it }, modifier = modifier) {
         OutlinedTextField(
             value = selected, onValueChange = {}, readOnly = true, enabled = enabled, singleLine = true,
-            label = { Text(label) },
+            label = { Text(label, maxLines = 1) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = open) },
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable, enabled),
         )
@@ -116,7 +118,7 @@ fun DateField(label: String, value: LocalDate?, onChange: (LocalDate?) -> Unit, 
     var open by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value?.display() ?: "", onValueChange = {}, readOnly = true, singleLine = true,
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1) },
         trailingIcon = {
             Row {
                 if (clearable && value != null) TextButton(onClick = { onChange(null) }) { Text(tr("Clear")) }

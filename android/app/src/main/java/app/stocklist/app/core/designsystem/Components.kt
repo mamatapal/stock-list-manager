@@ -1,5 +1,7 @@
 package app.stocklist.app.core.designsystem
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.asciiDigits
 
 import app.stocklist.app.core.i18n.tr
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardActions
@@ -28,7 +31,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +69,7 @@ fun FormField(
     OutlinedTextField(
         value = value,
         onValueChange = { onValueChange(if (numeric) asciiDigits(it) else it) },
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1) },
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         singleLine = singleLine,
@@ -95,7 +98,7 @@ fun PasswordField(
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        label = { Text(label) },
+        label = { Text(label, maxLines = 1) },
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
         singleLine = true,
@@ -106,7 +109,7 @@ fun PasswordField(
             IconButton(onClick = { visible = !visible }) {
                 Icon(
                     if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                    contentDescription = if (visible) tr("Hide password") else tr("Show password"),
+                    contentDescription = if (visible) Bilingual.oneLine(tr("Hide password")) else Bilingual.oneLine(tr("Show password")),
                 )
             }
         },
@@ -117,7 +120,7 @@ fun PasswordField(
 /** A button that shows a spinner and ignores taps while its action runs. */
 @Composable
 fun LoadingButton(text: String, loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    Button(onClick = onClick, enabled = enabled && !loading, modifier = modifier.fillMaxWidth().height(48.dp)) {
+    Button(onClick = onClick, enabled = enabled && !loading, modifier = modifier.fillMaxWidth().heightIn(min = 48.dp)) {
         if (loading) {
             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
         } else {

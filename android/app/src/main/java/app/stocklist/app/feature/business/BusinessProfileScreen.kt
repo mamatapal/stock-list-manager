@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.business
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -150,7 +152,7 @@ class BusinessProfileViewModel @Inject constructor(
 fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProfileViewModel = hiltViewModel()) {
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(vm.savedMessage) {
-        vm.savedMessage?.let { snackbar.showSnackbar(it); vm.savedMessage = null }
+        vm.savedMessage?.let { snackbar.showSnackbar(Bilingual.twoLines(it)); vm.savedMessage = null }
     }
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -159,7 +161,7 @@ fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProf
                 title = { Text(if (vm.editing) tr("Edit business") else tr("Business profile")) },
                 navigationIcon = {
                     IconButton(onClick = { if (vm.editing) vm.cancelEdit() else onBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = Bilingual.oneLine(tr("Back")))
                     }
                 },
                 actions = {
@@ -168,7 +170,7 @@ fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProf
                             Text(if (vm.saving) tr("Saving...") else tr("Save"), style = MaterialTheme.typography.titleMedium)
                         }
                     } else if (canEdit && vm.business != null) {
-                        IconButton(onClick = vm::startEdit) { Icon(Icons.Filled.Edit, contentDescription = tr("Edit")) }
+                        IconButton(onClick = vm::startEdit) { Icon(Icons.Filled.Edit, contentDescription = Bilingual.oneLine(tr("Edit"))) }
                     }
                 },
             )

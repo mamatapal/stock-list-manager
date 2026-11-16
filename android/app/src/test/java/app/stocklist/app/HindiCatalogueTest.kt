@@ -24,14 +24,14 @@ class HindiCatalogueTest {
     @After
     fun backToEnglish() = Lang.setForTest(AppLanguage.ENGLISH)
 
-    private val literal = Regex("""\b(?:tr|trKey)\(\s*"((?:[^"\\]|\\.)*)"""")
+    private val literal = Regex("""\b(?:tr|trKey|trOne)\(\s*"((?:[^"\\]|\\.)*)"""")
     private val placeholder = Regex("%(\\d+)\\\$s") // matches %1$s
 
     private fun unescape(s: String) = s.replace("\\$", "$").replace("\\\"", "\"").replace("\\n", "\n").replace("\\\\", "\\")
 
     private fun dir(vararg candidates: String): File? = candidates.map(::File).firstOrNull { it.isDirectory }
 
-    /** Every tr("…") and trKey("…") text written in the app's code. */
+    /** Every tr("…"), trOne("…") and trKey("…") text written in the app's code. */
     private fun appTexts(): Map<String, String> {
         val src = dir("src/main/java", "app/src/main/java") ?: error("app sources not found")
         val found = linkedMapOf<String, String>()

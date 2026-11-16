@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.Bilingual
+
 import app.stocklist.app.core.i18n.tr
 
 import android.graphics.Bitmap
@@ -31,7 +33,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
+import app.stocklist.app.core.i18n.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -137,19 +139,19 @@ fun PdfPreviewScreen(canShare: Boolean, onBack: () -> Unit, vm: PdfViewModel = h
         if (uri != null && ready != null) scope.launch {
             val msg = runCatching { withContext(Dispatchers.IO) { PdfActions.saveTo(context, ready, uri) } }
                 .fold({ tr("Saved %1\$s", ready.fileName) }, { tr("Could not save: %1\$s", it.message) })
-            snackbar.showSnackbar(msg)
+            snackbar.showSnackbar(Bilingual.twoLines(msg))
         }
     }
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(ready?.title ?: "PDF") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
                 actions = {
                     if (ready != null && canShare) {
-                        IconButton(onClick = { save.launch(ready.fileName) }) { Icon(Icons.Filled.Save, tr("Save to phone")) }
-                        IconButton(onClick = { PdfActions.print(context, ready) }) { Icon(Icons.Filled.Print, tr("Print")) }
+                        IconButton(onClick = { save.launch(ready.fileName) }) { Icon(Icons.Filled.Save, Bilingual.oneLine(tr("Save to phone"))) }
+                        IconButton(onClick = { PdfActions.print(context, ready) }) { Icon(Icons.Filled.Print, Bilingual.oneLine(tr("Print"))) }
                         IconButton(onClick = { context.startActivity(PdfActions.shareIntent(context, ready)) }) {
-                            Icon(Icons.Filled.Share, tr("Share"))
+                            Icon(Icons.Filled.Share, Bilingual.oneLine(tr("Share")))
                         }
                     }
                 })
