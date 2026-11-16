@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.BilingualName
+import app.stocklist.app.core.designsystem.BilingualNameFields
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.asciiDigits
@@ -199,11 +201,11 @@ class PurchaseEditViewModel @Inject constructor(
 
     /** Creates a catalogue item right here and adds it as a line. Returns an error message or null. */
     suspend fun addNewItem(name: String, category: String, unitId: String): String? {
-        val n = name.trim().replace(Regex("\\s+"), " ")
+        val n = BilingualName.clean(name)
         if (n.isEmpty()) return tr("Enter the item name")
         if (n.length > 150) return tr("At most 150 characters")
         if (itemRepo.nameInUse(n, null)) return tr("An item called \"%1\$s\" already exists. Pick it from the list instead.", n)
-        val newId = itemRepo.save(null, ItemInput(n, category.trim().ifEmpty { null }, unitId, null, null, supplierId, null, true))
+        val newId = itemRepo.save(null, ItemInput(n, BilingualName.clean(category).ifEmpty { null }, unitId, null, null, supplierId, null, true))
         lines += PurchaseLineDraft(itemId = newId, itemName = n, unitId = unitId, quantity = "1", receivedNow = "1")
         dirty = true
         return null
@@ -451,8 +453,8 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
         text = {
             if (creating) {
                 Column {
-                    FormField(newName, { newName = it }, tr("Item name *"))
-                    FormField(newCategory, { newCategory = it }, tr("Category"))
+                    BilingualNameFields(newName, { newName = it }, title = tr("Item name"), required = true)
+                    BilingualNameFields(newCategory, { newCategory = it }, title = tr("Category"))
                     DropdownField(tr("Unit"), newUnit, units.map { Choice(it.id, "${it.displayName} (${it.code})") }, { it?.let { u -> newUnit = u } })
                     ErrorText(newError)
                 }

@@ -17,7 +17,10 @@ object Bilingual {
 
     /** The text as it reads in one language. */
     fun pick(text: String, language: AppLanguage): String {
-        if (!isBilingual(text)) return text
+        if (!isBilingual(text)) {
+            val name = BilingualName.both(text) ?: return text
+            return if (language == AppLanguage.HINDI) name.second else name.first
+        }
         val wantMain = language == Lang.language
         val out = StringBuilder(text.length)
         var i = 0
@@ -36,7 +39,11 @@ object Bilingual {
 
     /** First line (main language) and second line (other language), or null when both read the same. */
     fun lines(text: String): Pair<String, String?> {
-        if (!isBilingual(text)) return text to null
+        if (!isBilingual(text)) {
+            // a saved name "English / हिन्दी": the main language first
+            val name = BilingualName.both(text) ?: return text to null
+            return if (Lang.language == AppLanguage.HINDI) name.second to name.first else name.first to name.second
+        }
         val main = pick(text, Lang.language)
         val other = pick(text, Lang.other)
         return if (main == other) main to null else main to other

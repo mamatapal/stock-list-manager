@@ -73,6 +73,7 @@ fun AccountScreen(user: MeDto, onBack: () -> Unit, onChangePassword: () -> Unit,
                 LabelValue(tr("Username"), user.username)
                 LabelValue(tr("Role"), if (user.isOwner) tr("Owner") else tr("Staff"))
                 LabelValue(tr("Business"), user.businessName)
+                LabelValue(tr("App version"), "${app.stocklist.app.BuildConfig.VERSION_NAME} (${app.stocklist.app.BuildConfig.VERSION_CODE})")
             }
             SectionCard(tr("Main language")) {
                 Text(tr("Screens show Hindi and English together. The language you choose here is shown first. You can type names and notes in either language."),

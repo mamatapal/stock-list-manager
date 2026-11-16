@@ -6,7 +6,7 @@ package app.stocklist.app.core.i18n
  * HindiCatalogueTest fails if a tr("…") text has no entry here, or if the %1$s placeholders do not match.
  */
 internal object HindiStrings {
-    val map: Map<String, String> = HashMap<String, String>(1698).apply {
+    val map: Map<String, String> = HashMap<String, String>(1704).apply {
         part1(this)
         part2(this)
         part3(this)
@@ -130,12 +130,14 @@ internal object HindiStrings {
         m["Amount"] = "रकम"
         m["An item called \"%1\$s\" already exists. Pick it from the list instead."] = "\"%1\$s\" नाम का आइटम पहले से है। उसे लिस्ट से चुनें।"
         m["Another item already has this name"] = "इस नाम का दूसरा आइटम पहले से है"
+        m["App version"] = "ऐप वर्ज़न"
         m["As on"] = "तारीख"
         m["As on %1\$s"] = "%1\$s तक की स्थिति"
         m["Ask your shop owner to reset it. They can do this in the app under Staff, then your name, then Reset password. You will get a temporary password and choose a new one when you sign in."] = "अपने दुकान मालिक से इसे रीसेट करने को कहें। वे ऐप में स्टाफ, फिर आपका नाम, फिर पासवर्ड रीसेट करें में जाकर यह कर सकते हैं। आपको एक अस्थायी पासवर्ड मिलेगा और साइन इन करते समय आप नया पासवर्ड चुनेंगे।"
         m["At least 8 characters"] = "कम से कम 8 अक्षर"
         m["At most 128 characters"] = "ज़्यादा से ज़्यादा 128 अक्षर"
         m["At most 150 characters"] = "ज़्यादा से ज़्यादा 150 अक्षर"
+        m["At most 40 characters"] = "ज़्यादा से ज़्यादा 40 अक्षर"
         m["At most 500 items per list"] = "एक लिस्ट में ज़्यादा से ज़्यादा 500 आइटम"
         m["At most 500 items per purchase"] = "एक खरीद में ज़्यादा से ज़्यादा 500 आइटम"
         m["At most 80 characters"] = "ज़्यादा से ज़्यादा 80 अक्षर"
@@ -262,11 +264,11 @@ internal object HindiStrings {
         m["Delete draft?"] = "ड्राफ्ट हटाएँ?"
         m["Delete item?"] = "आइटम हटाएँ?"
         m["Delete items"] = "आइटम हटाएँ"
-        m["Delete list?"] = "लिस्ट हटाएँ?"
-        m["Delete or cancel purchases"] = "खरीद हटाएँ या रद्द करें"
     }
 
     private fun part2(m: MutableMap<String, String>) {
+        m["Delete list?"] = "लिस्ट हटाएँ?"
+        m["Delete or cancel purchases"] = "खरीद हटाएँ या रद्द करें"
         m["Delete out-of-stock lists"] = "स्टॉक खत्म लिस्ट हटाएँ"
         m["Delete supplier?"] = "सप्लायर हटाएँ?"
         m["Delete suppliers"] = "सप्लायर हटाएँ"
@@ -301,6 +303,7 @@ internal object HindiStrings {
         m["Edited after completion"] = "पूरा होने के बाद बदला गया"
         m["Email"] = "ईमेल"
         m["Email is required"] = "ईमेल ज़रूरी है"
+        m["English name"] = "अंग्रेज़ी नाम"
         m["Enter a 10-digit mobile number"] = "10 अंकों का मोबाइल नंबर डालें"
         m["Enter a 6-digit PIN code"] = "6 अंकों का पिन कोड डालें"
         m["Enter a list title"] = "लिस्ट का नाम डालें"
@@ -374,6 +377,7 @@ internal object HindiStrings {
         m["Hide password"] = "पासवर्ड छिपाएँ"
         m["Highest"] = "सबसे ज़्यादा"
         m["Highest unit cost"] = "सबसे ज़्यादा यूनिट लागत"
+        m["Hindi name"] = "हिन्दी नाम"
         m["If this is an owner account with an email address, a reset code has been sent to it. Staff members: please ask the business owner to reset your password."] = "अगर यह ईमेल पते वाला मालिक का अकाउंट है, तो उस पर रीसेट कोड भेज दिया गया है। स्टाफ सदस्य: कृपया बिज़नेस मालिक से अपना पासवर्ड रीसेट करवाएँ।"
         m["Inactive"] = "निष्क्रिय"
         m["Inactive staff"] = "निष्क्रिय स्टाफ"
@@ -391,7 +395,7 @@ internal object HindiStrings {
         m["It is a purchase or goods-received record and cannot be recovered afterwards."] = "यह खरीद या माल प्राप्ति का रिकॉर्ड है और बाद में वापस नहीं मिलेगा।"
         m["It is kept safely on this phone."] = "यह इस फ़ोन पर सुरक्षित है।"
         m["Item"] = "आइटम"
-        m["Item name *"] = "आइटम का नाम *"
+        m["Item name"] = "वस्तु का नाम"
         m["Item name is required"] = "आइटम का नाम ज़रूरी है"
         m["Item prices"] = "आइटम की कीमतें"
         m["Item purchase prices"] = "आइटम की खरीद कीमतें"
@@ -513,13 +517,13 @@ internal object HindiStrings {
         m["Off by default. Grant only to people you trust with money and accounts."] = "शुरू में बंद। सिर्फ़ उन्हीं लोगों को दें जिन पर पैसे और हिसाब के लिए भरोसा हो।"
         m["Offline: %1\$s change(s) saved on this phone, sent when online"] = "ऑफ़लाइन: %1\$s बदलाव इस फ़ोन पर सेव हैं, इंटरनेट मिलने पर भेजे जाएँगे"
         m["Offline: you can keep working; changes are saved on this phone"] = "ऑफ़लाइन: आप काम जारी रख सकते हैं; बदलाव इस फ़ोन पर सेव हो रहे हैं"
+    }
+
+    private fun part3(m: MutableMap<String, String>) {
         m["Only stock still on hand from completed purchases is listed. Expired batches are in bold."] = "सिर्फ़ पूरी खरीद का जो स्टॉक अभी मौजूद है वही दिखाया गया है। एक्सपायर बैच मोटे अक्षरों में हैं।"
         m["Open the original purchase"] = "मूल खरीद खोलें"
         m["Originally received"] = "शुरू में आया"
         m["Other"] = "अन्य"
-    }
-
-    private fun part3(m: MutableMap<String, String>) {
         m["Other phone"] = "दूसरा फ़ोन"
         m["Other phones signed in to your account will be signed out."] = "आपके अकाउंट में साइन इन बाकी फ़ोन साइन आउट हो जाएँगे।"
         m["Out-of-stock list"] = "स्टॉक खत्म लिस्ट"
@@ -704,7 +708,6 @@ internal object HindiStrings {
         m["Supplier contact"] = "सप्लायर संपर्क"
         m["Supplier deactivated. It stays in old lists but is hidden from new ones."] = "सप्लायर निष्क्रिय हुआ। यह पुरानी लिस्ट में रहेगा पर नई लिस्ट में नहीं दिखेगा।"
         m["Supplier name"] = "सप्लायर का नाम"
-        m["Supplier name *"] = "सप्लायर का नाम *"
         m["Supplier name is required"] = "सप्लायर का नाम ज़रूरी है"
         m["Supplier purchase report"] = "सप्लायर खरीद रिपोर्ट"
         m["Supplier reactivated"] = "सप्लायर फिर से सक्रिय हुआ"
@@ -767,12 +770,12 @@ internal object HindiStrings {
         m["This purchase already exists"] = "यह खरीद पहले से है"
         m["This purchase has no items"] = "इस खरीद में कोई आइटम नहीं है"
         m["This purchase is already cancelled"] = "यह खरीद पहले ही रद्द हो चुकी है"
-        m["This purchase is no longer available."] = "यह खरीद अब उपलब्ध नहीं है।"
-        m["This record was deleted by someone else"] = "यह रिकॉर्ड किसी और ने हटा दिया है"
-        m["This reset link is invalid or has expired"] = "यह रीसेट लिंक गलत है या इसकी समय-सीमा खत्म हो गई है"
     }
 
     private fun part4(m: MutableMap<String, String>) {
+        m["This purchase is no longer available."] = "यह खरीद अब उपलब्ध नहीं है।"
+        m["This record was deleted by someone else"] = "यह रिकॉर्ड किसी और ने हटा दिया है"
+        m["This reset link is invalid or has expired"] = "यह रीसेट लिंक गलत है या इसकी समय-सीमा खत्म हो गई है"
         m["This supplier already exists"] = "यह सप्लायर पहले से है"
         m["This supplier is no longer available."] = "यह सप्लायर अब उपलब्ध नहीं है।"
         m["This unit already exists"] = "यह यूनिट पहले से है"
