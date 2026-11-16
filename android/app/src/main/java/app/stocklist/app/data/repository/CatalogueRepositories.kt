@@ -1,5 +1,7 @@
 package app.stocklist.app.data.repository
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.room.withTransaction
 import app.stocklist.app.data.local.AppDatabase
 import app.stocklist.app.data.local.ItemEntity
@@ -120,9 +122,9 @@ class UnitRepository @Inject constructor(
 
     suspend fun create(code: String, name: String): String {
         val c = code.trim().uppercase()
-        require(c.isNotEmpty() && Regex("^[A-Z0-9 ._-]{1,20}$").matches(c)) { "Code: 1-20 letters or digits" }
-        require(name.isNotBlank()) { "Name is required" }
-        require(BuiltInUnits.all.none { it.code == c } && db.units().countWithCode(c) == 0) { "A unit with this code already exists" }
+        require(c.isNotEmpty() && Regex("^[A-Z0-9 ._-]{1,20}$").matches(c)) { tr("Code: 1-20 letters or digits") }
+        require(name.isNotBlank()) { tr("Name is required") }
+        require(BuiltInUnits.all.none { it.code == c } && db.units().countWithCode(c) == 0) { tr("A unit with this code already exists") }
         val id = UUID.randomUUID().toString()
         db.withTransaction {
             db.units().upsert(UnitEntity(id, c, name.trim(), false, null, SyncState.PENDING))
@@ -168,8 +170,8 @@ class StockListRepository @Inject constructor(
         id: String?, title: String, listDate: LocalDate, supplierId: String?, notes: String, status: String,
         lines: List<ListLineDraft>, createdBy: String?,
     ): String {
-        require(title.isNotBlank()) { "Enter a list title" }
-        require(status == "DRAFT" || lines.isNotEmpty()) { "Add at least one item, or save it as a draft" }
+        require(title.isNotBlank()) { tr("Enter a list title") }
+        require(status == "DRAFT" || lines.isNotEmpty()) { tr("Add at least one item, or save it as a draft") }
         val newId = id ?: UUID.randomUUID().toString()
         // Keep what the server last confirmed as received, so the screen does not flash back to zero.
         val before = db.lists().lines(newId).associateBy { it.id }
@@ -177,14 +179,14 @@ class StockListRepository @Inject constructor(
         if (removed.isNotEmpty()) {
             val linked = db.purchases().linkedListLines(removed.toList()).toSet()
             before.values.firstOrNull { it.id in linked }?.let {
-                throw IllegalArgumentException("${it.itemName} is linked to a purchase, so it cannot be removed from the list")
+                throw IllegalArgumentException(tr("%1\$s is linked to a purchase, so it cannot be removed from the list", it.itemName))
             }
         }
         val lineEntities = lines.mapIndexed { i, l ->
             val name = l.itemName.trim()
-            require(name.isNotEmpty()) { "Line ${i + 1}: enter an item name" }
+            require(name.isNotEmpty()) { tr("Line %1\$s: enter an item name", i + 1) }
             val qty = Decimals.parse(l.quantity, "$name quantity", 3, false)
-                ?: throw IllegalArgumentException("$name: enter a quantity")
+                ?: throw IllegalArgumentException(tr("%1\$s: enter a quantity", name))
             val price = Decimals.parse(l.enteredPrice, "$name price", ListCalculator.priceScale(l.priceBasis), true)
             StockListLineEntity(l.id, newId, l.itemId, name, l.description.trim().ifEmpty { null },
                 Decimals.format(qty)!!, l.unitId, l.priceBasis, Decimals.format(price),
@@ -209,12 +211,12 @@ class StockListRepository @Inject constructor(
 
     /** Copies a list into a new draft dated today (works offline). */
     suspend fun duplicate(sourceId: String, createdBy: String?): String {
-        val src = db.lists().get(sourceId) ?: throw IllegalArgumentException("List not found")
+        val src = db.lists().get(sourceId) ?: throw IllegalArgumentException(tr("List not found"))
         val lines = db.lists().lines(sourceId).map {
             ListLineDraft(UUID.randomUUID().toString(), it.itemId, it.itemName, it.description.orEmpty(), it.quantity,
                 it.unitId, it.priceBasis, it.enteredPrice.orEmpty())
         }
-        return save(null, "Copy of ${src.title}", LocalDate.now(), src.supplierId, src.notes.orEmpty(), "DRAFT", lines, createdBy)
+        return save(null, tr("Copy of %1\$s", src.title), LocalDate.now(), src.supplierId, src.notes.orEmpty(), "DRAFT", lines, createdBy)
     }
 
     suspend fun delete(id: String) {

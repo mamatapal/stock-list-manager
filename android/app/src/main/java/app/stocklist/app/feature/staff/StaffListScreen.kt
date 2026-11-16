@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -63,12 +65,12 @@ fun StaffListScreen(onBack: () -> Unit, onAdd: () -> Unit, onOpen: (String) -> U
     LaunchedEffect(Unit) { vm.load() } // reload whenever the screen is shown again
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Staff") }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            TopAppBar(title = { Text(tr("Staff")) }, navigationIcon = {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
             })
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, null) }, text = { Text("Add staff") })
+            ExtendedFloatingActionButton(onClick = onAdd, icon = { Icon(Icons.Filled.Add, null) }, text = { Text(tr("Add staff")) })
         },
     ) { padding ->
         val list = vm.staff
@@ -76,17 +78,17 @@ fun StaffListScreen(onBack: () -> Unit, onAdd: () -> Unit, onOpen: (String) -> U
             when {
                 list == null && vm.error != null -> ErrorState(vm.error!!, vm::load)
                 list == null -> LoadingState()
-                list.isEmpty() -> EmptyState("No staff accounts yet. Add one so a staff member can sign in on their own phone.",
-                    "Add staff", onAdd)
+                list.isEmpty() -> EmptyState(tr("No staff accounts yet. Add one so a staff member can sign in on their own phone."),
+                    tr("Add staff"), onAdd)
                 else -> LazyColumn {
                     items(list, key = { it.id }) { s ->
                         ListItem(
                             headlineContent = { Text(s.fullName) },
                             supportingContent = {
-                                Text("@${s.username} · last sign-in ${Dates.dateTime(s.lastLoginAt)}")
+                                Text(tr("@%1\$s · last sign-in %2\$s", s.username, Dates.dateTime(s.lastLoginAt)))
                             },
                             trailingContent = {
-                                Text(if (s.isActive) "Active" else "Inactive",
+                                Text(if (s.isActive) tr("Active") else tr("Inactive"),
                                     color = if (s.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error)
                             },
                             modifier = Modifier.clickable { onOpen(s.id) },

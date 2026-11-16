@@ -1,7 +1,11 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.LanguageSwitch
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,20 +38,21 @@ fun WelcomeScreen(
             Modifier.fillMaxSize().padding(padding).padding(24.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Spacer(Modifier.height(40.dp))
-            Text("Stock List Manager", style = MaterialTheme.typography.headlineMedium)
-            Text("Purchase lists, suppliers and stock for your shop.", style = MaterialTheme.typography.bodyLarge)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) { LanguageSwitch() }
+            Spacer(Modifier.height(16.dp))
+            Text(tr("Stock List Manager"), style = MaterialTheme.typography.headlineMedium)
+            Text(tr("Purchase lists, suppliers and stock for your shop."), style = MaterialTheme.typography.bodyLarge)
             if (signedOutReason != null) {
                 Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
                     Text(signedOutReason, Modifier.padding(12.dp), color = MaterialTheme.colorScheme.onErrorContainer)
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onOwnerLogin, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Owner sign-in") }
-            OutlinedButton(onClick = onStaffLogin, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text("Staff sign-in") }
+            Button(onClick = onOwnerLogin, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(tr("Owner sign-in")) }
+            OutlinedButton(onClick = onStaffLogin, modifier = Modifier.fillMaxWidth().height(52.dp)) { Text(tr("Staff sign-in")) }
             Spacer(Modifier.height(24.dp))
-            Text("Setting up a new shop?", style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onRegister) { Text("Register your business") }
+            Text(tr("Setting up a new shop?"), style = MaterialTheme.typography.bodyMedium)
+            TextButton(onClick = onRegister) { Text(tr("Register your business")) }
         }
     }
 }

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -79,7 +81,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-fun List<UnitOption>.label(id: String?): String = firstOrNull { it.id == id }?.let { "${it.name} (${it.code})" } ?: "-"
+fun List<UnitOption>.label(id: String?): String = firstOrNull { it.id == id }?.let { "${it.displayName} (${it.code})" } ?: "-"
 fun List<UnitOption>.code(id: String?): String = firstOrNull { it.id == id }?.code ?: ""
 
 // ------------------------------------------------------------------------------------------- list
@@ -109,13 +111,13 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
     val units by vm.units.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Items") }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+            TopAppBar(title = { Text(tr("Items")) }, navigationIcon = {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
             }, actions = {
                 if (access.has(Permission.ITEM_ADD)) {
                     TextButton(onClick = onAdd) {
                         Icon(Icons.Filled.Add, null)
-                        Text("Add item", style = MaterialTheme.typography.titleMedium)
+                        Text(tr("Add item"), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             })
@@ -123,16 +125,16 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(q, { vm.query.value = it }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text("Search name or category") }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                placeholder = { Text(tr("Search name or category")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text("Show inactive") })
-                FilterChip(selected = cat.isEmpty(), onClick = { vm.category.value = "" }, label = { Text("All categories") })
+                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive")) })
+                FilterChip(selected = cat.isEmpty(), onClick = { vm.category.value = "" }, label = { Text(tr("All categories")) })
                 cats.forEach { c -> FilterChip(selected = cat == c, onClick = { vm.category.value = c }, label = { Text(c) }) }
             }
             val l = list
             when {
                 l == null -> LoadingState()
-                l.isEmpty() -> EmptyState(if (q.isBlank() && cat.isEmpty()) "No items yet." else "No item matches the search.")
+                l.isEmpty() -> EmptyState(if (q.isBlank() && cat.isEmpty()) tr("No items yet.") else tr("No item matches the search."))
                 else -> LazyColumn {
                     items(l, key = { it.id }) { item ->
                         ListItem(
@@ -140,12 +142,12 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
                             supportingContent = {
                                 Column {
                                     Text(listOfNotNull(item.category, units.code(item.defaultUnitId),
-                                        item.latestPurchasePrice?.let { "Buy ${Decimals.rupees(it)}" },
-                                        item.latestSellingPrice?.let { "Sell ${Decimals.rupees(it)}" }).joinToString(" · "))
+                                        item.latestPurchasePrice?.let { tr("Buy %1\$s", Decimals.rupees(it)) },
+                                        item.latestSellingPrice?.let { tr("Sell %1\$s", Decimals.rupees(it)) }).joinToString(" · "))
                                     SyncBadge(item.syncState, item.syncError)
                                 }
                             },
-                            trailingContent = { if (!item.active) Text("Inactive", color = MaterialTheme.colorScheme.error) },
+                            trailingContent = { if (!item.active) Text(tr("Inactive"), color = MaterialTheme.colorScheme.error) },
                             modifier = Modifier.clickable { onOpen(item.id) },
                         )
                         HorizontalDivider()
@@ -193,48 +195,48 @@ fun ItemDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -> Uni
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Item") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(tr("Item")) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             actions = {
                 val i = item
-                if (i != null && access.has(Permission.ITEM_EDIT)) IconButton(onClick = { onEdit(i.id) }) { Icon(Icons.Filled.Edit, "Edit") }
-                if (i != null && access.has(Permission.ITEM_DELETE)) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete") }
+                if (i != null && access.has(Permission.ITEM_EDIT)) IconButton(onClick = { onEdit(i.id) }) { Icon(Icons.Filled.Edit, tr("Edit")) }
+                if (i != null && access.has(Permission.ITEM_DELETE)) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, tr("Delete")) }
             })
     }) { padding ->
         val i = item
-        if (i == null) { Column(Modifier.padding(padding)) { EmptyState("This item is no longer available.") }; return@Scaffold }
+        if (i == null) { Column(Modifier.padding(padding)) { EmptyState(tr("This item is no longer available.")) }; return@Scaffold }
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SyncBadge(i.syncState, i.syncError)
             SectionCard(i.name) {
-                LabelValue("Category", i.category)
-                LabelValue("Default unit", units.label(i.defaultUnitId))
-                LabelValue("Latest purchase price", i.latestPurchasePrice?.let { Decimals.rupees(it) })
-                LabelValue("Latest selling price", i.latestSellingPrice?.let { Decimals.rupees(it) })
-                LabelValue("Last purchased", i.lastPurchaseDate.displayDate())
-                LabelValue("Preferred supplier", suppliers.firstOrNull { it.id == i.preferredSupplierId }?.name)
-                LabelValue("Notes", i.notes)
-                LabelValue("Status", if (i.active) "Active" else "Inactive")
-                LabelValue("Added by", personName(names, i.createdBy, vm.me))
-                LabelValue("Last changed by", personName(names, i.updatedBy, vm.me))
+                LabelValue(tr("Category"), i.category)
+                LabelValue(tr("Default unit"), units.label(i.defaultUnitId))
+                LabelValue(tr("Latest purchase price"), i.latestPurchasePrice?.let { Decimals.rupees(it) })
+                LabelValue(tr("Latest selling price"), i.latestSellingPrice?.let { Decimals.rupees(it) })
+                LabelValue(tr("Last purchased"), i.lastPurchaseDate.displayDate())
+                LabelValue(tr("Preferred supplier"), suppliers.firstOrNull { it.id == i.preferredSupplierId }?.name)
+                LabelValue(tr("Notes"), i.notes)
+                LabelValue(tr("Status"), if (i.active) tr("Active") else tr("Inactive"))
+                LabelValue(tr("Added by"), personName(names, i.createdBy, vm.me))
+                LabelValue(tr("Last changed by"), personName(names, i.updatedBy, vm.me))
             }
             if (access.canViewPurchases) {
-                OutlinedButton(onClick = { onHistory(i.id) }, modifier = Modifier.fillMaxWidth()) { Text("Purchase history of this item") }
+                OutlinedButton(onClick = { onHistory(i.id) }, modifier = Modifier.fillMaxWidth()) { Text(tr("Purchase history of this item")) }
             }
             if (access.canViewExpiry) {
-                OutlinedButton(onClick = { onBatches(i.id) }, modifier = Modifier.fillMaxWidth()) { Text("Batches and expiry dates") }
+                OutlinedButton(onClick = { onBatches(i.id) }, modifier = Modifier.fillMaxWidth()) { Text(tr("Batches and expiry dates")) }
             }
             if (access.has(Permission.ITEM_EDIT)) {
                 OutlinedButton(onClick = { vm.setActive(!i.active) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (i.active) "Deactivate item" else "Reactivate item")
+                    Text(if (i.active) tr("Deactivate item") else tr("Reactivate item"))
                 }
             }
         }
     }
     if (confirmDelete) {
-        ConfirmDialog("Delete item?",
-            "The item is removed from the catalogue for everyone. Existing lists keep the item name they were saved with.",
-            "Delete", onConfirm = { confirmDelete = false; vm.delete(onBack) }, onDismiss = { confirmDelete = false })
+        ConfirmDialog(tr("Delete item?"),
+            tr("The item is removed from the catalogue for everyone. Existing lists keep the item name they were saved with."),
+            tr("Delete"), onConfirm = { confirmDelete = false; vm.delete(onBack) }, onDismiss = { confirmDelete = false })
     }
 }
 
@@ -289,19 +291,19 @@ class ItemEditViewModel @Inject constructor(
 
     fun save(onDone: () -> Unit) {
         errors.clear()
-        if (name.isBlank()) errors["name"] = "Item name is required"
-        else if (name.trim().length > 150) errors["name"] = "At most 150 characters"
-        if (category.trim().length > 80) errors["category"] = "At most 80 characters"
+        if (name.isBlank()) errors["name"] = tr("Item name is required")
+        else if (name.trim().length > 150) errors["name"] = tr("At most 150 characters")
+        if (category.trim().length > 80) errors["category"] = tr("At most 80 characters")
         fun price(field: String, v: String, label: String) = try { Decimals.parse(v, label, 4, true) } catch (e: IllegalArgumentException) {
-            errors[field] = e.message ?: "Invalid"; null
+            errors[field] = e.message ?: tr("Invalid"); null
         }
-        val purchase = price("purchase", purchasePrice, "Purchase price")
-        val selling = price("selling", sellingPrice, "Selling price")
+        val purchase = price("purchase", purchasePrice, tr("Purchase price"))
+        val selling = price("selling", sellingPrice, tr("Selling price"))
         if (errors.isNotEmpty() || saving) return
         saving = true
         viewModelScope.launch {
             if (repo.nameInUse(name, id)) {
-                errors["name"] = "Another item already has this name"
+                errors["name"] = tr("Another item already has this name")
                 saving = false
                 return@launch
             }
@@ -325,19 +327,19 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
     val canPurchase = access.has(Permission.PURCHASE_PRICE_ENTER)
     val canSelling = if (isNew) access.has(Permission.SELLING_PRICE_ENTER) else access.has(Permission.CATALOG_SELLING_PRICE_CHANGE)
     Scaffold(topBar = {
-        TopAppBar(title = { Text(if (isNew) "Add item" else "Edit item") },
-            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(if (isNew) tr("Add item") else tr("Edit item")) },
+            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             actions = {
                 TextButton(onClick = { vm.save(onDone) }, enabled = vm.loaded && !vm.saving) {
-                    Text("Save", style = MaterialTheme.typography.titleMedium)
+                    Text(tr("Save"), style = MaterialTheme.typography.titleMedium)
                 }
             })
     }) { padding ->
         if (!vm.loaded) { Column(Modifier.padding(padding)) { LoadingState() }; return@Scaffold }
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).imePadding().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FormField(vm.name, { vm.name = it }, "Item name *", vm.errors["name"], capitalization = KeyboardCapitalization.Words)
-            FormField(vm.category, { vm.category = it }, "Category", vm.errors["category"], capitalization = KeyboardCapitalization.Words)
+            FormField(vm.name, { vm.name = it }, tr("Item name *"), vm.errors["name"], capitalization = KeyboardCapitalization.Words)
+            FormField(vm.category, { vm.category = it }, tr("Category"), vm.errors["category"], capitalization = KeyboardCapitalization.Words)
             val suggestions = categories.filter { it.contains(vm.category.trim(), true) && !it.equals(vm.category.trim(), true) }.take(6)
             if (suggestions.isNotEmpty()) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -345,23 +347,23 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
                 }
             }
             Row {
-                DropdownField("Default unit *", vm.unitId, units.map { Choice(it.id, "${it.name} (${it.code})") },
+                DropdownField(tr("Default unit *"), vm.unitId, units.map { Choice(it.id, "${it.displayName} (${it.code})") },
                     { it?.let { u -> vm.unitId = u } }, Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
-                TextButton(onClick = { addUnit = true }, modifier = Modifier.padding(top = 8.dp)) { Text("New unit") }
+                TextButton(onClick = { addUnit = true }, modifier = Modifier.padding(top = 8.dp)) { Text(tr("New unit")) }
             }
-            FormField(vm.purchasePrice, { vm.purchasePrice = it }, "Latest purchase price (₹)", vm.errors["purchase"],
+            FormField(vm.purchasePrice, { vm.purchasePrice = it }, tr("Latest purchase price (₹)"), vm.errors["purchase"],
                 keyboardType = KeyboardType.Decimal, enabled = canPurchase)
-            FormField(vm.sellingPrice, { vm.sellingPrice = it }, "Latest selling price (₹)", vm.errors["selling"],
+            FormField(vm.sellingPrice, { vm.sellingPrice = it }, tr("Latest selling price (₹)"), vm.errors["selling"],
                 keyboardType = KeyboardType.Decimal, enabled = canSelling)
             if (!canPurchase || !canSelling) {
-                Text("Price fields you are not allowed to change are locked.", style = MaterialTheme.typography.bodySmall,
+                Text(tr("Price fields you are not allowed to change are locked."), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            DropdownField("Preferred supplier", vm.supplierId,
-                listOf(Choice(null, "None")) + suppliers.map { Choice(it.id, it.name) }, { vm.supplierId = it })
-            FormField(vm.notes, { vm.notes = it }, "Notes", singleLine = false)
-            ErrorText(if (vm.errors.isNotEmpty()) "Please correct the highlighted fields." else null)
+            DropdownField(tr("Preferred supplier"), vm.supplierId,
+                listOf(Choice(null, tr("None"))) + suppliers.map { Choice(it.id, it.name) }, { vm.supplierId = it })
+            FormField(vm.notes, { vm.notes = it }, tr("Notes"), singleLine = false)
+            ErrorText(if (vm.errors.isNotEmpty()) tr("Please correct the highlighted fields.") else null)
         }
     }
     if (addUnit) NewUnitDialog(onAdd = vm::addUnit, onDismiss = { addUnit = false })
@@ -375,17 +377,17 @@ fun NewUnitDialog(onAdd: suspend (String, String) -> String?, onDismiss: () -> U
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("New unit") },
+        title = { Text(tr("New unit")) },
         text = {
             Column {
-                FormField(code, { code = it }, "Short code (e.g. TRAY)", capitalization = KeyboardCapitalization.Characters)
-                FormField(name, { name = it }, "Name (e.g. Tray)", capitalization = KeyboardCapitalization.Words)
+                FormField(code, { code = it }, tr("Short code (e.g. TRAY)"), capitalization = KeyboardCapitalization.Characters)
+                FormField(name, { name = it }, tr("Name (e.g. Tray)"), capitalization = KeyboardCapitalization.Words)
                 ErrorText(error)
             }
         },
         confirmButton = {
-            TextButton(onClick = { scope.launch { error = onAdd(code, name); if (error == null) onDismiss() } }) { Text("Add") }
+            TextButton(onClick = { scope.launch { error = onAdd(code, name); if (error == null) onDismiss() } }) { Text(tr("Add")) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
     )
 }

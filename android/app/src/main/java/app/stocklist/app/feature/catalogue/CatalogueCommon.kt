@@ -1,5 +1,8 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.tr
+import app.stocklist.app.core.i18n.trMessage
+
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -60,9 +63,9 @@ class Access(val user: MeDto) {
 @Composable
 fun SyncBadge(state: String, error: String? = null) {
     val (icon, text, color) = when (state) {
-        SyncState.PENDING -> Triple(Icons.Filled.CloudUpload, "Waiting to sync", MaterialTheme.colorScheme.onSurfaceVariant)
-        SyncState.FAILED -> Triple(Icons.Filled.ErrorOutline, error ?: "Not accepted by the server", MaterialTheme.colorScheme.error)
-        SyncState.CONFLICT -> Triple(Icons.Filled.CloudOff, "Changed by someone else", MaterialTheme.colorScheme.error)
+        SyncState.PENDING -> Triple(Icons.Filled.CloudUpload, tr("Waiting to sync"), MaterialTheme.colorScheme.onSurfaceVariant)
+        SyncState.FAILED -> Triple(Icons.Filled.ErrorOutline, error?.let { trMessage(it) } ?: tr("Not accepted by the server"), MaterialTheme.colorScheme.error)
+        SyncState.CONFLICT -> Triple(Icons.Filled.CloudOff, tr("Changed by someone else"), MaterialTheme.colorScheme.error)
         else -> return
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -116,8 +119,8 @@ fun DateField(label: String, value: LocalDate?, onChange: (LocalDate?) -> Unit, 
         label = { Text(label) },
         trailingIcon = {
             Row {
-                if (clearable && value != null) TextButton(onClick = { onChange(null) }) { Text("Clear") }
-                TextButton(onClick = { open = true }) { Text("Pick") }
+                if (clearable && value != null) TextButton(onClick = { onChange(null) }) { Text(tr("Clear")) }
+                TextButton(onClick = { open = true }) { Text(tr("Pick")) }
             }
         },
         modifier = modifier,
@@ -134,7 +137,7 @@ fun DateField(label: String, value: LocalDate?, onChange: (LocalDate?) -> Unit, 
                     open = false
                 }) { Text("OK") }
             },
-            dismissButton = { TextButton(onClick = { open = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { open = false }) { Text(tr("Cancel")) } },
         ) { DatePicker(state) }
     }
 }

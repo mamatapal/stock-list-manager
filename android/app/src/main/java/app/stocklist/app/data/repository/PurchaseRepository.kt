@@ -1,5 +1,7 @@
 package app.stocklist.app.data.repository
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.room.withTransaction
 import app.stocklist.app.data.local.AppDatabase
 import app.stocklist.app.data.local.BatchEntity
@@ -130,14 +132,14 @@ class PurchaseRepository @Inject constructor(
         id: String?, header: PurchaseHeaderDraft, lines: List<PurchaseLineDraft>, complete: Boolean,
         receiveNow: Boolean, createdBy: String?, showProfit: Boolean,
     ): String {
-        val supplierId = header.supplierId ?: throw IllegalArgumentException("Choose a supplier")
-        require(!complete || lines.isNotEmpty()) { "Add at least one item before completing the purchase" }
-        require(header.invoiceNo.trim().length <= 60) { "Invoice number: at most 60 characters" }
+        val supplierId = header.supplierId ?: throw IllegalArgumentException(tr("Choose a supplier"))
+        require(!complete || lines.isNotEmpty()) { tr("Add at least one item before completing the purchase") }
+        require(header.invoiceNo.trim().length <= 60) { tr("Invoice number: at most 60 characters") }
         val newId = id ?: UUID.randomUUID().toString()
         val existing = db.purchases().get(newId)
-        require(existing?.status != "CANCELLED") { "A cancelled purchase cannot be changed" }
+        require(existing?.status != "CANCELLED") { tr("A cancelled purchase cannot be changed") }
         val wasCompleted = existing != null && existing.status != "DRAFT"
-        require(!wasCompleted || complete) { "A completed purchase cannot go back to draft" }
+        require(!wasCompleted || complete) { tr("A completed purchase cannot go back to draft") }
         val alreadyReceived = if (existing != null) received(newId) else emptyMap()
         val oldLines = if (existing != null) db.purchases().lines(newId).associateBy { it.id } else emptyMap()
         val customUnits = mutableMapOf<String, String>()
@@ -146,15 +148,15 @@ class PurchaseRepository @Inject constructor(
         val entities = lines.mapIndexed { i, l ->
             val name = l.itemName
             val qty = Decimals.parse(l.quantity, "$name quantity", 3, false)
-                ?: throw IllegalArgumentException("$name: enter a quantity")
-            val buy = Decimals.parse(l.purchasePrice, "$name purchase price", PurchaseCalculator.priceScale(l.priceBasis), true)
-            val sell = Decimals.parse(l.sellingPrice, "$name selling price", 4, true)
+                ?: throw IllegalArgumentException(tr("%1\$s: enter a quantity", name))
+            val buy = Decimals.parse(l.purchasePrice, tr("%1\$s purchase price", name), PurchaseCalculator.priceScale(l.priceBasis), true)
+            val sell = Decimals.parse(l.sellingPrice, tr("%1\$s selling price", name), 4, true)
             val got = alreadyReceived[l.id] ?: BigDecimal.ZERO
             if (got.signum() != 0) {
-                require(qty >= got) { "$name: the billed quantity cannot be less than the ${Decimals.format(got)} already received" }
+                require(qty >= got) { tr("%1\$s: the billed quantity cannot be less than the %2\$s already received", name, Decimals.format(got)) }
                 val old = oldLines[l.id]
                 require(old == null || (old.unitId == l.unitId && old.itemId == l.itemId)) {
-                    "$name: goods were already received, so the item and unit cannot change"
+                    tr("%1\$s: goods were already received, so the item and unit cannot change", name)
                 }
             }
             val c = PurchaseCalculator.line(l.priceBasis, qty, buy, sell)
@@ -175,7 +177,7 @@ class PurchaseRepository @Inject constructor(
         }
         oldLines.values.filter { o -> lines.none { it.id == o.id } }.forEach { removed ->
             require((alreadyReceived[removed.id] ?: BigDecimal.ZERO).signum() == 0) {
-                "${removed.itemName}: goods were already received for this line, so it cannot be removed"
+                tr("%1\$s: goods were already received for this line, so it cannot be removed", removed.itemName)
             }
         }
 
@@ -186,10 +188,10 @@ class PurchaseRepository @Inject constructor(
         if (complete && receiveNow) {
             val deliveryId = UUID.randomUUID().toString()
             val dl = lines.mapNotNull { l ->
-                val q = Decimals.parse(l.receivedNow, "${l.itemName} received quantity", 3, true)
+                val q = Decimals.parse(l.receivedNow, tr("%1\$s received quantity", l.itemName), 3, true)
                 if (q == null || q.signum() == 0) return@mapNotNull null
                 val expiry = l.expiryDate.trim().ifEmpty { null }
-                expiry?.let { runCatching { LocalDate.parse(it) }.getOrElse { throw IllegalArgumentException("${l.itemName}: invalid expiry date") } }
+                expiry?.let { runCatching { LocalDate.parse(it) }.getOrElse { throw IllegalArgumentException(tr("%1\$s: invalid expiry date", l.itemName)) } }
                 DeliveryLineEntity(UUID.randomUUID().toString(), deliveryId, newId, l.id, "RECEIPT", Decimals.format(q)!!,
                     null, null, l.batchNo.trim().ifEmpty { null }, expiry, pending = true)
             }
@@ -236,21 +238,21 @@ class PurchaseRepository @Inject constructor(
 
     /** Records goods that arrived later (a partial or final delivery). */
     suspend fun receive(purchaseId: String, receivedDate: LocalDate, notes: String, lines: List<ReceiveDraft>, userId: String?) {
-        val purchase = db.purchases().get(purchaseId) ?: throw IllegalArgumentException("Purchase not found")
-        require(purchase.status != "DRAFT") { "Complete the purchase before receiving goods" }
-        require(purchase.status != "CANCELLED") { "A cancelled purchase cannot receive goods" }
+        val purchase = db.purchases().get(purchaseId) ?: throw IllegalArgumentException(tr("Purchase not found"))
+        require(purchase.status != "DRAFT") { tr("Complete the purchase before receiving goods") }
+        require(purchase.status != "CANCELLED") { tr("A cancelled purchase cannot receive goods") }
         val names = db.purchases().lines(purchaseId).associate { it.id to it.itemName }
         val deliveryId = UUID.randomUUID().toString()
         val dl = lines.mapNotNull { l ->
             val name = names[l.purchaseLineId] ?: return@mapNotNull null
-            val q = Decimals.parse(l.quantity, "$name received quantity", 3, true)
+            val q = Decimals.parse(l.quantity, tr("%1\$s received quantity", name), 3, true)
             if (q == null || q.signum() == 0) return@mapNotNull null
             val expiry = l.expiryDate.trim().ifEmpty { null }
-            expiry?.let { runCatching { LocalDate.parse(it) }.getOrElse { throw IllegalArgumentException("$name: invalid expiry date") } }
+            expiry?.let { runCatching { LocalDate.parse(it) }.getOrElse { throw IllegalArgumentException(tr("%1\$s: invalid expiry date", name)) } }
             DeliveryLineEntity(UUID.randomUUID().toString(), deliveryId, purchaseId, l.purchaseLineId, "RECEIPT",
                 Decimals.format(q)!!, null, null, l.batchNo.trim().ifEmpty { null }, expiry, pending = true)
         }
-        require(dl.isNotEmpty()) { "Enter at least one received quantity" }
+        require(dl.isNotEmpty()) { tr("Enter at least one received quantity") }
         writeDelivery(purchaseId, deliveryId, receivedDate, notes, dl, userId)
     }
 
@@ -259,18 +261,18 @@ class PurchaseRepository @Inject constructor(
      * quantity of the line can never go below zero.
      */
     suspend fun correct(purchaseId: String, receiptLineId: String, quantity: String, reason: String, userId: String?) {
-        require(reason.isNotBlank()) { "Give a reason for the correction" }
+        require(reason.isNotBlank()) { tr("Give a reason for the correction") }
         val all = db.purchases().deliveryLines(purchaseId)
         val receipt = all.firstOrNull { it.id == receiptLineId && it.kind == "RECEIPT" }
-            ?: throw IllegalArgumentException("Choose the receipt to correct")
+            ?: throw IllegalArgumentException(tr("Choose the receipt to correct"))
         val v = quantity.trim()
         val negative = v.startsWith("-")
-        val abs = Decimals.parse(if (negative) v.substring(1) else v, "Correction", 3, false)
-            ?: throw IllegalArgumentException("Enter the correction, for example -10")
+        val abs = Decimals.parse(if (negative) v.substring(1) else v, tr("Correction"), 3, false)
+            ?: throw IllegalArgumentException(tr("Enter the correction, for example -10"))
         val q = if (negative) abs.negate() else abs
         val receiptTotal = all.filter { it.id == receipt.id || it.correctsId == receipt.id }
             .fold(BigDecimal.ZERO) { a, d -> a.add(BigDecimal(d.quantity)) }
-        require(receiptTotal.add(q).signum() >= 0) { "The correction would make the received quantity negative" }
+        require(receiptTotal.add(q).signum() >= 0) { tr("The correction would make the received quantity negative") }
         val deliveryId = UUID.randomUUID().toString()
         writeDelivery(purchaseId, deliveryId, LocalDate.now(), "", listOf(
             DeliveryLineEntity(UUID.randomUUID().toString(), deliveryId, purchaseId, receipt.purchaseLineId, "CORRECTION",
@@ -301,7 +303,7 @@ class PurchaseRepository @Inject constructor(
     /** Deletes a draft, or cancels a completed purchase with a reason (it is never deleted). */
     suspend fun deleteOrCancel(id: String, reason: String?) {
         val p = db.purchases().get(id) ?: return
-        if (p.status != "DRAFT") require(!reason.isNullOrBlank()) { "Give a reason for cancelling this purchase" }
+        if (p.status != "DRAFT") require(!reason.isNullOrBlank()) { tr("Give a reason for cancelling this purchase") }
         db.withTransaction {
             if (p.serverVersion == null) {
                 // never reached the server: just forget it, including goods recorded against it

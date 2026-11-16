@@ -1,5 +1,7 @@
 package app.stocklist.app.data.sync
 
+import app.stocklist.app.core.i18n.tr
+
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -62,19 +64,19 @@ class ExpiryAlertWorker @AssistedInject constructor(
                     ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED)
 
         fun text(expired: Int, soon: Int): String = listOfNotNull(
-            expired.takeIf { it > 0 }?.let { "$it batch(es) expired" },
-            soon.takeIf { it > 0 }?.let { "$it expire within 7 days" },
+            expired.takeIf { it > 0 }?.let { tr("%1\$s batch(es) expired", it) },
+            soon.takeIf { it > 0 }?.let { tr("%1\$s expire within 7 days", it) },
         ).joinToString(" · ")
 
         @android.annotation.SuppressLint("MissingPermission") // checked in canNotify
         fun show(context: Context, expired: Int, soon: Int) {
             val manager = context.getSystemService(NotificationManager::class.java)
-            manager.createNotificationChannel(NotificationChannel(CHANNEL, "Expiry reminders", NotificationManager.IMPORTANCE_DEFAULT))
+            manager.createNotificationChannel(NotificationChannel(CHANNEL, tr("Expiry reminders"), NotificationManager.IMPORTANCE_DEFAULT))
             val open = PendingIntent.getActivity(context, 0, Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP), PendingIntent.FLAG_IMMUTABLE)
             val n = NotificationCompat.Builder(context, CHANNEL)
                 .setSmallIcon(R.mipmap.ic_launcher)
-                .setContentTitle("Expiry alert")
+                .setContentTitle(tr("Expiry alert"))
                 .setContentText(text(expired, soon))
                 .setContentIntent(open)
                 .setAutoCancel(true)

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -70,8 +72,8 @@ fun ItemHistoryScreen(onBack: () -> Unit, onOpenPurchase: (String) -> Unit, onPd
     val from by vm.from.collectAsStateWithLifecycle()
     val to by vm.to.collectAsStateWithLifecycle()
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Purchase history") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(tr("Purchase history")) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             actions = {
                 val it0 = item
                 if (it0 != null && onPdf != null) IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Item(it0.id, from, to)) }) { Icon(Icons.Filled.PictureAsPdf, "PDF") }
@@ -84,35 +86,35 @@ fun ItemHistoryScreen(onBack: () -> Unit, onOpenPurchase: (String) -> Unit, onPd
                 Column(Modifier.padding(horizontal = 16.dp)) {
                     Text(item?.name.orEmpty(), style = MaterialTheme.typography.titleMedium)
                     Row {
-                        DateField("From", from, { vm.from.value = it }, Modifier.weight(1f), clearable = true)
+                        DateField(tr("From"), from, { vm.from.value = it }, Modifier.weight(1f), clearable = true)
                         Spacer(Modifier.width(8.dp))
-                        DateField("To", to, { vm.to.value = it }, Modifier.weight(1f), clearable = true)
+                        DateField(tr("To"), to, { vm.to.value = it }, Modifier.weight(1f), clearable = true)
                     }
                     if (x.rows.isNotEmpty()) {
-                        SectionCard("Summary") {
-                            LabelValue("Purchases", x.purchaseCount.toString())
-                            LabelValue("Total bought", x.totalQuantity?.let { "${Decimals.format(it)} ${x.unitCode.orEmpty()}" }
-                                ?: "Bought in different units")
-                            LabelValue("Total cost", Decimals.rupees(x.totalCost.toPlainString()))
-                            LabelValue("Unit price paid", if (x.lowestUnitPrice == null) "-" else
-                                "${Decimals.rupees(Decimals.money(x.lowestUnitPrice))} to ${Decimals.rupees(Decimals.money(x.highestUnitPrice))}")
+                        SectionCard(tr("Summary")) {
+                            LabelValue(tr("Purchases"), x.purchaseCount.toString())
+                            LabelValue(tr("Total bought"), x.totalQuantity?.let { "${Decimals.format(it)} ${x.unitCode.orEmpty()}" }
+                                ?: tr("Bought in different units"))
+                            LabelValue(tr("Total cost"), Decimals.rupees(x.totalCost.toPlainString()))
+                            LabelValue(tr("Unit price paid"), if (x.lowestUnitPrice == null) "-" else
+                                tr("%1\$s to %2\$s", Decimals.rupees(Decimals.money(x.lowestUnitPrice)), Decimals.rupees(Decimals.money(x.highestUnitPrice))))
                         }
-                        Text("Cancelled purchases are listed but not counted. Prices are as billed at the time.",
+                        Text(tr("Cancelled purchases are listed but not counted. Prices are as billed at the time."),
                             style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(vertical = 4.dp))
                     }
                 }
             }
-            if (x.rows.isEmpty()) item { EmptyState("This item has not been bought" + if (from != null || to != null) " in these dates." else " yet.") }
+            if (x.rows.isEmpty()) item { EmptyState(if (from != null || to != null) tr("This item has not been bought in these dates.") else tr("This item has not been bought yet.")) }
             items(x.rows, key = { it.purchaseLineId }) { r ->
                 ListItem(
                     headlineContent = { Text("${r.purchaseDate.displayDate()} · ${r.supplierName.orEmpty()}") },
                     supportingContent = {
                         Column {
                             Text("${r.quantity} ${r.unitCode}" + (r.purchasePrice?.let {
-                                if (r.priceBasis == PurchaseCalculator.TOTAL) " · total ${Decimals.rupees(it)} (${Decimals.rupees(r.purchaseUnitPrice)} per unit)"
+                                if (r.priceBasis == PurchaseCalculator.TOTAL) tr(" · total %1\$s (%2\$s per unit)", Decimals.rupees(it), Decimals.rupees(r.purchaseUnitPrice))
                                 else " × ${Decimals.rupees(it)}"
-                            } ?: " · no price") + (r.sellingPrice?.let { " · sell ${Decimals.rupees(it)}" } ?: ""))
-                            Text(listOfNotNull(r.invoiceNo?.let { "Invoice $it" }, purchaseStatusLabel(r.status)).joinToString(" · "),
+                            } ?: tr(" · no price")) + (r.sellingPrice?.let { tr(" · sell %1\$s", Decimals.rupees(it)) } ?: ""))
+                            Text(listOfNotNull(r.invoiceNo?.let { tr("Invoice %1\$s", it) }, purchaseStatusLabel(r.status)).joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = if (r.status == "CANCELLED") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                         }

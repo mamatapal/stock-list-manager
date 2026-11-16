@@ -1,5 +1,11 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.trMessage
+
+import app.stocklist.app.core.i18n.trKey
+
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -56,8 +62,10 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 /** Preset periods. India's financial year runs from 1 April to 31 March. */
-enum class Preset(val label: String) {
-    THIS_MONTH("This month"), LAST_MONTH("Last month"), LAST_3_MONTHS("Last 3 months"), FINANCIAL_YEAR("This financial year");
+enum class Preset(private val englishLabel: String) {
+    THIS_MONTH(trKey("This month")), LAST_MONTH(trKey("Last month")), LAST_3_MONTHS(trKey("Last 3 months")), FINANCIAL_YEAR(trKey("This financial year"));
+
+    val label: String get() = trMessage(englishLabel)
 
     fun range(today: LocalDate): Pair<LocalDate, LocalDate> = when (this) {
         THIS_MONTH -> today.withDayOfMonth(1) to today
@@ -103,8 +111,7 @@ class ReportsViewModel @Inject constructor(private val api: ApiService) : ViewMo
             state.value = when (r) {
                 is ApiResult.Ok -> ReportState.Loaded(r.value)
                 is ApiResult.Failure -> ReportState.Failed(
-                    if (r.error.isNetwork) "Reports are worked out on the server from every phone's purchases, so they need " +
-                        "an internet connection. PDFs of lists, purchases, supplier and item history and expiry work offline."
+                    if (r.error.isNetwork) tr("Reports are worked out on the server from every phone's purchases, so they need an internet connection. PDFs of lists, purchases, supplier and item history and expiry work offline.")
                     else r.error.message)
             }
         }
@@ -119,8 +126,8 @@ fun ReportsScreen(canProfitReport: Boolean, onBack: () -> Unit, onPdf: ((PdfJob)
     val to by vm.to.collectAsStateWithLifecycle()
     val state by vm.state.collectAsStateWithLifecycle()
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Reports") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(tr("Reports")) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             actions = {
                 if (onPdf != null && state is ReportState.Loaded) {
                     TextButton(onClick = { onPdf(PdfJob.Report(kind, from, to)) }) {
@@ -133,7 +140,7 @@ fun ReportsScreen(canProfitReport: Boolean, onBack: () -> Unit, onPdf: ((PdfJob)
             item {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ReportKind.entries.filter { it != ReportKind.EXPECTED_PROFIT || canProfitReport }.forEach { k ->
-                        FilterChip(selected = k == kind, onClick = { vm.setKind(k) }, label = { Text(k.title) })
+                        FilterChip(selected = k == kind, onClick = { vm.setKind(k) }, label = { Text(trMessage(k.title)) })
                     }
                 }
             }
@@ -147,17 +154,17 @@ fun ReportsScreen(canProfitReport: Boolean, onBack: () -> Unit, onPdf: ((PdfJob)
             }
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    DateField("From", from, vm::setFrom, Modifier.weight(1f))
-                    DateField("To", to, vm::setTo, Modifier.weight(1f))
+                    DateField(tr("From"), from, vm::setFrom, Modifier.weight(1f))
+                    DateField(tr("To"), to, vm::setTo, Modifier.weight(1f))
                 }
-                if (to.isBefore(from)) Text("The end date is before the start date.", color = MaterialTheme.colorScheme.error)
+                if (to.isBefore(from)) Text(tr("The end date is before the start date."), color = MaterialTheme.colorScheme.error)
             }
             when (val s = state) {
                 ReportState.Loading -> item { LoadingState() }
                 is ReportState.Failed -> item {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         EmptyState(s.message)
-                        OutlinedButton(onClick = vm::load) { Text("Try again") }
+                        OutlinedButton(onClick = vm::load) { Text(tr("Try again")) }
                     }
                 }
                 is ReportState.Loaded -> when (val v = s.value) {
@@ -204,42 +211,40 @@ private fun ReportRow(title: String, detail: String, amount: String, extra: Stri
 private fun LazyListScope.purchases(r: PurchaseReportDto) {
     item {
         Summary(listOfNotNull(
-            "Purchases" to r.purchaseCount.toString(),
-            "Total cost" to PdfFormat.money(r.totalCost),
-            if (r.profitIncluded) "Expected profit" to PdfFormat.money(r.expectedProfit) else null,
-            if (r.cancelledCount > 0) "Cancelled (not counted)" to r.cancelledCount.toString() else null,
+            tr("Purchases") to r.purchaseCount.toString(),
+            tr("Total cost") to PdfFormat.money(r.totalCost),
+            if (r.profitIncluded) tr("Expected profit") to PdfFormat.money(r.expectedProfit) else null,
+            if (r.cancelledCount > 0) tr("Cancelled (not counted)") to r.cancelledCount.toString() else null,
         ))
     }
     if (r.profitIncluded) item { EstimateBanner(r.profitNote ?: PdfDocuments.PROFIT_NOTE) }
-    if (r.rows.isEmpty()) item { EmptyState("No purchases in this period.") }
+    if (r.rows.isEmpty()) item { EmptyState(tr("No purchases in this period.")) }
     items(r.rows, key = { it.purchaseId }) { p ->
         ReportRow(p.supplierName ?: "-",
             listOfNotNull(PdfFormat.date(p.purchaseDate), p.invoiceNo, PdfDocuments.purchaseStatus(p.status)).joinToString("  ·  "),
             PdfFormat.money(p.totalCost),
-            if (r.profitIncluded && p.status != "CANCELLED") "Expected profit ${PdfFormat.money(p.expectedProfit)}" else null)
+            if (r.profitIncluded && p.status != "CANCELLED") tr("Expected profit %1\$s", PdfFormat.money(p.expectedProfit)) else null)
     }
 }
 
 private fun LazyListScope.suppliers(r: SupplierTotalsDto) {
-    item { Summary(listOf("Suppliers" to r.rows.size.toString(), "Purchases" to r.purchaseCount.toString(), "Total cost" to PdfFormat.money(r.totalCost))) }
+    item { Summary(listOf(tr("Suppliers") to r.rows.size.toString(), tr("Purchases") to r.purchaseCount.toString(), tr("Total cost") to PdfFormat.money(r.totalCost))) }
     if (r.profitIncluded) item { EstimateBanner(r.profitNote ?: PdfDocuments.PROFIT_NOTE) }
-    if (r.rows.isEmpty()) item { EmptyState("No purchases in this period.") }
+    if (r.rows.isEmpty()) item { EmptyState(tr("No purchases in this period.")) }
     items(r.rows, key = { it.supplierId }) { s ->
         ReportRow(s.supplierName ?: "-",
-            "${s.purchaseCount} purchase(s)  ·  ${PdfFormat.percent(s.sharePercent)} of total  ·  last ${PdfFormat.date(s.lastPurchaseDate)}",
-            PdfFormat.money(s.totalCost), if (r.profitIncluded) "Expected profit ${PdfFormat.money(s.expectedProfit)}" else null)
+            tr("%1\$s purchase(s)  ·  %2\$s of total  ·  last %3\$s", s.purchaseCount, PdfFormat.percent(s.sharePercent), PdfFormat.date(s.lastPurchaseDate)),
+            PdfFormat.money(s.totalCost), if (r.profitIncluded) tr("Expected profit %1\$s", PdfFormat.money(s.expectedProfit)) else null)
     }
 }
 
 private fun LazyListScope.itemPrices(r: ItemPricesDto) {
-    if (r.rows.isEmpty()) item { EmptyState("No purchases in this period.") }
+    if (r.rows.isEmpty()) item { EmptyState(tr("No purchases in this period.")) }
     items(r.rows, key = { it.itemId + it.unitCode }) { i ->
         ReportRow("${i.itemName} (${i.unitCode})",
-            "Lowest ${PdfFormat.unitPrice(i.lowestUnitPrice)}  ·  highest ${PdfFormat.unitPrice(i.highestUnitPrice)}  ·  " +
-                "average ${PdfFormat.unitPrice(i.averageUnitPrice)}\nLatest ${PdfFormat.unitPrice(i.latestUnitPrice)} on " +
-                "${PdfFormat.date(i.latestDate)} from ${i.latestSupplierName ?: "-"}  ·  bought ${PdfFormat.qty(i.totalQuantity, i.unitCode)}",
+            tr("Lowest %1\$s  ·  highest %2\$s  ·  average %3\$s\nLatest %4\$s on %5\$s from %6\$s  ·  bought %7\$s", PdfFormat.unitPrice(i.lowestUnitPrice), PdfFormat.unitPrice(i.highestUnitPrice), PdfFormat.unitPrice(i.averageUnitPrice), PdfFormat.unitPrice(i.latestUnitPrice), PdfFormat.date(i.latestDate), i.latestSupplierName ?: "-", PdfFormat.qty(i.totalQuantity, i.unitCode)),
             PdfFormat.money(i.totalCost),
-            if (r.profitIncluded) "Selling price ${PdfFormat.unitPrice(i.latestSellingPrice)}  ·  expected profit ${PdfFormat.money(i.expectedProfit)}" else null)
+            if (r.profitIncluded) tr("Selling price %1\$s  ·  expected profit %2\$s", PdfFormat.unitPrice(i.latestSellingPrice), PdfFormat.money(i.expectedProfit)) else null)
     }
 }
 
@@ -247,19 +252,18 @@ private fun LazyListScope.profit(r: ExpectedProfitReportDto) {
     item { EstimateBanner(r.note.ifBlank { PdfDocuments.PROFIT_NOTE }) }
     item {
         Summary(listOf(
-            "Purchases" to r.purchaseCount.toString(), "Total cost" to PdfFormat.money(r.totalCost),
-            "Cost without selling price" to PdfFormat.money(r.unpricedCost), "Expected sales" to PdfFormat.money(r.expectedSales),
-            "Expected profit" to PdfFormat.money(r.expectedProfit), "Expected margin" to PdfFormat.percent(r.marginPercent),
+            tr("Purchases") to r.purchaseCount.toString(), tr("Total cost") to PdfFormat.money(r.totalCost),
+            tr("Cost without selling price") to PdfFormat.money(r.unpricedCost), tr("Expected sales") to PdfFormat.money(r.expectedSales),
+            tr("Expected profit") to PdfFormat.money(r.expectedProfit), tr("Expected margin") to PdfFormat.percent(r.marginPercent),
         ))
     }
     fun rows(title: String, list: List<ProfitRowDto>) {
         item { Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp)) }
-        if (list.isEmpty()) item { Text("Nothing in this period.", style = MaterialTheme.typography.bodySmall) }
+        if (list.isEmpty()) item { Text(tr("Nothing in this period."), style = MaterialTheme.typography.bodySmall) }
         items(list, key = { title + it.id }) { p ->
-            ReportRow(p.name ?: "-", "Cost ${PdfFormat.money(p.cost)}  ·  expected sales ${PdfFormat.money(p.expectedSales)}  ·  " +
-                "margin ${PdfFormat.percent(p.marginPercent)}", PdfFormat.money(p.expectedProfit))
+            ReportRow(p.name ?: "-", tr("Cost %1\$s  ·  expected sales %2\$s  ·  margin %3\$s", PdfFormat.money(p.cost), PdfFormat.money(p.expectedSales), PdfFormat.percent(p.marginPercent)), PdfFormat.money(p.expectedProfit))
         }
     }
-    rows("By supplier", r.bySupplier)
-    rows("By item", r.byItem)
+    rows(tr("By supplier"), r.bySupplier)
+    rows(tr("By item"), r.byItem)
 }

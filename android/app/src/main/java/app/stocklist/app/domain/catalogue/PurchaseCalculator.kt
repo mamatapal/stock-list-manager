@@ -1,5 +1,7 @@
 package app.stocklist.app.domain.catalogue
 
+import app.stocklist.app.core.i18n.tr
+
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -102,8 +104,8 @@ object ReceivingCalculator {
     }
 
     fun label(status: String): String = when (status) {
-        FULL -> "Fully received"
-        PARTIAL -> "Partially received"
-        else -> "Pending"
+        FULL -> tr("Fully received")
+        PARTIAL -> tr("Partially received")
+        else -> tr("Pending")
     }
 }

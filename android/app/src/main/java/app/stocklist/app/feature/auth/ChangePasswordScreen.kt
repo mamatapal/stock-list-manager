@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -58,9 +60,9 @@ class ChangePasswordViewModel @Inject constructor(
     fun submit() {
         val username = (session.state.value as? SessionState.SignedIn)?.user?.username
         error = when {
-            current.isEmpty() -> "Enter your current password"
+            current.isEmpty() -> tr("Enter your current password")
             Validators.newPassword(newPassword, username) != null -> Validators.newPassword(newPassword, username)
-            confirm != newPassword -> "Passwords do not match"
+            confirm != newPassword -> tr("Passwords do not match")
             else -> null
         }
         if (error != null) return
@@ -83,9 +85,9 @@ class ChangePasswordViewModel @Inject constructor(
 fun ChangePasswordScreen(forced: Boolean, onDone: () -> Unit, vm: ChangePasswordViewModel = hiltViewModel()) {
     LaunchedEffect(vm.saved) { if (vm.saved) onDone() }
     Scaffold(topBar = {
-        TopAppBar(title = { Text(if (forced) "Set your password" else "Change password") }, navigationIcon = {
+        TopAppBar(title = { Text(if (forced) tr("Set your password") else tr("Change password")) }, navigationIcon = {
             if (!forced) {
-                IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
             }
         })
     }) { padding ->
@@ -94,20 +96,20 @@ fun ChangePasswordScreen(forced: Boolean, onDone: () -> Unit, vm: ChangePassword
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (forced) {
-                Text("You signed in with a temporary password. Choose your own password to continue.",
+                Text(tr("You signed in with a temporary password. Choose your own password to continue."),
                     style = MaterialTheme.typography.bodyMedium)
             } else {
-                Text("Other phones signed in to your account will be signed out.",
+                Text(tr("Other phones signed in to your account will be signed out."),
                     style = MaterialTheme.typography.bodyMedium)
             }
-            PasswordField(vm.current, { vm.current = it }, if (forced) "Temporary password" else "Current password",
+            PasswordField(vm.current, { vm.current = it }, if (forced) tr("Temporary password") else tr("Current password"),
                 imeAction = ImeAction.Next)
-            PasswordField(vm.newPassword, { vm.newPassword = it }, "New password (at least 8 characters)",
+            PasswordField(vm.newPassword, { vm.newPassword = it }, tr("New password (at least 8 characters)"),
                 imeAction = ImeAction.Next)
-            PasswordField(vm.confirm, { vm.confirm = it }, "Confirm new password", onDone = vm::submit)
+            PasswordField(vm.confirm, { vm.confirm = it }, tr("Confirm new password"), onDone = vm::submit)
             ErrorText(vm.error)
-            LoadingButton("Save password", vm.loading, vm::submit)
-            if (forced) TextButton(onClick = vm::logout) { Text("Sign out") }
+            LoadingButton(tr("Save password"), vm.loading, vm::submit)
+            if (forced) TextButton(onClick = vm::logout) { Text(tr("Sign out")) }
         }
     }
 }

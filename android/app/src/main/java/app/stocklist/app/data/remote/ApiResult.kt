@@ -1,5 +1,8 @@
 package app.stocklist.app.data.remote
 
+import app.stocklist.app.core.i18n.tr
+import app.stocklist.app.core.i18n.trMessage
+
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import retrofit2.Response
@@ -22,7 +25,7 @@ data class ApiError(
 
     companion object {
         const val NETWORK = "NETWORK"
-        val network = ApiError(0, NETWORK, "No connection to the server. Check the internet and try again.")
+        val network: ApiError get() = ApiError(0, NETWORK, tr("No connection to the server. Check the internet and try again."))
     }
 }
 
@@ -56,18 +59,19 @@ fun Response<*>?.toApiError(status: Int): ApiError {
         null
     }
     val fallback = when (status) {
-        401 -> "Please sign in again."
-        403 -> "You do not have permission for this action."
-        404 -> "Not found."
-        409 -> "This conflicts with existing data."
-        429 -> "Too many attempts. Please wait a minute."
-        in 500..599 -> "The server had a problem. Please try again."
-        else -> "Something went wrong."
+        401 -> tr("Please sign in again.")
+        403 -> tr("You do not have permission for this action.")
+        404 -> tr("Not found.")
+        409 -> tr("This conflicts with existing data.")
+        429 -> tr("Too many attempts. Please wait a minute.")
+        in 500..599 -> tr("The server had a problem. Please try again.")
+        else -> tr("Something went wrong.")
     }
     return ApiError(
         status = status,
         code = problem?.code ?: "HTTP_$status",
-        message = problem?.detail ?: fallback,
-        fieldErrors = problem?.errors?.associate { it.field to it.message } ?: emptyMap(),
+        // Server messages are English; the Hindi catalogue has the server's fixed messages.
+        message = problem?.detail?.let { trMessage(it) } ?: fallback,
+        fieldErrors = problem?.errors?.associate { it.field to trMessage(it.message) } ?: emptyMap(),
     )
 }

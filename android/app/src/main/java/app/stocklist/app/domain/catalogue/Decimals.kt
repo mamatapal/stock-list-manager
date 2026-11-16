@@ -1,5 +1,8 @@
 package app.stocklist.app.domain.catalogue
 
+import app.stocklist.app.core.i18n.asciiDigits
+import app.stocklist.app.core.i18n.tr
+
 import java.math.BigDecimal
 import java.math.RoundingMode
 
@@ -9,14 +12,14 @@ object Decimals {
 
     /** Returns null when blank; throws IllegalArgumentException with a user-facing message when invalid. */
     fun parse(value: String?, label: String, maxScale: Int, allowZero: Boolean): BigDecimal? {
-        val v = value?.trim().orEmpty()
+        val v = asciiDigits(value?.trim().orEmpty())
         if (v.isEmpty()) return null
         if (!Regex("^[0-9]{1,11}(\\.[0-9]{1,$maxScale})?$").matches(v)) {
-            throw IllegalArgumentException("$label: enter a number with at most $maxScale decimal places")
+            throw IllegalArgumentException(tr("%1\$s: enter a number with at most %2\$s decimal places", label, maxScale))
         }
         val d = BigDecimal(v)
-        if (d > MAX) throw IllegalArgumentException("$label is too large")
-        if (!allowZero && d.signum() == 0) throw IllegalArgumentException("$label must be more than 0")
+        if (d > MAX) throw IllegalArgumentException(tr("%1\$s is too large", label))
+        if (!allowZero && d.signum() == 0) throw IllegalArgumentException(tr("%1\$s must be more than 0", label))
         return d
     }
 

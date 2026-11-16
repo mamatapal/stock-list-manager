@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.tr
+
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
@@ -85,7 +87,7 @@ class PdfViewModel @Inject constructor(private val repo: PdfRepository, handle: 
         state.value = PdfState.Loading
         viewModelScope.launch {
             state.value = try {
-                val j = job ?: throw PdfException("This PDF link is not valid.")
+                val j = job ?: throw PdfException(tr("This PDF link is not valid."))
                 val pdf = repo.make(j)
                 lock.withLock {
                     renderer?.close(); fd?.close()
@@ -94,9 +96,9 @@ class PdfViewModel @Inject constructor(private val repo: PdfRepository, handle: 
                 }
                 PdfState.Ready(pdf)
             } catch (e: PdfException) {
-                PdfState.Failed(e.message ?: "Could not make the PDF.")
+                PdfState.Failed(e.message ?: tr("Could not make the PDF."))
             } catch (e: Exception) {
-                PdfState.Failed("Could not make the PDF: ${e.message ?: e.javaClass.simpleName}")
+                PdfState.Failed(tr("Could not make the PDF: %1\$s", e.message ?: e.javaClass.simpleName))
             }
         }
     }
@@ -134,20 +136,20 @@ fun PdfPreviewScreen(canShare: Boolean, onBack: () -> Unit, vm: PdfViewModel = h
     val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
         if (uri != null && ready != null) scope.launch {
             val msg = runCatching { withContext(Dispatchers.IO) { PdfActions.saveTo(context, ready, uri) } }
-                .fold({ "Saved ${ready.fileName}" }, { "Could not save: ${it.message}" })
+                .fold({ tr("Saved %1\$s", ready.fileName) }, { tr("Could not save: %1\$s", it.message) })
             snackbar.showSnackbar(msg)
         }
     }
     Scaffold(
         topBar = {
             TopAppBar(title = { Text(ready?.title ?: "PDF") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
                 actions = {
                     if (ready != null && canShare) {
-                        IconButton(onClick = { save.launch(ready.fileName) }) { Icon(Icons.Filled.Save, "Save to phone") }
-                        IconButton(onClick = { PdfActions.print(context, ready) }) { Icon(Icons.Filled.Print, "Print") }
+                        IconButton(onClick = { save.launch(ready.fileName) }) { Icon(Icons.Filled.Save, tr("Save to phone")) }
+                        IconButton(onClick = { PdfActions.print(context, ready) }) { Icon(Icons.Filled.Print, tr("Print")) }
                         IconButton(onClick = { context.startActivity(PdfActions.shareIntent(context, ready)) }) {
-                            Icon(Icons.Filled.Share, "Share")
+                            Icon(Icons.Filled.Share, tr("Share"))
                         }
                     }
                 })
@@ -158,15 +160,15 @@ fun PdfPreviewScreen(canShare: Boolean, onBack: () -> Unit, vm: PdfViewModel = h
             PdfState.Loading -> Column(Modifier.padding(padding)) { LoadingState() }
             is PdfState.Failed -> Column(Modifier.padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 EmptyState(s.message)
-                OutlinedButton(onClick = vm::load) { Text("Try again") }
+                OutlinedButton(onClick = vm::load) { Text(tr("Try again")) }
             }
             is PdfState.Ready -> LazyColumn(
                 Modifier.fillMaxSize().padding(padding).background(MaterialTheme.colorScheme.surfaceVariant),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 item {
-                    Text("${s.pdf.fileName}  ·  ${s.pdf.pageCount} page${if (s.pdf.pageCount == 1) "" else "s"}" +
-                        if (!canShare) "  ·  you can view this PDF but not save, print or share it" else "",
+                    Text(tr("%1\$s  ·  %2\$s page(s)", s.pdf.fileName, s.pdf.pageCount) +
+                        if (!canShare) tr("  ·  you can view this PDF but not save, print or share it") else "",
                         style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 }
                 items(s.pdf.pageCount) { i -> PdfPage(vm, s.pdf, i) }
@@ -182,6 +184,6 @@ private fun PdfPage(vm: PdfViewModel, pdf: PdfFile, index: Int) {
         .background(androidx.compose.ui.graphics.Color.White), contentAlignment = Alignment.Center) {
         val b = bmp
         if (b == null) LoadingState()
-        else Image(b.asImageBitmap(), "Page ${index + 1} of ${pdf.pageCount}", Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
+        else Image(b.asImageBitmap(), tr("Page %1\$s of %2\$s", index + 1, pdf.pageCount), Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
     }
 }

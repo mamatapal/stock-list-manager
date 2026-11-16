@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.trKey
+
 import app.stocklist.app.domain.catalogue.ExpiryCalculator
 import java.time.LocalDate
 
@@ -56,5 +58,5 @@ sealed interface PdfJob {
 }
 
 enum class ReportKind(val title: String) {
-    PURCHASES("Purchases"), SUPPLIER_TOTALS("Supplier totals"), ITEM_PRICES("Item prices"), EXPECTED_PROFIT("Expected profit")
+    PURCHASES(trKey("Purchases")), SUPPLIER_TOTALS(trKey("Supplier totals")), ITEM_PRICES(trKey("Item prices")), EXPECTED_PROFIT(trKey("Expected profit"))
 }

@@ -1,5 +1,7 @@
 package app.stocklist.app.data.remote
 
+import app.stocklist.app.core.i18n.tr
+
 import app.stocklist.app.core.session.SessionStore
 import okhttp3.Authenticator
 import okhttp3.Request
@@ -34,7 +36,7 @@ class TokenAuthenticator(
             if (!result.isSuccessful) {
                 val code = result.toApiError(result.code())
                 session.clearBlocking(
-                    if (code.code == "ACCOUNT_INACTIVE") code.message else "Your session has ended. Please sign in again.",
+                    if (code.code == "ACCOUNT_INACTIVE") code.message else tr("Your session has ended. Please sign in again."),
                 )
                 return null
             }

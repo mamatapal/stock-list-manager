@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.dashboard
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -99,16 +101,16 @@ fun OwnerDashboardScreen(
     LaunchedEffect(Unit) { vm.load() }
     Scaffold(topBar = {
         TopAppBar(title = { Text(user.businessName) }, actions = {
-            IconButton(onClick = vm::load, enabled = !vm.loading) { Icon(Icons.Filled.Refresh, "Refresh") }
-            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, "My account") }
+            IconButton(onClick = vm::load, enabled = !vm.loading) { Icon(Icons.Filled.Refresh, tr("Refresh")) }
+            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, tr("My account")) }
         })
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Hello, ${user.fullName}", style = MaterialTheme.typography.titleLarge)
-            Text("Owner · full access", style = MaterialTheme.typography.bodyMedium,
+            Text(tr("Hello, %1\$s", user.fullName), style = MaterialTheme.typography.titleLarge)
+            Text(tr("Owner · full access"), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             work()
             ErrorText(vm.error)
@@ -118,28 +120,28 @@ fun OwnerDashboardScreen(
                 Column(Modifier.padding(vertical = 24.dp)) { LoadingState() }
             } else if (staff != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StatCard("Active staff", staff.count { it.isActive }.toString(), Modifier.weight(1f))
-                    StatCard("Inactive staff", staff.count { !it.isActive }.toString(), Modifier.weight(1f))
+                    StatCard(tr("Active staff"), staff.count { it.isActive }.toString(), Modifier.weight(1f))
+                    StatCard(tr("Inactive staff"), staff.count { !it.isActive }.toString(), Modifier.weight(1f))
                 }
             }
 
-            DashboardTile(Icons.Filled.Group, "Staff",
-                if (staff.isNullOrEmpty()) "Add staff so they can sign in on their own phones"
-                else "Accounts, permissions and signed-in phones", onStaff)
-            DashboardTile(Icons.Filled.Store, "Business profile", "Details printed on your PDFs", onBusiness)
+            DashboardTile(Icons.Filled.Group, tr("Staff"),
+                if (staff.isNullOrEmpty()) tr("Add staff so they can sign in on their own phones")
+                else tr("Accounts, permissions and signed-in phones"), onStaff)
+            DashboardTile(Icons.Filled.Store, tr("Business profile"), tr("Details printed on your PDFs"), onBusiness)
 
-            SectionCard("Recent activity") {
+            SectionCard(tr("Recent activity")) {
                 val items = vm.activity
                 when {
-                    items == null && vm.loading -> Text("Loading...")
-                    items.isNullOrEmpty() -> Text("No activity yet.")
+                    items == null && vm.loading -> Text(tr("Loading..."))
+                    items.isNullOrEmpty() -> Text(tr("No activity yet."))
                     else -> items.forEach { e ->
                         LabelValue(Dates.dateTime(e.createdAt), "${e.username ?: "Someone"}: ${PermissionSummary.actionLabel(e.action)}")
                     }
                 }
                 TextButton(onClick = onActivity) {
                     Icon(Icons.Filled.History, null)
-                    Text("  Full activity log")
+                    Text(tr("  Full activity log"))
                 }
             }
         }
