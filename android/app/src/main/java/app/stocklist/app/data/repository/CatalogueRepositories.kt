@@ -1,5 +1,6 @@
 package app.stocklist.app.data.repository
 
+import app.stocklist.app.core.i18n.BilingualName
 import app.stocklist.app.core.i18n.trOne
 
 import app.stocklist.app.core.i18n.tr
@@ -84,7 +85,7 @@ class ItemRepository @Inject constructor(
     fun observeOne(id: String): Flow<ItemEntity?> = db.items().observeOne(id)
 
     suspend fun nameInUse(name: String, exceptId: String?): Boolean =
-        db.items().countWithName(name.trim(), exceptId ?: "") > 0
+        db.items().countWithName(BilingualName.clean(name), exceptId ?: "", BilingualName.key(name)) > 0
 
     suspend fun save(id: String?, input: ItemInput): String {
         val newId = id ?: UUID.randomUUID().toString()
@@ -126,11 +127,13 @@ class UnitRepository @Inject constructor(
         val c = code.trim().uppercase()
         require(c.isNotEmpty() && Regex("^[A-Z0-9 ._-]{1,20}$").matches(c)) { tr("Code: 1-20 letters or digits") }
         require(name.isNotBlank()) { tr("Name is required") }
+        val unitName = BilingualName.clean(name)
+        require(unitName.length <= 40) { tr("At most 40 characters") }
         require(BuiltInUnits.all.none { it.code == c } && db.units().countWithCode(c) == 0) { tr("A unit with this code already exists") }
         val id = UUID.randomUUID().toString()
         db.withTransaction {
-            db.units().upsert(UnitEntity(id, c, name.trim(), false, null, SyncState.PENDING))
-            outbox.enqueue(EntityTypes.UNIT, id, "UPSERT", true, json.encodeToString(UnitInput.serializer(), UnitInput(c, name.trim())))
+            db.units().upsert(UnitEntity(id, c, unitName, false, null, SyncState.PENDING))
+            outbox.enqueue(EntityTypes.UNIT, id, "UPSERT", true, json.encodeToString(UnitInput.serializer(), UnitInput(c, unitName)))
         }
         scheduler.requestNow()
         return id

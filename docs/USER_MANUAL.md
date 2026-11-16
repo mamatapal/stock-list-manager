@@ -116,8 +116,12 @@ the profit you actually made**: the app does not record sales.
   "मात्रा / Quantity".
 - Choose which language comes first at the top right of the first screen, or later in **My account → Main language**.
   Until you choose, the phone's language decides. Each phone keeps its own choice.
-- You can always type names, notes, list titles and descriptions in Hindi or English. Everyone sees the text exactly
-  as it was typed (it is not translated). Search works with Hindi words.
+- **Item, supplier, category and unit names have two boxes: English and Hindi.** Type the name in either box and the
+  other fills in by itself, written the same way it sounds (Sugar → शुगर), not translated (not चीनी). The automatic
+  spelling is only a guess for names that are not common shop words, so correct the other box if needed; a box you
+  have corrected is not overwritten. Both spellings are saved and shown everywhere, and search finds either one.
+  Names saved before this update stay as they were until you edit them and add the Hindi.
+- Notes, list titles and descriptions can be typed in Hindi or English and are shown exactly as typed.
 - Numbers typed with a Hindi keyboard (१२३) are read as normal numbers (123).
 - Usernames, mobile numbers, PIN codes and GST numbers use English letters and digits 0-9.
 - PDF file names use the main language, for example `खरीद_K-1_2026-11-16.pdf`.

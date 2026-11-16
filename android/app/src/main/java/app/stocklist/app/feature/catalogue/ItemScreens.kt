@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.BilingualName
+import app.stocklist.app.core.designsystem.BilingualNameFields
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.tr
@@ -294,8 +296,8 @@ class ItemEditViewModel @Inject constructor(
     fun save(onDone: () -> Unit) {
         errors.clear()
         if (name.isBlank()) errors["name"] = tr("Item name is required")
-        else if (name.trim().length > 150) errors["name"] = tr("At most 150 characters")
-        if (category.trim().length > 80) errors["category"] = tr("At most 80 characters")
+        else if (BilingualName.clean(name).length > 150) errors["name"] = tr("At most 150 characters")
+        if (BilingualName.clean(category).length > 80) errors["category"] = tr("At most 80 characters")
         fun price(field: String, v: String, label: String) = try { Decimals.parse(v, label, 4, true) } catch (e: IllegalArgumentException) {
             errors[field] = e.message ?: tr("Invalid"); null
         }
@@ -309,7 +311,7 @@ class ItemEditViewModel @Inject constructor(
                 saving = false
                 return@launch
             }
-            repo.save(id, ItemInput(name.trim(), category.trim().ifEmpty { null }, unitId, Decimals.format(purchase),
+            repo.save(id, ItemInput(BilingualName.clean(name), BilingualName.clean(category).ifEmpty { null }, unitId, Decimals.format(purchase),
                 Decimals.format(selling), supplierId, notes.trim().ifEmpty { null }, active))
             saving = false
             onDone()
@@ -340,9 +342,10 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
         if (!vm.loaded) { Column(Modifier.padding(padding)) { LoadingState() }; return@Scaffold }
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).imePadding().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FormField(vm.name, { vm.name = it }, tr("Item name *"), vm.errors["name"], capitalization = KeyboardCapitalization.Words)
-            FormField(vm.category, { vm.category = it }, tr("Category"), vm.errors["category"], capitalization = KeyboardCapitalization.Words)
-            val suggestions = categories.filter { it.contains(vm.category.trim(), true) && !it.equals(vm.category.trim(), true) }.take(6)
+            BilingualNameFields(vm.name, { vm.name = it }, title = tr("Item name"), required = true, error = vm.errors["name"])
+            BilingualNameFields(vm.category, { vm.category = it }, title = tr("Category"), error = vm.errors["category"])
+            val typedCategory = BilingualName.key(vm.category)
+            val suggestions = categories.filter { it.contains(typedCategory, true) && !it.equals(vm.category.trim(), true) }.take(6)
             if (suggestions.isNotEmpty()) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     suggestions.forEach { c -> FilterChip(selected = false, onClick = { vm.category = c }, label = { Text(c, maxLines = 1) }) }
@@ -383,7 +386,7 @@ fun NewUnitDialog(onAdd: suspend (String, String) -> String?, onDismiss: () -> U
         text = {
             Column {
                 FormField(code, { code = it }, tr("Short code (e.g. TRAY)"), capitalization = KeyboardCapitalization.Characters)
-                FormField(name, { name = it }, tr("Name (e.g. Tray)"), capitalization = KeyboardCapitalization.Words)
+                BilingualNameFields(name, { name = it }, title = tr("Name (e.g. Tray)"))
                 ErrorText(error)
             }
         },

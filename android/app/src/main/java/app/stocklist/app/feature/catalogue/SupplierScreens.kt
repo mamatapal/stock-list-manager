@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.BilingualName
+import app.stocklist.app.core.designsystem.BilingualNameFields
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.tr
@@ -307,14 +309,14 @@ class SupplierEditViewModel @Inject constructor(
 
     fun save(onDone: () -> Unit) {
         fun check(f: String, m: String?) { if (m != null) errors[f] = m else errors.remove(f) }
-        check("name", Validators.required(name, tr("Supplier name")) ?: if (name.trim().length > 150) tr("At most 150 characters") else null)
+        check("name", Validators.required(name, tr("Supplier name")) ?: if (BilingualName.clean(name).length > 150) tr("At most 150 characters") else null)
         check("mobile", Validators.phone(mobile))
         check("altPhone", Validators.phone(altPhone))
         check("gstin", Validators.gstin(gstin))
         if (errors.isNotEmpty() || saving) return
         saving = true
         viewModelScope.launch {
-            repo.save(id, SupplierInput(name.trim(), contactPerson.trim().ifEmpty { null }, mobile.trim().ifEmpty { null },
+            repo.save(id, SupplierInput(BilingualName.clean(name), contactPerson.trim().ifEmpty { null }, mobile.trim().ifEmpty { null },
                 altPhone.trim().ifEmpty { null }, address.trim().ifEmpty { null }, city.trim().ifEmpty { null },
                 gstin.trim().uppercase().ifEmpty { null }, notes.trim().ifEmpty { null }, active))
             saving = false
@@ -338,7 +340,7 @@ fun SupplierEditScreen(onDone: () -> Unit, vm: SupplierEditViewModel = hiltViewM
         if (!vm.loaded) { Column(Modifier.padding(padding)) { LoadingState() }; return@Scaffold }
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).imePadding().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FormField(vm.name, { vm.name = it }, tr("Supplier name *"), vm.errors["name"], capitalization = KeyboardCapitalization.Words)
+            BilingualNameFields(vm.name, { vm.name = it }, title = tr("Supplier name"), required = true, error = vm.errors["name"])
             FormField(vm.contactPerson, { vm.contactPerson = it }, tr("Contact person"), capitalization = KeyboardCapitalization.Words)
             FormField(vm.mobile, { vm.mobile = it }, tr("Mobile number"), vm.errors["mobile"], keyboardType = KeyboardType.Phone)
             FormField(vm.altPhone, { vm.altPhone = it }, tr("Other phone"), vm.errors["altPhone"], keyboardType = KeyboardType.Phone)

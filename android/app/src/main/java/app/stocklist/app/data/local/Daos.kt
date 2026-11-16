@@ -42,8 +42,9 @@ interface ItemDao {
     @Query("SELECT * FROM items WHERE id = :id")
     suspend fun get(id: String): ItemEntity?
 
-    @Query("SELECT COUNT(*) FROM items WHERE deleted = 0 AND LOWER(name) = LOWER(:name) AND id <> :exceptId")
-    suspend fun countWithName(name: String, exceptId: String): Int
+    /** An item with the same name; "Sugar" and "Sugar / शुगर" count as the same item (:key is the English spelling). */
+    @Query("SELECT COUNT(*) FROM items WHERE deleted = 0 AND id <> :exceptId AND (LOWER(name) = LOWER(:name) OR LOWER(name) = LOWER(:key) OR LOWER(name) LIKE LOWER(:key) || ' / %')")
+    suspend fun countWithName(name: String, exceptId: String, key: String): Int
 
     @Upsert
     suspend fun upsert(e: ItemEntity)
