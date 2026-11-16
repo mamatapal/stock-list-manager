@@ -28,7 +28,35 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      # The JDK download from GitHub sometimes fails (rate limit, connection reset). Up to three tries, with a
+      # pause between them; the job only fails if all three do.
       - name: Set up JDK 21 (JetBrains Runtime)
+        id: jdk1
+        continue-on-error: true
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
+          token: ${{ github.token }}
+      - name: Wait before trying the JDK download again
+        if: steps.jdk1.outcome == 'failure'
+        run: sleep 30
+      - name: Set up JDK 21 (JetBrains Runtime) (second try)
+        id: jdk2
+        if: steps.jdk1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
+          token: ${{ github.token }}
+      - name: Wait before the last JDK download try
+        if: steps.jdk1.outcome == 'failure' && steps.jdk2.outcome == 'failure'
+        run: sleep 60
+      - name: Set up JDK 21 (JetBrains Runtime) (last try)
+        if: steps.jdk1.outcome == 'failure' && steps.jdk2.outcome == 'failure'
         uses: actions/setup-java@v4
         with:
           distribution: jetbrains
