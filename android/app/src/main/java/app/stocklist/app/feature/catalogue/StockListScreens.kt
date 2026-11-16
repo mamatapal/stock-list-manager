@@ -255,7 +255,7 @@ fun StockListDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -
                     LabelValue(tr("Date"), list.listDate.displayDate())
                     LabelValue(tr("Supplier"), suppliers.firstOrNull { it.id == list.supplierId }?.name)
                     LabelValue(tr("Status"), statusLabel(list.status))
-                    LabelValue(tr("Notes"), list.notes)
+                    LabelValue(tr("Notes"), list.notes?.bi())
                     LabelValue(tr("Items"), lines.size.toString())
                     LabelValue(tr("Estimated total"), Decimals.rupees(list.totalAmount))
                     val overall = app.stocklist.app.domain.catalogue.ReceivingCalculator.overall(
@@ -282,7 +282,7 @@ fun StockListDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -
                         Text("${l.quantity} ${units.code(l.unitId)}" + (l.enteredPrice?.let {
                             if (l.priceBasis == ListCalculator.TOTAL) tr(" · total amount %1\$s", Decimals.rupees(it)) else tr(" × %1\$s per unit", Decimals.rupees(it))
                         } ?: tr(" · no price")), style = MaterialTheme.typography.bodySmall)
-                        l.description?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                        l.description?.let { Text(it.bi(), style = MaterialTheme.typography.bodySmall) }
                         progress[l.id]?.let { p ->
                             val pr = p.progress
                             Text(tr("Requested %1\$s · received %2\$s · ", l.quantity, Decimals.format(pr.received)) +

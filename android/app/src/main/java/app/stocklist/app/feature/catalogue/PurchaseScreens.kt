@@ -276,7 +276,7 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
                         LabelValue(tr("Last received"), p.receivedDate.displayDate())
                         LabelValue(tr("Status"), purchaseStatusLabel(p.status))
                         p.cancelReason?.let { LabelValue(tr("Cancelled because"), it) }
-                        LabelValue(tr("Notes"), p.notes)
+                        LabelValue(tr("Notes"), p.notes?.bi())
                         LabelValue(tr("Purchase cost"), Decimals.rupees(p.totalCost))
                         if (access.canSeeProfit) {
                             LabelValue(tr("Expected sales"), Decimals.rupees(p.totalExpectedSales))
@@ -337,7 +337,7 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
                                 (personName(names, d.receivedBy, vm.me)?.let { tr(" by %1\$s", it) } ?: "") +
                                 if (d.pending) tr(" · waiting to sync") else "",
                                 style = MaterialTheme.typography.titleSmall)
-                            d.notes?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                            d.notes?.let { Text(it.bi(), style = MaterialTheme.typography.bodySmall) }
                             v.deliveryLines.filter { it.deliveryId == d.id }.forEach { dl ->
                                 val line = v.lines.firstOrNull { it.id == dl.purchaseLineId }
                                 Row(verticalAlignment = Alignment.CenterVertically) {
