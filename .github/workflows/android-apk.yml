@@ -45,7 +45,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "999"
           # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
           token: ${{ github.token }}
       - name: Wait before trying the JDK download again
@@ -58,7 +58,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: jetbrains
-          java-version: "21"
+          java-version: "999"
           # Signed-in download of the JDK; without it GitHub's shared API rate limit can refuse the request.
           token: ${{ github.token }}
       - name: Wait before the last JDK download try
