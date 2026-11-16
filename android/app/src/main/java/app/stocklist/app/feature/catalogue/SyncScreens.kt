@@ -1,5 +1,8 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.tr
+import app.stocklist.app.core.i18n.trMessage
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,50 +109,50 @@ fun WorkSection(access: Access, onSuppliers: () -> Unit, onItems: () -> Unit, on
         Column(Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(
                 when {
-                    status.running -> "Syncing..."
-                    !online || status.offline -> if (pending > 0) "Offline: $pending change(s) saved on this phone, sent when online"
-                        else "Offline: you can keep working; changes are saved on this phone"
-                    pending > 0 -> "$pending change(s) waiting to sync"
-                    else -> "Up to date"
+                    status.running -> tr("Syncing...")
+                    !online || status.offline -> if (pending > 0) tr("Offline: %1\$s change(s) saved on this phone, sent when online", pending)
+                        else tr("Offline: you can keep working; changes are saved on this phone")
+                    pending > 0 -> tr("%1\$s change(s) waiting to sync", pending)
+                    else -> tr("Up to date")
                 },
                 style = MaterialTheme.typography.titleSmall,
             )
-            Text("Last synced: " + (last?.toLongOrNull()?.let { Dates.dateTime(Instant.ofEpochMilli(it).toString()) } ?: "never"),
+            Text(tr("Last synced: %1\$s", last?.toLongOrNull()?.let { Dates.dateTime(Instant.ofEpochMilli(it).toString()) } ?: tr("never")),
                 style = MaterialTheme.typography.bodySmall)
             if (online && !status.offline) status.lastError?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = vm::syncNow, enabled = !status.running) { Text("Sync now") }
-                TextButton(onClick = onProblems) { Text(if (problems.isNotEmpty()) "${problems.size} need attention" else "Details") }
+                OutlinedButton(onClick = vm::syncNow, enabled = !status.running) { Text(tr("Sync now")) }
+                TextButton(onClick = onProblems) { Text(if (problems.isNotEmpty()) tr("%1\$s need attention", problems.size) else tr("Details")) }
             }
         }
     }
-    if (access.canViewLists) DashboardTile(Icons.AutoMirrored.Filled.ListAlt, "Out-of-stock lists", "Create, edit and share lists", onLists)
-    if (access.canViewPurchases) DashboardTile(Icons.Filled.ReceiptLong, "Purchases", "Bills, goods received and deliveries", onPurchases)
-    if (access.canViewReports) DashboardTile(Icons.Filled.Assessment, "Reports",
-        "Purchases, supplier totals, item prices" + if (access.canViewProfitReport) ", expected profit" else "", onReports)
+    if (access.canViewLists) DashboardTile(Icons.AutoMirrored.Filled.ListAlt, tr("Out-of-stock lists"), tr("Create, edit and share lists"), onLists)
+    if (access.canViewPurchases) DashboardTile(Icons.Filled.ReceiptLong, tr("Purchases"), tr("Bills, goods received and deliveries"), onPurchases)
+    if (access.canViewReports) DashboardTile(Icons.Filled.Assessment, tr("Reports"),
+        if (access.canViewProfitReport) tr("Purchases, supplier totals, item prices, expected profit") else tr("Purchases, supplier totals, item prices"), onReports)
     if (access.canViewExpiry) {
-        DashboardTile(Icons.Filled.EventBusy, "Expiry", "Expired and soon-to-expire stock", { onExpiry("WITHIN_30") })
-        DashboardTile(Icons.Filled.Inventory, "Batches", "Every batch received, with its purchase", onBatches)
+        DashboardTile(Icons.Filled.EventBusy, tr("Expiry"), tr("Expired and soon-to-expire stock"), { onExpiry("WITHIN_30") })
+        DashboardTile(Icons.Filled.Inventory, tr("Batches"), tr("Every batch received, with its purchase"), onBatches)
     }
-    if (access.canViewItems) DashboardTile(Icons.Filled.Inventory2, "Items", "Catalogue, units and latest prices", onItems)
-    if (access.canViewSuppliers) DashboardTile(Icons.Filled.LocalShipping, "Suppliers", "Contacts of the people you buy from", onSuppliers)
+    if (access.canViewItems) DashboardTile(Icons.Filled.Inventory2, tr("Items"), tr("Catalogue, units and latest prices"), onItems)
+    if (access.canViewSuppliers) DashboardTile(Icons.Filled.LocalShipping, tr("Suppliers"), tr("Contacts of the people you buy from"), onSuppliers)
 }
 
 private val labelJson = Json { ignoreUnknownKeys = true }
 
 private fun OutboxEntity.label(): String {
     val kind = when (entityType) {
-        EntityTypes.SUPPLIER -> "Supplier"; EntityTypes.ITEM -> "Item"; EntityTypes.UNIT -> "Unit"
-        EntityTypes.PURCHASE -> "Purchase"; EntityTypes.DELIVERY -> "Goods received"; else -> "List"
+        EntityTypes.SUPPLIER -> tr("Supplier"); EntityTypes.ITEM -> tr("Item"); EntityTypes.UNIT -> tr("Unit")
+        EntityTypes.PURCHASE -> tr("Purchase"); EntityTypes.DELIVERY -> tr("Goods received"); else -> tr("List")
     }
     val name = payloadJson?.let {
         runCatching {
             val o = labelJson.parseToJsonElement(it).jsonObject
-            (o["name"] ?: o["title"] ?: o["invoiceNo"]?.let { inv -> kotlinx.serialization.json.JsonPrimitive("invoice " + inv.jsonPrimitive.content) }
+            (o["name"] ?: o["title"] ?: o["invoiceNo"]?.let { inv -> kotlinx.serialization.json.JsonPrimitive(tr("invoice %1\$s", inv.jsonPrimitive.content)) }
                 ?: o["receivedDate"])?.jsonPrimitive?.content
         }.getOrNull()
     }
-    return if (name != null) "$kind: $name" else if (action == "DELETE") "$kind (deletion)" else kind
+    return if (name != null) "$kind: $name" else if (action == "DELETE") tr("%1\$s (deletion)", kind) else kind
 }
 
 /** What a conflict means for this kind of record, so the choice is an informed one. */
@@ -159,14 +162,10 @@ private fun conflictHelp(p: OutboxEntity): String {
     } == true
     val cancelled = p.conflictJson?.contains("\"status\":\"CANCELLED\"") == true
     return when {
-        deleted -> "Someone deleted this on another phone after you changed it. Keep mine brings it back with your " +
-            "changes; Use theirs removes it from this phone."
-        cancelled -> "Someone cancelled this purchase on another phone. A cancelled purchase cannot be changed: " +
-            "choose Use theirs. Your edit is shown below so you can note it."
-        p.entityType == EntityTypes.PURCHASE -> "Someone else changed this purchase after you started. Keep mine saves " +
-            "your version on top; the other version is kept in the purchase's history either way."
-        else -> "Someone else changed this on another phone after you started. Keep mine saves your version on top " +
-            "of theirs; Use theirs drops your change."
+        deleted -> tr("Someone deleted this on another phone after you changed it. Keep mine brings it back with your changes; Use theirs removes it from this phone.")
+        cancelled -> tr("Someone cancelled this purchase on another phone. A cancelled purchase cannot be changed: choose Use theirs. Your edit is shown below so you can note it.")
+        p.entityType == EntityTypes.PURCHASE -> tr("Someone else changed this purchase after you started. Keep mine saves your version on top; the other version is kept in the purchase's history either way.")
+        else -> tr("Someone else changed this on another phone after you started. Keep mine saves your version on top of theirs; Use theirs drops your change.")
     }
 }
 
@@ -186,10 +185,10 @@ fun SyncProblemsScreen(onBack: () -> Unit, vm: SyncViewModel = hiltViewModel()) 
     val unsent by vm.unsent.collectAsStateWithLifecycle()
     var confirm by remember { mutableStateOf<PendingChoice?>(null) }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Sync") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+        TopAppBar(title = { Text(tr("Sync")) }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
         }, actions = {
-            TextButton(onClick = vm::syncNow, enabled = !status.running && online) { Text("Sync now") }
+            TextButton(onClick = vm::syncNow, enabled = !status.running && online) { Text(tr("Sync now")) }
         })
     }) { padding ->
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -197,21 +196,20 @@ fun SyncProblemsScreen(onBack: () -> Unit, vm: SyncViewModel = hiltViewModel()) 
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(when {
-                            status.running -> "Syncing..."
-                            !online -> "No internet connection"
-                            status.lastError != null -> "Last attempt had a problem"
-                            unsent.isEmpty -> "Everything is synced"
-                            else -> "Waiting to sync"
+                            status.running -> tr("Syncing...")
+                            !online -> tr("No internet connection")
+                            status.lastError != null -> tr("Last attempt had a problem")
+                            unsent.isEmpty -> tr("Everything is synced")
+                            else -> tr("Waiting to sync")
                         }, style = MaterialTheme.typography.titleMedium)
-                        Text("Last successful sync: " + (last?.toLongOrNull()?.let { Dates.dateTime(Instant.ofEpochMilli(it).toString()) } ?: "never"))
-                        Text(if (unsent.isEmpty) "No unsent changes on this phone." else "Not yet on the server: ${unsent.describe()}.")
+                        Text(tr("Last successful sync: %1\$s", last?.toLongOrNull()?.let { Dates.dateTime(Instant.ofEpochMilli(it).toString()) } ?: tr("never")))
+                        Text(if (unsent.isEmpty) tr("No unsent changes on this phone.") else tr("Not yet on the server: %1\$s.", unsent.describe()))
                         if (online) status.lastError?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-                        Text("Changes are saved on this phone first and sent automatically when there is internet. " +
-                            "Sending the same change twice never creates a duplicate.", style = MaterialTheme.typography.bodySmall)
+                        Text(tr("Changes are saved on this phone first and sent automatically when there is internet. Sending the same change twice never creates a duplicate."), style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
-            if (problems.isNotEmpty()) item { Text("Needs your decision", style = MaterialTheme.typography.titleMedium) }
+            if (problems.isNotEmpty()) item { Text(tr("Needs your decision"), style = MaterialTheme.typography.titleMedium) }
             items(problems, key = { it.opId }) { p ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -220,45 +218,45 @@ fun SyncProblemsScreen(onBack: () -> Unit, vm: SyncViewModel = hiltViewModel()) 
                             p.state == "CONFLICT" -> {
                                 Text(conflictHelp(p), style = MaterialTheme.typography.bodyMedium)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    OutlinedButton(onClick = { vm.keepMine(p.entityId) }) { Text("Keep mine") }
+                                    OutlinedButton(onClick = { vm.keepMine(p.entityId) }) { Text(tr("Keep mine")) }
                                     OutlinedButton(onClick = {
-                                        confirm = PendingChoice("Use the other version?",
-                                            "Your change to ${p.label()} will be removed from this phone." +
-                                                if (p.isFinancial()) " This is a purchase record: make sure the other version is correct." else "",
-                                            "Use theirs") { vm.useTheirs(p.entityId) }
-                                    }) { Text("Use theirs") }
+                                        confirm = PendingChoice(tr("Use the other version?"),
+                                            tr("Your change to %1\$s will be removed from this phone.", p.label()) +
+                                                if (p.isFinancial()) tr(" This is a purchase record: make sure the other version is correct.") else "",
+                                            tr("Use theirs")) { vm.useTheirs(p.entityId) }
+                                    }) { Text(tr("Use theirs")) }
                                 }
                             }
                             p.serverRetries > 0 -> {
-                                Text(p.lastError ?: "The server could not process this change.", style = MaterialTheme.typography.bodyMedium,
+                                Text(p.lastError?.let { trMessage(it) } ?: tr("The server could not process this change."), style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.error)
-                                Text("It is kept safely on this phone.", style = MaterialTheme.typography.bodySmall)
-                                OutlinedButton(onClick = { vm.tryAgain(p.entityId) }) { Text("Try again") }
+                                Text(tr("It is kept safely on this phone."), style = MaterialTheme.typography.bodySmall)
+                                OutlinedButton(onClick = { vm.tryAgain(p.entityId) }) { Text(tr("Try again")) }
                             }
                             else -> {
-                                Text(p.lastError ?: "The server did not accept this change.", style = MaterialTheme.typography.bodyMedium,
+                                Text(p.lastError?.let { trMessage(it) } ?: tr("The server did not accept this change."), style = MaterialTheme.typography.bodyMedium,
                                     color = MaterialTheme.colorScheme.error)
-                                Text("Correct the record and save it again, or discard this change.", style = MaterialTheme.typography.bodySmall)
+                                Text(tr("Correct the record and save it again, or discard this change."), style = MaterialTheme.typography.bodySmall)
                                 OutlinedButton(onClick = {
-                                    confirm = PendingChoice(if (p.isFinancial()) "Discard this purchase record?" else "Discard this change?",
-                                        "${p.label()} will be removed from this phone and will not be sent. " +
-                                            if (p.isFinancial()) "It is a purchase or goods-received record and cannot be recovered afterwards."
-                                            else "This cannot be undone.",
-                                        "Discard") { vm.discard(p.entityId) }
-                                }) { Text("Discard my change") }
+                                    confirm = PendingChoice(if (p.isFinancial()) tr("Discard this purchase record?") else tr("Discard this change?"),
+                                        tr("%1\$s will be removed from this phone and will not be sent. ", p.label()) +
+                                            if (p.isFinancial()) tr("It is a purchase or goods-received record and cannot be recovered afterwards.")
+                                            else tr("This cannot be undone."),
+                                        tr("Discard")) { vm.discard(p.entityId) }
+                                }) { Text(tr("Discard my change")) }
                             }
                         }
                     }
                 }
             }
             val waiting = outbox.filter { it.state == "PENDING" }
-            if (waiting.isNotEmpty()) item { Text("Waiting to send (${waiting.size})", style = MaterialTheme.typography.titleMedium) }
+            if (waiting.isNotEmpty()) item { Text(tr("Waiting to send (%1\$s)", waiting.size), style = MaterialTheme.typography.titleMedium) }
             items(waiting, key = { "w" + it.opId }) { p ->
                 Column(Modifier.fillMaxWidth()) {
                     Text(p.label(), style = MaterialTheme.typography.bodyMedium)
                     Text(listOfNotNull(
                         Dates.dateTime(Instant.ofEpochMilli(p.createdAt).toString()),
-                        p.attempts.takeIf { it > 0 }?.let { "tried $it time(s)" },
+                        p.attempts.takeIf { it > 0 }?.let { tr("tried %1\$s time(s)", it) },
                         p.lastError?.takeIf { p.attempts > 0 },
                     ).joinToString(" · "), style = MaterialTheme.typography.bodySmall)
                 }
@@ -268,6 +266,6 @@ fun SyncProblemsScreen(onBack: () -> Unit, vm: SyncViewModel = hiltViewModel()) 
     confirm?.let { c ->
         AlertDialog(onDismissRequest = { confirm = null }, title = { Text(c.title) }, text = { Text(c.text) },
             confirmButton = { TextButton(onClick = { confirm = null; c.action() }) { Text(c.confirm, color = MaterialTheme.colorScheme.error) } },
-            dismissButton = { TextButton(onClick = { confirm = null }) { Text("Keep it") } })
+            dismissButton = { TextButton(onClick = { confirm = null }) { Text(tr("Keep it")) } })
     }
 }

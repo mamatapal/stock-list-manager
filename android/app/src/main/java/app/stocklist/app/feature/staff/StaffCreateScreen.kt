@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -83,7 +85,7 @@ class StaffCreateViewModel @Inject constructor(
 
     fun submit() {
         fun check(f: String, m: String?) { if (m != null) errors[f] = m else errors.remove(f) }
-        check("fullName", Validators.required(fullName, "Full name"))
+        check("fullName", Validators.required(fullName, tr("Full name")))
         check("username", Validators.username(username))
         check("mobile", Validators.mobile(mobile, required = false))
         if (errors.isNotEmpty()) return
@@ -110,15 +112,15 @@ fun StaffCreateScreen(onDone: () -> Unit, vm: StaffCreateViewModel = hiltViewMod
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add staff") },
+                title = { Text(tr("Add staff")) },
                 navigationIcon = {
-                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
                 },
                 // Always visible, whatever the screen size and even with the keyboard open.
                 actions = {
                     if (vm.created == null) {
                         TextButton(onClick = vm::submit, enabled = !vm.saving) {
-                            Text(if (vm.saving) "Creating..." else "Create", style = MaterialTheme.typography.titleMedium)
+                            Text(if (vm.saving) tr("Creating...") else tr("Create"), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 },
@@ -132,11 +134,10 @@ fun StaffCreateScreen(onDone: () -> Unit, vm: StaffCreateViewModel = hiltViewMod
         ) {
             val done = vm.created
             if (done != null) {
-                SectionCard("Account created") {
-                    Text("Give these sign-in details to ${done.staff.fullName}. The temporary password is shown only " +
-                        "once; they must choose their own password at first sign-in.")
-                    Text("Username: ${done.staff.username}", style = MaterialTheme.typography.titleMedium)
-                    Text("Temporary password: ${done.temporaryPassword}", style = MaterialTheme.typography.titleMedium)
+                SectionCard(tr("Account created")) {
+                    Text(tr("Give these sign-in details to %1\$s. The temporary password is shown only once; they must choose their own password at first sign-in.", done.staff.fullName))
+                    Text(tr("Username: %1\$s", done.staff.username), style = MaterialTheme.typography.titleMedium)
+                    Text(tr("Temporary password: %1\$s", done.temporaryPassword), style = MaterialTheme.typography.titleMedium)
                 }
                 val context = LocalContext.current
                 Button(
@@ -147,20 +148,20 @@ fun StaffCreateScreen(onDone: () -> Unit, vm: StaffCreateViewModel = hiltViewMod
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                 ) {
                     Icon(Icons.Filled.Share, contentDescription = null)
-                    Text("  Share sign-in details")
+                    Text(tr("  Share sign-in details"))
                 }
-                OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text("Done") }
+                OutlinedButton(onClick = onDone, modifier = Modifier.fillMaxWidth().height(48.dp)) { Text(tr("Done")) }
                 return@Column
             }
             val e = vm.errors
             ErrorText(vm.error)
-            FormField(vm.fullName, { vm.fullName = it }, "Full name", e["fullName"], capitalization = KeyboardCapitalization.Words)
-            FormField(vm.username, { vm.username = it.trim() }, "Username", e["username"],
+            FormField(vm.fullName, { vm.fullName = it }, tr("Full name"), e["fullName"], capitalization = KeyboardCapitalization.Words)
+            FormField(vm.username, { vm.username = it.trim() }, tr("Username"), e["username"],
                 capitalization = KeyboardCapitalization.None)
-            FormField(vm.mobile, { vm.mobile = it.filter(Char::isDigit).take(10) }, "Mobile (optional)", e["mobile"],
+            FormField(vm.mobile, { vm.mobile = it.filter(Char::isDigit).take(10) }, tr("Mobile (optional)"), e["mobile"],
                 keyboardType = KeyboardType.Phone)
-            Text("Permissions", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-            Text("Pre-selected: normal purchasing and receiving work.", style = MaterialTheme.typography.bodySmall)
+            Text(tr("Permissions"), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
+            Text(tr("Pre-selected: normal purchasing and receiving work."), style = MaterialTheme.typography.bodySmall)
             PermissionEditor(vm.selected, vm.grantable, enabled = !vm.saving, onToggle = vm::toggle)
         }
     }

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -69,10 +71,10 @@ class RegisterViewModel @Inject constructor(private val auth: AuthRepository) : 
     }
 
     fun next() {
-        check("businessName", Validators.required(businessName, "Business name"))
-        check("address", Validators.required(address, "Address"))
-        check("city", Validators.required(city, "City"))
-        check("state", Validators.required(state, "State"))
+        check("businessName", Validators.required(businessName, tr("Business name")))
+        check("address", Validators.required(address, tr("Address")))
+        check("city", Validators.required(city, tr("City")))
+        check("state", Validators.required(state, tr("State")))
         check("pinCode", Validators.pinCode(pinCode))
         check("gstin", Validators.gstin(gstin))
         if (errors.isEmpty()) step = 2
@@ -83,12 +85,12 @@ class RegisterViewModel @Inject constructor(private val auth: AuthRepository) : 
     }
 
     fun submit() {
-        check("ownerName", Validators.required(ownerName, "Your name"))
+        check("ownerName", Validators.required(ownerName, tr("Your name")))
         check("mobile", Validators.mobile(mobile))
         check("email", Validators.email(email))
         check("username", Validators.username(username))
         check("password", Validators.newPassword(password, username))
-        check("confirm", if (confirm != password) "Passwords do not match" else null)
+        check("confirm", if (confirm != password) tr("Passwords do not match") else null)
         if (errors.isNotEmpty()) return
         loading = true
         error = null
@@ -114,10 +116,10 @@ class RegisterViewModel @Inject constructor(private val auth: AuthRepository) : 
 fun RegisterScreen(onBack: () -> Unit, vm: RegisterViewModel = hiltViewModel()) {
     Scaffold(topBar = {
         TopAppBar(
-            title = { Text(if (vm.step == 1) "Your business (1 of 2)" else "Owner account (2 of 2)") },
+            title = { Text(if (vm.step == 1) tr("Your business (1 of 2)") else tr("Owner account (2 of 2)")) },
             navigationIcon = {
                 IconButton(onClick = { if (vm.step == 2) vm.back() else onBack() }) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                 }
             },
         )
@@ -129,32 +131,32 @@ fun RegisterScreen(onBack: () -> Unit, vm: RegisterViewModel = hiltViewModel()) 
         ) {
             val e = vm.errors
             if (vm.step == 1) {
-                Text("These details appear on your PDFs. You can change them later.",
+                Text(tr("These details appear on your PDFs. You can change them later."),
                     style = MaterialTheme.typography.bodyMedium)
-                FormField(vm.businessName, { vm.businessName = it }, "Business name", e["businessName"],
+                FormField(vm.businessName, { vm.businessName = it }, tr("Business name"), e["businessName"],
                     capitalization = KeyboardCapitalization.Words)
-                FormField(vm.address, { vm.address = it }, "Address", e["address"], singleLine = false)
-                FormField(vm.city, { vm.city = it }, "City", e["city"], capitalization = KeyboardCapitalization.Words)
-                FormField(vm.state, { vm.state = it }, "State", e["state"], capitalization = KeyboardCapitalization.Words)
-                FormField(vm.pinCode, { vm.pinCode = it.filter(Char::isDigit).take(6) }, "PIN code", e["pinCode"],
+                FormField(vm.address, { vm.address = it }, tr("Address"), e["address"], singleLine = false)
+                FormField(vm.city, { vm.city = it }, tr("City"), e["city"], capitalization = KeyboardCapitalization.Words)
+                FormField(vm.state, { vm.state = it }, tr("State"), e["state"], capitalization = KeyboardCapitalization.Words)
+                FormField(vm.pinCode, { vm.pinCode = it.filter(Char::isDigit).take(6) }, tr("PIN code"), e["pinCode"],
                     keyboardType = KeyboardType.Number)
-                FormField(vm.gstin, { vm.gstin = it.uppercase().take(15) }, "GST number (optional)", e["gstin"],
+                FormField(vm.gstin, { vm.gstin = it.uppercase().take(15) }, tr("GST number (optional)"), e["gstin"],
                     capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Done, onDone = vm::next)
-                LoadingButton("Next", loading = false, onClick = vm::next)
+                LoadingButton(tr("Next"), loading = false, onClick = vm::next)
             } else {
-                FormField(vm.ownerName, { vm.ownerName = it }, "Your full name", e["ownerName"],
+                FormField(vm.ownerName, { vm.ownerName = it }, tr("Your full name"), e["ownerName"],
                     capitalization = KeyboardCapitalization.Words)
-                FormField(vm.mobile, { vm.mobile = it.filter(Char::isDigit).take(10) }, "Mobile number", e["mobile"],
+                FormField(vm.mobile, { vm.mobile = it.filter(Char::isDigit).take(10) }, tr("Mobile number"), e["mobile"],
                     keyboardType = KeyboardType.Phone)
-                FormField(vm.email, { vm.email = it.trim() }, "Email", e["email"], keyboardType = KeyboardType.Email,
+                FormField(vm.email, { vm.email = it.trim() }, tr("Email"), e["email"], keyboardType = KeyboardType.Email,
                     capitalization = KeyboardCapitalization.None)
-                FormField(vm.username, { vm.username = it.trim() }, "Choose a username", e["username"],
+                FormField(vm.username, { vm.username = it.trim() }, tr("Choose a username"), e["username"],
                     capitalization = KeyboardCapitalization.None)
-                PasswordField(vm.password, { vm.password = it }, "Password (at least 8 characters)", e["password"],
+                PasswordField(vm.password, { vm.password = it }, tr("Password (at least 8 characters)"), e["password"],
                     imeAction = ImeAction.Next)
-                PasswordField(vm.confirm, { vm.confirm = it }, "Confirm password", e["confirm"], onDone = vm::submit)
+                PasswordField(vm.confirm, { vm.confirm = it }, tr("Confirm password"), e["confirm"], onDone = vm::submit)
                 ErrorText(vm.error)
-                LoadingButton("Create business", vm.loading, vm::submit)
+                LoadingButton(tr("Create business"), vm.loading, vm::submit)
             }
         }
     }

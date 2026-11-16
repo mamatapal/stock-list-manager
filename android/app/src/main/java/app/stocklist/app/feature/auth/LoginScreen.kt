@@ -1,5 +1,11 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.trMessage
+
+import app.stocklist.app.core.i18n.trKey
+
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -39,9 +45,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-enum class LoginRole(val code: String, val title: String) {
-    OWNER("OWNER", "Owner sign-in"),
-    STAFF("STAFF", "Staff sign-in"),
+enum class LoginRole(val code: String, private val englishTitle: String) {
+    OWNER("OWNER", trKey("Owner sign-in")),
+    STAFF("STAFF", trKey("Staff sign-in"));
+
+    val title: String get() = trMessage(englishTitle)
 }
 
 @HiltViewModel
@@ -59,13 +67,13 @@ class LoginViewModel @Inject constructor(private val auth: AuthRepository) : Vie
     fun keepOthersChanges() {
         othersChanges = null
         password = ""
-        error = "Sign-in cancelled. The other person's changes are still on this phone."
+        error = tr("Sign-in cancelled. The other person's changes are still on this phone.")
     }
 
     fun submit(role: LoginRole, discardOthersChanges: Boolean = false) {
         othersChanges = null
         if (username.isBlank() || password.isEmpty()) {
-            error = "Enter your username and password"
+            error = tr("Enter your username and password")
             return
         }
         loading = true
@@ -98,19 +106,19 @@ fun LoginScreen(
     vm.othersChanges?.let { message ->
         androidx.compose.material3.AlertDialog(
             onDismissRequest = vm::keepOthersChanges,
-            title = { Text("Unsent changes on this phone") },
+            title = { Text(tr("Unsent changes on this phone")) },
             text = { Text(message) },
             confirmButton = {
                 TextButton(onClick = { vm.submit(role, discardOthersChanges = true) }) {
-                    Text("Delete them and sign in", color = MaterialTheme.colorScheme.error)
+                    Text(tr("Delete them and sign in"), color = MaterialTheme.colorScheme.error)
                 }
             },
-            dismissButton = { TextButton(onClick = vm::keepOthersChanges) { Text("Keep them") } },
+            dismissButton = { TextButton(onClick = vm::keepOthersChanges) { Text(tr("Keep them")) } },
         )
     }
     Scaffold(topBar = {
         TopAppBar(title = { Text(role.title) }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
         })
     }) { padding ->
         Column(
@@ -119,29 +127,28 @@ fun LoginScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                if (role == LoginRole.OWNER) "Sign in with the username you chose when registering the business."
-                else "Sign in with the username and password your shop owner gave you.",
+                if (role == LoginRole.OWNER) tr("Sign in with the username you chose when registering the business.")
+                else tr("Sign in with the username and password your shop owner gave you."),
                 style = MaterialTheme.typography.bodyMedium,
             )
             if (signedOutReason != null && vm.error == null) {
                 Text(signedOutReason, color = MaterialTheme.colorScheme.error)
             }
-            FormField(vm.username, { vm.username = it }, "Username", capitalization = KeyboardCapitalization.None)
+            FormField(vm.username, { vm.username = it }, tr("Username"), capitalization = KeyboardCapitalization.None)
             PasswordField(vm.password, { vm.password = it }, onDone = { vm.submit(role) })
             ErrorText(vm.error)
-            LoadingButton("Sign in", vm.loading, { vm.submit(role) })
+            LoadingButton(tr("Sign in"), vm.loading, { vm.submit(role) })
             TextButton(onClick = { if (role == LoginRole.OWNER) onForgot() else staffHelp = true }) {
-                Text("Forgot password?")
+                Text(tr("Forgot password?"))
             }
         }
     }
     if (staffHelp) {
         AlertDialog(
             onDismissRequest = { staffHelp = false },
-            title = { Text("Forgot your password?") },
+            title = { Text(tr("Forgot your password?")) },
             text = {
-                Text("Ask your shop owner to reset it. They can do this in the app under Staff, then your name, " +
-                    "then Reset password. You will get a temporary password and choose a new one when you sign in.")
+                Text(tr("Ask your shop owner to reset it. They can do this in the app under Staff, then your name, then Reset password. You will get a temporary password and choose a new one when you sign in."))
             },
             confirmButton = { TextButton(onClick = { staffHelp = false }) { Text("OK") } },
         )

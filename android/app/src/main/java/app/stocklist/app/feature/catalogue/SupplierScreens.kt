@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Spacer
@@ -97,13 +99,13 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
     val inactive by vm.showInactive.collectAsStateWithLifecycle()
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Suppliers") }, navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+            TopAppBar(title = { Text(tr("Suppliers")) }, navigationIcon = {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
             }, actions = {
                 if (access.has(Permission.SUPPLIER_ADD)) {
                     TextButton(onClick = onAdd) {
                         Icon(Icons.Filled.Add, null)
-                        Text("Add supplier", style = MaterialTheme.typography.titleMedium)
+                        Text(tr("Add supplier"), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             })
@@ -111,14 +113,14 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
             OutlinedTextField(q, { vm.query.value = it }, singleLine = true, leadingIcon = { Icon(Icons.Filled.Search, null) },
-                placeholder = { Text("Search name, city, phone") }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
+                placeholder = { Text(tr("Search name, city, phone")) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp)) {
-                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text("Show inactive") })
+                FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive")) })
             }
             val l = list
             when {
                 l == null -> LoadingState()
-                l.isEmpty() -> EmptyState(if (q.isBlank()) "No suppliers yet." else "No supplier matches \"$q\".")
+                l.isEmpty() -> EmptyState(if (q.isBlank()) tr("No suppliers yet.") else tr("No supplier matches \"%1\$s\".", q))
                 else -> LazyColumn {
                     items(l, key = { it.id }) { s ->
                         ListItem(
@@ -129,7 +131,7 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
                                     SyncBadge(s.syncState, s.syncError)
                                 }
                             },
-                            trailingContent = { if (!s.active) Text("Inactive", color = MaterialTheme.colorScheme.error) },
+                            trailingContent = { if (!s.active) Text(tr("Inactive"), color = MaterialTheme.colorScheme.error) },
                             modifier = Modifier.clickable { onOpen(s.id) },
                         )
                         HorizontalDivider()
@@ -164,7 +166,7 @@ class SupplierDetailViewModel @Inject constructor(
     fun setActive(active: Boolean) = viewModelScope.launch {
         val s = repo.observeOne(id).first() ?: return@launch
         repo.save(id, s.toInput().copy(active = active))
-        message = if (active) "Supplier reactivated" else "Supplier deactivated. It stays in old lists but is hidden from new ones."
+        message = if (active) tr("Supplier reactivated") else tr("Supplier deactivated. It stays in old lists but is hidden from new ones.")
     }
 
     fun delete(onDone: () -> Unit) = viewModelScope.launch {
@@ -187,84 +189,83 @@ fun SupplierDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
     val hTo by vm.to.collectAsStateWithLifecycle()
     var confirmDelete by remember { mutableStateOf(false) }
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Supplier") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(tr("Supplier")) },
+            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             actions = {
                 val sup = s
                 if (sup != null && onPdf != null && access.canViewPurchases) {
-                    IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Supplier(sup.id, hFrom, hTo)) }) { Icon(Icons.Filled.PictureAsPdf, "Purchase report PDF") }
+                    IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Supplier(sup.id, hFrom, hTo)) }) { Icon(Icons.Filled.PictureAsPdf, tr("Purchase report PDF")) }
                 }
                 if (sup != null && access.has(Permission.SUPPLIER_EDIT)) {
-                    IconButton(onClick = { onEdit(sup.id) }) { Icon(Icons.Filled.Edit, "Edit") }
+                    IconButton(onClick = { onEdit(sup.id) }) { Icon(Icons.Filled.Edit, tr("Edit")) }
                 }
                 if (sup != null && access.has(Permission.SUPPLIER_DELETE)) {
-                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, "Delete") }
+                    IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Filled.Delete, tr("Delete")) }
                 }
             })
     }) { padding ->
         val sup = s
         if (sup == null) {
-            Column(Modifier.padding(padding)) { EmptyState("This supplier is no longer available.") }
+            Column(Modifier.padding(padding)) { EmptyState(tr("This supplier is no longer available.")) }
             return@Scaffold
         }
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SyncBadge(sup.syncState, sup.syncError)
             SectionCard(sup.name) {
-                LabelValue("Contact person", sup.contactPerson)
-                LabelValue("Mobile", sup.mobile)
-                LabelValue("Other phone", sup.altPhone)
-                LabelValue("Address", sup.address)
-                LabelValue("City", sup.city)
-                LabelValue("GST number", sup.gstin)
-                LabelValue("Notes", sup.notes)
-                LabelValue("Status", if (sup.active) "Active" else "Inactive")
-                LabelValue("Added by", personName(names, sup.createdBy, vm.me))
-                LabelValue("Last changed by", personName(names, sup.updatedBy, vm.me))
+                LabelValue(tr("Contact person"), sup.contactPerson)
+                LabelValue(tr("Mobile"), sup.mobile)
+                LabelValue(tr("Other phone"), sup.altPhone)
+                LabelValue(tr("Address"), sup.address)
+                LabelValue(tr("City"), sup.city)
+                LabelValue(tr("GST number"), sup.gstin)
+                LabelValue(tr("Notes"), sup.notes)
+                LabelValue(tr("Status"), if (sup.active) tr("Active") else tr("Inactive"))
+                LabelValue(tr("Added by"), personName(names, sup.createdBy, vm.me))
+                LabelValue(tr("Last changed by"), personName(names, sup.updatedBy, vm.me))
             }
             if (access.canViewPurchases) {
                 val h = history
-                SectionCard("Purchase history") {
+                SectionCard(tr("Purchase history")) {
                     Row {
-                        DateField("From", hFrom, { vm.from.value = it }, Modifier.weight(1f), clearable = true)
+                        DateField(tr("From"), hFrom, { vm.from.value = it }, Modifier.weight(1f), clearable = true)
                         Spacer(Modifier.width(8.dp))
-                        DateField("To", hTo, { vm.to.value = it }, Modifier.weight(1f), clearable = true)
+                        DateField(tr("To"), hTo, { vm.to.value = it }, Modifier.weight(1f), clearable = true)
                     }
                     if (h == null || h.purchases.isEmpty()) {
-                        Text("No completed purchases from this supplier" + if (hFrom != null || hTo != null) " in these dates." else " yet.",
+                        Text(if (hFrom != null || hTo != null) tr("No completed purchases from this supplier in these dates.") else tr("No completed purchases from this supplier yet."),
                             style = MaterialTheme.typography.bodySmall)
                     } else {
-                        LabelValue("Purchases", h.purchaseCount.toString())
-                        LabelValue("Total spent", app.stocklist.app.domain.catalogue.Decimals.rupees(h.totalCost.toPlainString()))
-                        LabelValue("First / last purchase", "${h.firstDate.displayDate()} / ${h.lastDate.displayDate()}")
+                        LabelValue(tr("Purchases"), h.purchaseCount.toString())
+                        LabelValue(tr("Total spent"), app.stocklist.app.domain.catalogue.Decimals.rupees(h.totalCost.toPlainString()))
+                        LabelValue(tr("First / last purchase"), "${h.firstDate.displayDate()} / ${h.lastDate.displayDate()}")
                         h.purchases.take(5).forEach { p ->
                             Row(Modifier.fillMaxWidth().clickable { onOpenPurchase(p.id) }.padding(vertical = 6.dp)) {
                                 Column(Modifier.weight(1f)) {
-                                    Text("${p.purchaseDate.displayDate()} · ${p.invoiceNo?.let { "#$it" } ?: "no invoice no."}")
-                                    Text(purchaseStatusLabel(p.status) + " · " + "${p.itemCount} items",
+                                    Text("${p.purchaseDate.displayDate()} · ${p.invoiceNo?.let { "#$it" } ?: tr("no invoice no.")}")
+                                    Text(purchaseStatusLabel(p.status) + tr(" · %1\$s items", p.itemCount),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = if (p.status == "CANCELLED") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 Text(app.stocklist.app.domain.catalogue.Decimals.rupees(p.totalCost))
                             }
                         }
-                        TextButton(onClick = { onAllPurchases(sup.id) }) { Text("See all purchases from this supplier") }
+                        TextButton(onClick = { onAllPurchases(sup.id) }) { Text(tr("See all purchases from this supplier")) }
                     }
                 }
             }
             if (access.has(Permission.SUPPLIER_EDIT)) {
                 OutlinedButton(onClick = { vm.setActive(!sup.active) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (sup.active) "Deactivate supplier" else "Reactivate supplier")
+                    Text(if (sup.active) tr("Deactivate supplier") else tr("Reactivate supplier"))
                 }
             }
             vm.message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
         }
     }
     if (confirmDelete) {
-        ConfirmDialog("Delete supplier?",
-            "The supplier is removed from the supplier list for everyone. Lists and items that used it keep working. " +
-                "If you may need it again, deactivate it instead.",
-            "Delete", onConfirm = { confirmDelete = false; vm.delete(onBack) }, onDismiss = { confirmDelete = false })
+        ConfirmDialog(tr("Delete supplier?"),
+            tr("The supplier is removed from the supplier list for everyone. Lists and items that used it keep working. If you may need it again, deactivate it instead."),
+            tr("Delete"), onConfirm = { confirmDelete = false; vm.delete(onBack) }, onDismiss = { confirmDelete = false })
     }
 }
 
@@ -304,7 +305,7 @@ class SupplierEditViewModel @Inject constructor(
 
     fun save(onDone: () -> Unit) {
         fun check(f: String, m: String?) { if (m != null) errors[f] = m else errors.remove(f) }
-        check("name", Validators.required(name, "Supplier name") ?: if (name.trim().length > 150) "At most 150 characters" else null)
+        check("name", Validators.required(name, tr("Supplier name")) ?: if (name.trim().length > 150) tr("At most 150 characters") else null)
         check("mobile", Validators.phone(mobile))
         check("altPhone", Validators.phone(altPhone))
         check("gstin", Validators.gstin(gstin))
@@ -324,27 +325,27 @@ class SupplierEditViewModel @Inject constructor(
 @Composable
 fun SupplierEditScreen(onDone: () -> Unit, vm: SupplierEditViewModel = hiltViewModel()) {
     Scaffold(topBar = {
-        TopAppBar(title = { Text(if (vm.id == null) "Add supplier" else "Edit supplier") },
-            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") } },
+        TopAppBar(title = { Text(if (vm.id == null) tr("Add supplier") else tr("Edit supplier")) },
+            navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) } },
             actions = {
                 TextButton(onClick = { vm.save(onDone) }, enabled = vm.loaded && !vm.saving) {
-                    Text("Save", style = MaterialTheme.typography.titleMedium)
+                    Text(tr("Save"), style = MaterialTheme.typography.titleMedium)
                 }
             })
     }) { padding ->
         if (!vm.loaded) { Column(Modifier.padding(padding)) { LoadingState() }; return@Scaffold }
         Column(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).imePadding().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            FormField(vm.name, { vm.name = it }, "Supplier name *", vm.errors["name"], capitalization = KeyboardCapitalization.Words)
-            FormField(vm.contactPerson, { vm.contactPerson = it }, "Contact person", capitalization = KeyboardCapitalization.Words)
-            FormField(vm.mobile, { vm.mobile = it }, "Mobile number", vm.errors["mobile"], keyboardType = KeyboardType.Phone)
-            FormField(vm.altPhone, { vm.altPhone = it }, "Other phone", vm.errors["altPhone"], keyboardType = KeyboardType.Phone)
-            FormField(vm.address, { vm.address = it }, "Address", singleLine = false)
-            FormField(vm.city, { vm.city = it }, "City", capitalization = KeyboardCapitalization.Words)
-            FormField(vm.gstin, { vm.gstin = it }, "GST number", vm.errors["gstin"], capitalization = KeyboardCapitalization.Characters)
-            FormField(vm.notes, { vm.notes = it }, "Notes", singleLine = false)
-            ErrorText(if (vm.errors.isNotEmpty()) "Please correct the highlighted fields." else null)
-            Text("Saved on this phone straight away, and sent to the server when online.",
+            FormField(vm.name, { vm.name = it }, tr("Supplier name *"), vm.errors["name"], capitalization = KeyboardCapitalization.Words)
+            FormField(vm.contactPerson, { vm.contactPerson = it }, tr("Contact person"), capitalization = KeyboardCapitalization.Words)
+            FormField(vm.mobile, { vm.mobile = it }, tr("Mobile number"), vm.errors["mobile"], keyboardType = KeyboardType.Phone)
+            FormField(vm.altPhone, { vm.altPhone = it }, tr("Other phone"), vm.errors["altPhone"], keyboardType = KeyboardType.Phone)
+            FormField(vm.address, { vm.address = it }, tr("Address"), singleLine = false)
+            FormField(vm.city, { vm.city = it }, tr("City"), capitalization = KeyboardCapitalization.Words)
+            FormField(vm.gstin, { vm.gstin = it }, tr("GST number"), vm.errors["gstin"], capitalization = KeyboardCapitalization.Characters)
+            FormField(vm.notes, { vm.notes = it }, tr("Notes"), singleLine = false)
+            ErrorText(if (vm.errors.isNotEmpty()) tr("Please correct the highlighted fields.") else null)
+            Text(tr("Saved on this phone straight away, and sent to the server when online."),
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

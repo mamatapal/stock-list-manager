@@ -1,5 +1,6 @@
 package app.stocklist.app.data.sync
 
+import app.stocklist.app.core.i18n.trKey
 import androidx.room.withTransaction
 import app.stocklist.app.core.session.SessionState
 import app.stocklist.app.core.session.SessionStore
@@ -145,11 +146,10 @@ class SyncRepository(
             "RETRY" -> {
                 // Nothing was saved on the server. Kept as pending and sent again later; after repeated server
                 // errors it waits for the user (shown under "needs attention" with "Try again"), never dropped.
-                db.outbox().noteServerRetry(op.opId, r.message ?: "Server busy")
+                db.outbox().noteServerRetry(op.opId, r.message ?: trKey("Server busy"))
                 if ((db.outbox().get(op.opId)?.serverRetries ?: 0) >= MAX_SERVER_RETRIES) {
-                    db.outbox().mark(op.opId, "FAILED", "The server could not process this change after several tries. " +
-                        "It is kept on this phone; tap Try again later.", null, null)
-                    setState(op.entityType, op.entityId, SyncState.FAILED, "Server error; kept on this phone")
+                    db.outbox().mark(op.opId, "FAILED", trKey("The server could not process this change after several tries. It is kept on this phone; tap Try again later."), null, null)
+                    setState(op.entityType, op.entityId, SyncState.FAILED, trKey("Server error; kept on this phone"))
                 }
             }
             else -> {

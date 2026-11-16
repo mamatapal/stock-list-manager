@@ -16,6 +16,7 @@ class StockListApp : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+        app.stocklist.app.core.i18n.Lang.init(this)
         network.start()
     }
 

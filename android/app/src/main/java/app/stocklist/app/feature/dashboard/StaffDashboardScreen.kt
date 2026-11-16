@@ -1,5 +1,9 @@
 package app.stocklist.app.feature.dashboard
 
+import app.stocklist.app.core.i18n.trMessage
+
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -43,35 +47,35 @@ fun StaffDashboardScreen(
     val perms = Permission.fromCodes(user.permissions)
     Scaffold(topBar = {
         TopAppBar(title = { Text(user.businessName) }, actions = {
-            IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, "Refresh my permissions") }
-            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, "My account") }
+            IconButton(onClick = onRefresh) { Icon(Icons.Filled.Refresh, tr("Refresh my permissions")) }
+            IconButton(onClick = onAccount) { Icon(Icons.Filled.AccountCircle, tr("My account")) }
         })
     }) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Hello, ${user.fullName}", style = MaterialTheme.typography.titleLarge)
-            Text("Staff", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(tr("Hello, %1\$s", user.fullName), style = MaterialTheme.typography.titleLarge)
+            Text(tr("Staff"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
             work()
             if (Permission.STAFF_MANAGE in perms) {
-                DashboardTile(Icons.Filled.Group, "Staff", "You can manage staff accounts", onStaff)
+                DashboardTile(Icons.Filled.Group, tr("Staff"), tr("You can manage staff accounts"), onStaff)
             }
-            DashboardTile(Icons.Filled.Store, "Business profile",
-                if (Permission.SETTINGS_MANAGE in perms) "View and edit business details" else "Business details", onBusiness)
+            DashboardTile(Icons.Filled.Store, tr("Business profile"),
+                if (Permission.SETTINGS_MANAGE in perms) tr("View and edit business details") else tr("Business details"), onBusiness)
 
-            SectionCard("What you can do") {
+            SectionCard(tr("What you can do")) {
                 val grouped = PermissionSummary.grouped(perms)
                 if (grouped.isEmpty()) {
-                    Text("Your owner has not given you any permissions yet.")
+                    Text(tr("Your owner has not given you any permissions yet."))
                 } else {
                     grouped.forEach { (group, labels) ->
-                        Text(group, style = MaterialTheme.typography.titleSmall)
-                        Text(labels.joinToString(" · "), style = MaterialTheme.typography.bodyMedium)
+                        Text(trMessage(group), style = MaterialTheme.typography.titleSmall)
+                        Text(labels.joinToString(" · ") { trMessage(it) }, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
-                Text("Suppliers, items, lists and purchases appear here as those parts of the app are released.",
+                Text(tr("Suppliers, items, lists and purchases appear here as those parts of the app are released."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

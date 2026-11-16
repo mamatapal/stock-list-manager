@@ -1,5 +1,7 @@
 package app.stocklist.app.data.repository
 
+import app.stocklist.app.core.i18n.tr
+
 import android.content.Context
 import app.stocklist.app.core.pdf.BusinessInfo
 import app.stocklist.app.core.pdf.ReportDoc
@@ -49,7 +51,7 @@ class PdfRepository @Inject constructor(
     private val json: Json,
 ) {
     private fun user(): MeDto = (session.state.value as? SessionState.SignedIn)?.user
-        ?: throw PdfException("Sign in again to make PDFs.")
+        ?: throw PdfException(tr("Sign in again to make PDFs."))
 
     private fun MeDto.has(p: Permission) = isOwner || p.name in permissions
 
@@ -62,8 +64,8 @@ class PdfRepository @Inject constructor(
         return BusinessInfo(b.name, listOf(
             b.address,
             listOf(b.city, listOf(b.state, b.pinCode).filter { it.isNotBlank() }.joinToString(" ")).filter { it.isNotBlank() }.joinToString(", "),
-            listOf(b.phone.takeIf { it.isNotBlank() }?.let { "Phone $it" }, b.email.takeIf { it.isNotBlank() }).filterNotNull().joinToString("  ·  "),
-            b.gstin?.takeIf { it.isNotBlank() }?.let { "GSTIN $it" }.orEmpty(),
+            listOf(b.phone.takeIf { it.isNotBlank() }?.let { tr("Phone %1\$s", it) }, b.email.takeIf { it.isNotBlank() }).filterNotNull().joinToString("  ·  "),
+            b.gstin?.takeIf { it.isNotBlank() }?.let { tr("GSTIN %1\$s", it) }.orEmpty(),
         ).filter { it.isNotBlank() })
     }
 
@@ -77,26 +79,26 @@ class PdfRepository @Inject constructor(
 
     suspend fun build(job: PdfJob): ReportDoc {
         val me = user()
-        if (!me.has(Permission.PDF_GENERATE)) throw PdfException("You do not have permission to make PDFs.")
+        if (!me.has(Permission.PDF_GENERATE)) throw PdfException(tr("You do not have permission to make PDFs."))
         val ctx = context(me)
         return when (job) {
             is PdfJob.StockList -> {
-                val list = db.lists().get(job.id)?.takeIf { !it.deleted } ?: throw PdfException("This list is no longer available.")
+                val list = db.lists().get(job.id)?.takeIf { !it.deleted } ?: throw PdfException(tr("This list is no longer available."))
                 val units = BuiltInUnits.all.associate { it.id to it.code } + db.units().observeCustom().first().associate { it.id to it.code }
                 PdfDocuments.stockList(ctx, list, db.lists().lines(list.id), list.supplierId?.let { db.suppliers().get(it) }, units)
             }
             is PdfJob.Purchase -> {
-                val p = db.purchases().get(job.id)?.takeIf { !it.deleted } ?: throw PdfException("This purchase is no longer available.")
+                val p = db.purchases().get(job.id)?.takeIf { !it.deleted } ?: throw PdfException(tr("This purchase is no longer available."))
                 PdfDocuments.purchase(ctx, p, db.purchases().lines(p.id), db.purchases().observeDeliveries(p.id).first(),
                     db.purchases().deliveryLines(p.id), db.suppliers().get(p.supplierId))
             }
             is PdfJob.Supplier -> {
-                val s = db.suppliers().get(job.id) ?: throw PdfException("This supplier is no longer available.")
+                val s = db.suppliers().get(job.id) ?: throw PdfException(tr("This supplier is no longer available."))
                 PdfDocuments.supplierReport(ctx, s, db.purchases().observeSupplierHistory(s.id, d(job.from), d(job.to)).first(),
                     job.from, job.to)
             }
             is PdfJob.Item -> {
-                val item = db.items().get(job.id) ?: throw PdfException("This item is no longer available.")
+                val item = db.items().get(job.id) ?: throw PdfException(tr("This item is no longer available."))
                 PdfDocuments.itemReport(ctx, item, db.purchases().observeItemHistory(item.id, d(job.from), d(job.to)).first(),
                     job.from, job.to)
             }
@@ -123,7 +125,7 @@ class PdfRepository @Inject constructor(
         }
         val value = when (r) {
             is ApiResult.Failure -> throw PdfException(
-                if (r.error.isNetwork) "Reports need an internet connection. Connect and try again." else r.error.message)
+                if (r.error.isNetwork) tr("Reports need an internet connection. Connect and try again.") else r.error.message)
             is ApiResult.Ok -> r.value
         }
         return when (value) {
@@ -131,7 +133,7 @@ class PdfRepository @Inject constructor(
             is app.stocklist.app.data.remote.SupplierTotalsDto -> PdfDocuments.supplierTotals(ctx, value)
             is app.stocklist.app.data.remote.ItemPricesDto -> PdfDocuments.itemPrices(ctx, value)
             is app.stocklist.app.data.remote.ExpectedProfitReportDto -> PdfDocuments.expectedProfit(ctx, value)
-            else -> throw PdfException("Unknown report")
+            else -> throw PdfException(tr("Unknown report"))
         }
     }
 

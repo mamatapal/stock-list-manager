@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -129,7 +131,7 @@ class StaffDetailViewModel @Inject constructor(
         act({ repo.setPermissions(staffId, permissions) }, { savePermissions() }) { r ->
             savedPermissions = Permission.fromCodes(r.permissions)
             permissions = savedPermissions
-            message = "Permissions saved. They apply on ${staff?.fullName}'s phone straight away."
+            message = tr("Permissions saved. They apply on %1\$s's phone straight away.", staff?.fullName)
         }
     }
 
@@ -137,7 +139,7 @@ class StaffDetailViewModel @Inject constructor(
         act({ repo.setActive(staffId, active) }, { setActive(active) }) { r ->
             staff = r
             if (!active) sessions = emptyList()
-            message = if (active) "Account activated" else "Account deactivated and signed out on all phones"
+            message = if (active) tr("Account activated") else tr("Account deactivated and signed out on all phones")
         }
     }
 
@@ -151,7 +153,7 @@ class StaffDetailViewModel @Inject constructor(
     fun revokeSessions() {
         act({ repo.revokeSessions(staffId) }, { revokeSessions() }) {
             sessions = emptyList()
-            message = "Signed out on all phones"
+            message = tr("Signed out on all phones")
         }
     }
 
@@ -172,12 +174,12 @@ class StaffDetailViewModel @Inject constructor(
     /** The single Save button (top right): saves edited details first, then changed permissions. */
     fun saveAll() {
         if (editing) {
-            fieldError = Validators.required(fullName, "Full name") ?: Validators.mobile(mobile, required = false)
+            fieldError = Validators.required(fullName, tr("Full name")) ?: Validators.mobile(mobile, required = false)
             if (fieldError != null) return
             act({ repo.update(staffId, fullName, mobile) }, { saveAll() }) { r ->
                 staff = r
                 editing = false
-                message = "Details saved"
+                message = tr("Details saved")
                 if (permissionsChanged) savePermissions()
             }
         } else if (permissionsChanged) {
@@ -211,14 +213,14 @@ fun StaffDetailScreen(onBack: () -> Unit, vm: StaffDetailViewModel = hiltViewMod
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(vm.staff?.fullName ?: "Staff member") },
+                title = { Text(vm.staff?.fullName ?: tr("Staff member")) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
                 },
                 actions = {
                     if (vm.staff != null) {
                         TextButton(onClick = vm::saveAll, enabled = vm.hasChanges && !vm.busy) {
-                            Text(if (vm.busy) "Saving..." else "Save", style = MaterialTheme.typography.titleMedium)
+                            Text(if (vm.busy) tr("Saving...") else tr("Save"), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 },
@@ -234,51 +236,51 @@ fun StaffDetailScreen(onBack: () -> Unit, vm: StaffDetailViewModel = hiltViewMod
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 ErrorText(vm.error)
-                SectionCard("Details") {
+                SectionCard(tr("Details")) {
                     if (vm.editing) {
-                        FormField(vm.fullName, { vm.fullName = it }, "Full name", capitalization = KeyboardCapitalization.Words)
-                        FormField(vm.mobile, { vm.mobile = it.filter(Char::isDigit).take(10) }, "Mobile (optional)",
+                        FormField(vm.fullName, { vm.fullName = it }, tr("Full name"), capitalization = KeyboardCapitalization.Words)
+                        FormField(vm.mobile, { vm.mobile = it.filter(Char::isDigit).take(10) }, tr("Mobile (optional)"),
                             keyboardType = KeyboardType.Phone)
                         ErrorText(vm.fieldError)
-                        Text("Tap Save at the top right to apply.", style = MaterialTheme.typography.bodySmall)
-                        TextButton(onClick = vm::cancelEdit) { Text("Cancel") }
+                        Text(tr("Tap Save at the top right to apply."), style = MaterialTheme.typography.bodySmall)
+                        TextButton(onClick = vm::cancelEdit) { Text(tr("Cancel")) }
                     } else {
-                        LabelValue("Username", s.username)
-                        LabelValue("Mobile", s.mobile)
-                        LabelValue("Status", if (s.isActive) "Active" else "Inactive")
-                        LabelValue("Created", Dates.date(s.createdAt))
-                        LabelValue("Last sign-in", Dates.dateTime(s.lastLoginAt))
+                        LabelValue(tr("Username"), s.username)
+                        LabelValue(tr("Mobile"), s.mobile)
+                        LabelValue(tr("Status"), if (s.isActive) tr("Active") else tr("Inactive"))
+                        LabelValue(tr("Created"), Dates.date(s.createdAt))
+                        LabelValue(tr("Last sign-in"), Dates.dateTime(s.lastLoginAt))
                         if (s.mustChangePassword) {
-                            Text("Has not yet chosen their own password.", style = MaterialTheme.typography.bodySmall)
+                            Text(tr("Has not yet chosen their own password."), style = MaterialTheme.typography.bodySmall)
                         }
-                        OutlinedButton(onClick = vm::startEdit, enabled = !vm.busy) { Text("Edit details") }
+                        OutlinedButton(onClick = vm::startEdit, enabled = !vm.busy) { Text(tr("Edit details")) }
                     }
                 }
-                SectionCard("Access") {
+                SectionCard(tr("Access")) {
                     OutlinedButton(
                         onClick = { confirm = if (s.isActive) "deactivate" else "activate" },
                         enabled = !vm.busy, modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (s.isActive) "Deactivate account" else "Activate account") }
+                    ) { Text(if (s.isActive) tr("Deactivate account") else tr("Activate account")) }
                     OutlinedButton(onClick = { confirm = "reset" }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
-                        Text("Reset password")
+                        Text(tr("Reset password"))
                     }
                 }
-                SectionCard("Permissions") {
+                SectionCard(tr("Permissions")) {
                     if (vm.permissionsChanged) {
-                        Text("Unsaved changes - tap Save at the top right.", style = MaterialTheme.typography.bodySmall,
+                        Text(tr("Unsaved changes - tap Save at the top right."), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.primary)
                     }
                     PermissionEditor(vm.permissions, vm.grantable, enabled = !vm.busy, onToggle = vm::toggle)
                 }
-                SectionCard("Signed-in phones") {
+                SectionCard(tr("Signed-in phones")) {
                     if (vm.sessions.isEmpty()) {
-                        Text("Not signed in on any phone.")
+                        Text(tr("Not signed in on any phone."))
                     } else {
                         vm.sessions.forEach { sess ->
-                            LabelValue(sess.deviceName ?: "Phone", "since ${Dates.dateTime(sess.signedInAt)}")
+                            LabelValue(sess.deviceName ?: tr("Phone"), tr("since %1\$s", Dates.dateTime(sess.signedInAt)))
                         }
                         OutlinedButton(onClick = { confirm = "signout" }, enabled = !vm.busy, modifier = Modifier.fillMaxWidth()) {
-                            Text("Sign out on all phones")
+                            Text(tr("Sign out on all phones"))
                         }
                     }
                 }
@@ -287,30 +289,29 @@ fun StaffDetailScreen(onBack: () -> Unit, vm: StaffDetailViewModel = hiltViewMod
     }
 
     when (confirm) {
-        "deactivate" -> ConfirmDialog("Deactivate account?",
-            "${vm.staff?.fullName} will be signed out on every phone and cannot sign in until you activate the account again. " +
-                "Their past work stays in the records.", "Deactivate",
+        "deactivate" -> ConfirmDialog(tr("Deactivate account?"),
+            tr("%1\$s will be signed out on every phone and cannot sign in until you activate the account again. Their past work stays in the records.", vm.staff?.fullName), tr("Deactivate"),
             { confirm = null; vm.setActive(false) }, { confirm = null })
-        "activate" -> ConfirmDialog("Activate account?", "${vm.staff?.fullName} will be able to sign in again.",
-            "Activate", { confirm = null; vm.setActive(true) }, { confirm = null })
-        "reset" -> ConfirmDialog("Reset password?",
-            "A new temporary password will be created and ${vm.staff?.fullName} will be signed out on every phone.",
-            "Reset", { confirm = null; vm.resetPassword() }, { confirm = null })
-        "signout" -> ConfirmDialog("Sign out on all phones?", "They can sign in again with their password.",
-            "Sign out", { confirm = null; vm.revokeSessions() }, { confirm = null })
+        "activate" -> ConfirmDialog(tr("Activate account?"), tr("%1\$s will be able to sign in again.", vm.staff?.fullName),
+            tr("Activate"), { confirm = null; vm.setActive(true) }, { confirm = null })
+        "reset" -> ConfirmDialog(tr("Reset password?"),
+            tr("A new temporary password will be created and %1\$s will be signed out on every phone.", vm.staff?.fullName),
+            tr("Reset"), { confirm = null; vm.resetPassword() }, { confirm = null })
+        "signout" -> ConfirmDialog(tr("Sign out on all phones?"), tr("They can sign in again with their password."),
+            tr("Sign out"), { confirm = null; vm.revokeSessions() }, { confirm = null })
     }
     vm.temporaryPassword?.let { temp ->
         val context = LocalContext.current
         val s = vm.staff
         AlertDialog(
             onDismissRequest = {},
-            title = { Text("New temporary password") },
-            text = { Text("Give this to ${s?.fullName}. It is shown only once:\n\nUsername: ${s?.username}\nTemporary password: $temp") },
-            confirmButton = { TextButton(onClick = { vm.temporaryPassword = null }) { Text("Done") } },
+            title = { Text(tr("New temporary password")) },
+            text = { Text(tr("Give this to %1\$s. It is shown only once:\n\nUsername: %2\$s\nTemporary password: %3\$s", s?.fullName, s?.username, temp)) },
+            confirmButton = { TextButton(onClick = { vm.temporaryPassword = null }) { Text(tr("Done")) } },
             dismissButton = {
                 if (s != null) {
                     TextButton(onClick = { ShareCredentials.share(context, vm.businessName, s.fullName, s.username, temp) }) {
-                        Text("Share")
+                        Text(tr("Share"))
                     }
                 }
             },

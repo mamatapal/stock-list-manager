@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.business
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -110,10 +112,10 @@ class BusinessProfileViewModel @Inject constructor(
 
     fun save() {
         fun check(f: String, m: String?) { if (m != null) errors[f] = m else errors.remove(f) }
-        check("name", Validators.required(name, "Business name"))
-        check("address", Validators.required(address, "Address"))
-        check("city", Validators.required(city, "City"))
-        check("state", Validators.required(state, "State"))
+        check("name", Validators.required(name, tr("Business name")))
+        check("address", Validators.required(address, tr("Address")))
+        check("city", Validators.required(city, tr("City")))
+        check("state", Validators.required(state, tr("State")))
         check("pinCode", Validators.pinCode(pinCode))
         check("phone", Validators.mobile(phone))
         check("email", Validators.email(email))
@@ -132,7 +134,7 @@ class BusinessProfileViewModel @Inject constructor(
                 is ApiResult.Ok -> {
                     business = r.value
                     editing = false
-                    savedMessage = "Business details saved"
+                    savedMessage = tr("Business details saved")
                 }
                 is ApiResult.Failure -> {
                     error = r.error.message
@@ -154,19 +156,19 @@ fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProf
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(if (vm.editing) "Edit business" else "Business profile") },
+                title = { Text(if (vm.editing) tr("Edit business") else tr("Business profile")) },
                 navigationIcon = {
                     IconButton(onClick = { if (vm.editing) vm.cancelEdit() else onBack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back"))
                     }
                 },
                 actions = {
                     if (vm.editing) {
                         TextButton(onClick = vm::save, enabled = !vm.saving) {
-                            Text(if (vm.saving) "Saving..." else "Save", style = MaterialTheme.typography.titleMedium)
+                            Text(if (vm.saving) tr("Saving...") else tr("Save"), style = MaterialTheme.typography.titleMedium)
                         }
                     } else if (canEdit && vm.business != null) {
-                        IconButton(onClick = vm::startEdit) { Icon(Icons.Filled.Edit, contentDescription = "Edit") }
+                        IconButton(onClick = vm::startEdit) { Icon(Icons.Filled.Edit, contentDescription = tr("Edit")) }
                     }
                 },
             )
@@ -181,16 +183,16 @@ fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProf
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SectionCard(b.name) {
-                    LabelValue("Address", b.address)
-                    LabelValue("City", b.city)
-                    LabelValue("State", b.state)
-                    LabelValue("PIN code", b.pinCode)
-                    LabelValue("Phone", b.phone)
-                    LabelValue("Email", b.email)
-                    LabelValue("GST number", b.gstin)
-                    LabelValue("Last updated", Dates.dateTime(b.updatedAt))
+                    LabelValue(tr("Address"), b.address)
+                    LabelValue(tr("City"), b.city)
+                    LabelValue(tr("State"), b.state)
+                    LabelValue(tr("PIN code"), b.pinCode)
+                    LabelValue(tr("Phone"), b.phone)
+                    LabelValue(tr("Email"), b.email)
+                    LabelValue(tr("GST number"), b.gstin)
+                    LabelValue(tr("Last updated"), Dates.dateTime(b.updatedAt))
                 }
-                Text("These details are printed on your PDFs. The logo can be added once PDFs are built (Phase 3).",
+                Text(tr("These details are printed on your PDFs. The logo can be added once PDFs are built (Phase 3)."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             else -> Column(
@@ -199,17 +201,17 @@ fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProf
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 val e = vm.errors
-                FormField(vm.name, { vm.name = it }, "Business name", e["name"], capitalization = KeyboardCapitalization.Words)
-                FormField(vm.address, { vm.address = it }, "Address", e["address"], singleLine = false)
-                FormField(vm.city, { vm.city = it }, "City", e["city"], capitalization = KeyboardCapitalization.Words)
-                FormField(vm.state, { vm.state = it }, "State", e["state"], capitalization = KeyboardCapitalization.Words)
-                FormField(vm.pinCode, { vm.pinCode = it.filter(Char::isDigit).take(6) }, "PIN code", e["pinCode"],
+                FormField(vm.name, { vm.name = it }, tr("Business name"), e["name"], capitalization = KeyboardCapitalization.Words)
+                FormField(vm.address, { vm.address = it }, tr("Address"), e["address"], singleLine = false)
+                FormField(vm.city, { vm.city = it }, tr("City"), e["city"], capitalization = KeyboardCapitalization.Words)
+                FormField(vm.state, { vm.state = it }, tr("State"), e["state"], capitalization = KeyboardCapitalization.Words)
+                FormField(vm.pinCode, { vm.pinCode = it.filter(Char::isDigit).take(6) }, tr("PIN code"), e["pinCode"],
                     keyboardType = KeyboardType.Number)
-                FormField(vm.phone, { vm.phone = it.filter(Char::isDigit).take(10) }, "Phone", e["phone"],
+                FormField(vm.phone, { vm.phone = it.filter(Char::isDigit).take(10) }, tr("Phone"), e["phone"],
                     keyboardType = KeyboardType.Phone)
-                FormField(vm.email, { vm.email = it.trim() }, "Email", e["email"], keyboardType = KeyboardType.Email,
+                FormField(vm.email, { vm.email = it.trim() }, tr("Email"), e["email"], keyboardType = KeyboardType.Email,
                     capitalization = KeyboardCapitalization.None)
-                FormField(vm.gstin, { vm.gstin = it.uppercase().take(15) }, "GST number (optional)", e["gstin"],
+                FormField(vm.gstin, { vm.gstin = it.uppercase().take(15) }, tr("GST number (optional)"), e["gstin"],
                     capitalization = KeyboardCapitalization.Characters, imeAction = ImeAction.Done, onDone = vm::save)
                 ErrorText(vm.error)
             }

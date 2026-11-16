@@ -1,5 +1,9 @@
 package app.stocklist.app.feature.staff
 
+import app.stocklist.app.core.i18n.trMessage
+
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -27,9 +31,9 @@ fun PermissionEditor(
 ) {
     Column {
         Permission.groups.forEach { group ->
-            Text(group, style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
+            Text(trMessage(group), style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp, bottom = 4.dp))
             if (group == "Sensitive") {
-                Text("Off by default. Grant only to people you trust with money and accounts.",
+                Text(tr("Off by default. Grant only to people you trust with money and accounts."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Permission.entries.filter { it.group == group }.forEach { p ->
@@ -40,7 +44,7 @@ fun PermissionEditor(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(checked = checked, onCheckedChange = { onToggle(p, it) }, enabled = canChange)
-                    Text(p.label, style = MaterialTheme.typography.bodyMedium)
+                    Text(trMessage(p.label), style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }

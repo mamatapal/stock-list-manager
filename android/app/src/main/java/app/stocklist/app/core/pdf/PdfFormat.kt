@@ -1,5 +1,7 @@
 package app.stocklist.app.core.pdf
 
+import app.stocklist.app.core.i18n.tr
+
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.time.Instant
@@ -60,10 +62,10 @@ object PdfFormat {
         DATE_TIME.format(Instant.ofEpochMilli(millis).atZone(zone))
 
     fun period(from: LocalDate?, to: LocalDate?): String = when {
-        from == null && to == null -> "All dates"
-        from == null -> "Up to ${date(to)}"
-        to == null -> "From ${date(from)}"
-        else -> "${date(from)} to ${date(to)}"
+        from == null && to == null -> tr("All dates")
+        from == null -> tr("Up to %1\$s", date(to))
+        to == null -> tr("From %1\$s", date(from))
+        else -> tr("%1\$s to %2\$s", date(from), date(to))
     }
 
     /** "1234567.50" -> "12,34,567.50" (Indian grouping: last 3 digits, then pairs). */
@@ -88,9 +90,12 @@ object PdfFormat {
 
     fun sum(values: List<String?>): BigDecimal = values.mapNotNull { parse(it) }.fold(BigDecimal.ZERO, BigDecimal::add)
 
-    /** A file name made safe for Android's file pickers, WhatsApp and Gmail: letters, digits, '-' and '_'. */
+    /**
+     * A file name made safe for Android's file pickers, WhatsApp and Gmail: letters (Hindi included), digits, '-'
+     * and '_'. Hindi vowel signs (\p{M}) are kept with their letters.
+     */
     fun fileName(vararg parts: String?): String =
         parts.filterNot { it.isNullOrBlank() }.joinToString("_") { p ->
-            p!!.trim().replace(Regex("[^A-Za-z0-9-]+"), "-").trim('-').take(40)
+            p!!.trim().replace(Regex("[^\\p{L}\\p{M}\\p{N}-]+"), "-").trim('-').take(40).trimEnd('-')
         }.ifEmpty { "document" } + ".pdf"
 }

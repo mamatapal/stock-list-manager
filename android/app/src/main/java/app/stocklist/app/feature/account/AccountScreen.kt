@@ -1,5 +1,8 @@
 package app.stocklist.app.feature.account
 
+import app.stocklist.app.core.i18n.LanguageSwitch
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,6 +13,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -57,30 +61,35 @@ fun AccountScreen(user: MeDto, onBack: () -> Unit, onChangePassword: () -> Unit,
     val unsent by vm.unsent.collectAsStateWithLifecycle()
     val unsentDetail by vm.unsentDetail.collectAsStateWithLifecycle()
     Scaffold(topBar = {
-        TopAppBar(title = { Text("My account") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+        TopAppBar(title = { Text(tr("My account")) }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
         })
     }) { padding ->
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            SectionCard("Signed in as") {
-                LabelValue("Name", user.fullName)
-                LabelValue("Username", user.username)
-                LabelValue("Role", if (user.isOwner) "Owner" else "Staff")
-                LabelValue("Business", user.businessName)
+            SectionCard(tr("Signed in as")) {
+                LabelValue(tr("Name"), user.fullName)
+                LabelValue(tr("Username"), user.username)
+                LabelValue(tr("Role"), if (user.isOwner) tr("Owner") else tr("Staff"))
+                LabelValue(tr("Business"), user.businessName)
             }
-            OutlinedButton(onClick = onChangePassword, modifier = Modifier.fillMaxWidth()) { Text("Change password") }
-            OutlinedButton(onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth()) { Text("Sign out") }
+            SectionCard(tr("Language")) {
+                Text(tr("Screens are shown in this language. You can type names and notes in Hindi or English either way."),
+                    style = MaterialTheme.typography.bodySmall)
+                LanguageSwitch(Modifier.padding(top = 8.dp))
+            }
+            OutlinedButton(onClick = onChangePassword, modifier = Modifier.fillMaxWidth()) { Text(tr("Change password")) }
+            OutlinedButton(onClick = { confirmLogout = true }, modifier = Modifier.fillMaxWidth()) { Text(tr("Sign out")) }
         }
     }
     if (confirmLogout) {
         ConfirmDialog(
-            title = "Sign out?",
+            title = tr("Sign out?"),
             message = if (unsent > 0) {
                 unsentDetail.signOutMessage()
             } else {
-                "This phone's local copy of the business data will be removed. You can sign in again any time."
+                tr("This phone's local copy of the business data will be removed. You can sign in again any time.")
             },
-            confirmLabel = if (unsent > 0) "Sign out and delete them" else "Sign out",
+            confirmLabel = if (unsent > 0) tr("Sign out and delete them") else tr("Sign out"),
             onConfirm = { confirmLogout = false; vm.logout() },
             onDismiss = { confirmLogout = false },
         )

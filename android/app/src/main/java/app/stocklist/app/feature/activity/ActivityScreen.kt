@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.activity
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -85,8 +87,8 @@ class ActivityViewModel @Inject constructor(private val repo: ActivityRepository
 @Composable
 fun ActivityScreen(onBack: () -> Unit, vm: ActivityViewModel = hiltViewModel()) {
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Activity log") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+        TopAppBar(title = { Text(tr("Activity log")) }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
         })
     }) { padding ->
         val list = vm.items
@@ -94,7 +96,7 @@ fun ActivityScreen(onBack: () -> Unit, vm: ActivityViewModel = hiltViewModel()) 
             when {
                 list == null && vm.error != null -> ErrorState(vm.error!!, vm::reload)
                 list == null -> LoadingState()
-                list.isEmpty() -> EmptyState("No activity yet.")
+                list.isEmpty() -> EmptyState(tr("No activity yet."))
                 else -> LazyColumn {
                     items(list, key = { it.id }) { e ->
                         ListItem(
@@ -107,7 +109,7 @@ fun ActivityScreen(onBack: () -> Unit, vm: ActivityViewModel = hiltViewModel()) 
                         item {
                             OutlinedButton(onClick = vm::more, enabled = !vm.loadingMore,
                                 modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                                Text(if (vm.loadingMore) "Loading..." else "Load more")
+                                Text(if (vm.loadingMore) tr("Loading...") else tr("Load more"))
                             }
                         }
                     }

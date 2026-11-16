@@ -1,5 +1,9 @@
 package app.stocklist.app.core.designsystem
 
+import app.stocklist.app.core.i18n.asciiDigits
+
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,9 +61,11 @@ fun FormField(
     enabled: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
+    val numeric = keyboardType == KeyboardType.Number || keyboardType == KeyboardType.Decimal ||
+        keyboardType == KeyboardType.Phone || keyboardType == KeyboardType.NumberPassword
     OutlinedTextField(
         value = value,
-        onValueChange = onValueChange,
+        onValueChange = { onValueChange(if (numeric) asciiDigits(it) else it) },
         label = { Text(label) },
         isError = error != null,
         supportingText = error?.let { { Text(it) } },
@@ -79,7 +85,7 @@ fun FormField(
 fun PasswordField(
     value: String,
     onValueChange: (String) -> Unit,
-    label: String = "Password",
+    label: String = tr("Password"),
     error: String? = null,
     imeAction: ImeAction = ImeAction.Done,
     onDone: (() -> Unit)? = null,
@@ -100,7 +106,7 @@ fun PasswordField(
             IconButton(onClick = { visible = !visible }) {
                 Icon(
                     if (visible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                    contentDescription = if (visible) "Hide password" else "Show password",
+                    contentDescription = if (visible) tr("Hide password") else tr("Show password"),
                 )
             }
         },
@@ -141,7 +147,7 @@ fun ErrorState(message: String, onRetry: () -> Unit) {
     ) {
         Text(message, textAlign = TextAlign.Center)
         Spacer(Modifier.height(12.dp))
-        OutlinedButton(onClick = onRetry) { Text("Try again") }
+        OutlinedButton(onClick = onRetry) { Text(tr("Try again")) }
     }
 }
 
@@ -173,7 +179,7 @@ fun ConfirmDialog(
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(confirmLabel) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
     )
 }
 
@@ -183,10 +189,10 @@ fun ReauthDialog(loading: Boolean, error: String?, onSubmit: (String) -> Unit, o
     var password by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = { if (!loading) onDismiss() },
-        title = { Text("Confirm it's you") },
+        title = { Text(tr("Confirm it's you")) },
         text = {
             Column {
-                Text("Enter your password to continue. You won't be asked again for 5 minutes.")
+                Text(tr("Enter your password to continue. You won't be asked again for 5 minutes."))
                 Spacer(Modifier.height(8.dp))
                 PasswordField(value = password, onValueChange = { password = it }, error = error,
                     onDone = { if (password.isNotEmpty()) onSubmit(password) })
@@ -194,10 +200,10 @@ fun ReauthDialog(loading: Boolean, error: String?, onSubmit: (String) -> Unit, o
         },
         confirmButton = {
             TextButton(onClick = { onSubmit(password) }, enabled = password.isNotEmpty() && !loading) {
-                Text(if (loading) "Checking..." else "Continue")
+                Text(if (loading) tr("Checking...") else tr("Continue"))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !loading) { Text(tr("Cancel")) } },
     )
 }
 

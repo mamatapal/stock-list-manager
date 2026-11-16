@@ -1,5 +1,9 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.asciiDigits
+
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -194,9 +198,9 @@ class PurchaseEditViewModel @Inject constructor(
     /** Creates a catalogue item right here and adds it as a line. Returns an error message or null. */
     suspend fun addNewItem(name: String, category: String, unitId: String): String? {
         val n = name.trim().replace(Regex("\\s+"), " ")
-        if (n.isEmpty()) return "Enter the item name"
-        if (n.length > 150) return "At most 150 characters"
-        if (itemRepo.nameInUse(n, null)) return "An item called \"$n\" already exists. Pick it from the list instead."
+        if (n.isEmpty()) return tr("Enter the item name")
+        if (n.length > 150) return tr("At most 150 characters")
+        if (itemRepo.nameInUse(n, null)) return tr("An item called \"%1\$s\" already exists. Pick it from the list instead.", n)
         val newId = itemRepo.save(null, ItemInput(n, category.trim().ifEmpty { null }, unitId, null, null, supplierId, null, true))
         lines += PurchaseLineDraft(itemId = newId, itemName = n, unitId = unitId, quantity = "1", receivedNow = "1")
         dirty = true
@@ -268,19 +272,19 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(title = { Text(if (vm.id == null) "New purchase" else "Edit purchase") },
+            TopAppBar(title = { Text(if (vm.id == null) tr("New purchase") else tr("Edit purchase")) },
                 navigationIcon = {
-                    IconButton(onClick = { if (vm.dirty) confirmLeave = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                    IconButton(onClick = { if (vm.dirty) confirmLeave = true else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, tr("Back")) }
                 },
                 actions = {
                     if (!vm.completed) {
-                        TextButton(onClick = { vm.save(false, onSaved) }, enabled = vm.loaded && !vm.saving) { Text("Save draft") }
+                        TextButton(onClick = { vm.save(false, onSaved) }, enabled = vm.loaded && !vm.saving) { Text(tr("Save draft")) }
                         TextButton(onClick = { confirmComplete = true }, enabled = vm.loaded && !vm.saving) {
-                            Text("Complete", style = MaterialTheme.typography.titleMedium)
+                            Text(tr("Complete"), style = MaterialTheme.typography.titleMedium)
                         }
                     } else {
                         TextButton(onClick = { vm.save(true, onSaved) }, enabled = vm.loaded && !vm.saving) {
-                            Text("Save", style = MaterialTheme.typography.titleMedium)
+                            Text(tr("Save"), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 })
@@ -292,27 +296,27 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 Column {
-                    DropdownField("Supplier *", vm.supplierId, suppliers.map { Choice(it.id, it.name) }, { vm.supplierId = it; vm.dirty = true })
-                    FormField(vm.invoiceNo, { vm.invoiceNo = it; vm.dirty = true }, "Invoice number")
-                    DateField("Purchase date", vm.purchaseDate, { it?.let { d -> vm.purchaseDate = d; vm.dirty = true } }, Modifier.fillMaxWidth())
-                    vm.listTitle?.let { Text("For list: $it", style = MaterialTheme.typography.bodySmall) }
-                    FormField(vm.notes, { vm.notes = it; vm.dirty = true }, "Notes", singleLine = false)
+                    DropdownField(tr("Supplier *"), vm.supplierId, suppliers.map { Choice(it.id, it.name) }, { vm.supplierId = it; vm.dirty = true })
+                    FormField(vm.invoiceNo, { vm.invoiceNo = it; vm.dirty = true }, tr("Invoice number"))
+                    DateField(tr("Purchase date"), vm.purchaseDate, { it?.let { d -> vm.purchaseDate = d; vm.dirty = true } }, Modifier.fillMaxWidth())
+                    vm.listTitle?.let { Text(tr("For list: %1\$s", it), style = MaterialTheme.typography.bodySmall) }
+                    FormField(vm.notes, { vm.notes = it; vm.dirty = true }, tr("Notes"), singleLine = false)
                     if (!vm.completed) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("Goods received with the bill", style = MaterialTheme.typography.bodyLarge)
-                                Text("Records what arrived when you complete the purchase", style = MaterialTheme.typography.bodySmall)
+                                Text(tr("Goods received with the bill"), style = MaterialTheme.typography.bodyLarge)
+                                Text(tr("Records what arrived when you complete the purchase"), style = MaterialTheme.typography.bodySmall)
                             }
                             Switch(checked = vm.receiveNow, onCheckedChange = { vm.receiveNow = it })
                         }
                         if (vm.receiveNow) {
-                            DateField("Received date", vm.receivedDate, { it?.let { d -> vm.receivedDate = d } }, Modifier.fillMaxWidth())
+                            DateField(tr("Received date"), vm.receivedDate, { it?.let { d -> vm.receivedDate = d } }, Modifier.fillMaxWidth())
                         }
                     } else {
-                        Text("Record later deliveries with \"Receive goods\" on the purchase.", style = MaterialTheme.typography.bodySmall)
+                        Text(tr("Record later deliveries with \"Receive goods\" on the purchase."), style = MaterialTheme.typography.bodySmall)
                     }
                     if (!vm.canBuyPrice || !vm.canSellPrice) {
-                        Text("Price fields you are not allowed to enter are locked.", style = MaterialTheme.typography.bodySmall,
+                        Text(tr("Price fields you are not allowed to enter are locked."), style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -321,9 +325,9 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
             item {
                 Column {
                     if (vm.lines.isEmpty()) {
-                        Text("No items yet.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(tr("No items yet."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    OutlinedButton(onClick = { picking = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null); Text("Add items") }
+                    OutlinedButton(onClick = { picking = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null); Text(tr("Add items")) }
                     TotalsFooter(vm)
                     ErrorText(vm.error)
                     Spacer(Modifier.heightIn(min = 48.dp))
@@ -332,12 +336,12 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
         }
     }
     if (picking) PurchaseItemPicker(vm, onDismiss = { picking = false })
-    if (confirmLeave) ConfirmDialog("Leave without saving?", "Your changes will be lost. Use \"Save draft\" to keep them.",
-        "Leave", onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
-    if (confirmComplete) ConfirmDialog("Complete this purchase?",
-        "It goes into purchase history" + (if (vm.receiveNow) " and the goods are recorded as received" else "") +
-            ". Afterwards it can only be edited by someone with permission, and earlier versions are kept.",
-        "Complete", onConfirm = { confirmComplete = false; vm.save(true, onSaved) }, onDismiss = { confirmComplete = false })
+    if (confirmLeave) ConfirmDialog(tr("Leave without saving?"), tr("Your changes will be lost. Use \"Save draft\" to keep them."),
+        tr("Leave"), onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
+    if (confirmComplete) ConfirmDialog(tr("Complete this purchase?"),
+        if (vm.receiveNow) tr("It goes into purchase history and the goods are recorded as received. Afterwards it can only be edited by someone with permission, and earlier versions are kept.")
+        else tr("It goes into purchase history. Afterwards it can only be edited by someone with permission, and earlier versions are kept."),
+        tr("Complete"), onConfirm = { confirmComplete = false; vm.save(true, onSaved) }, onDismiss = { confirmComplete = false })
 }
 
 @Composable
@@ -345,11 +349,11 @@ private fun TotalsFooter(vm: PurchaseEditViewModel) {
     val t = vm.totals()
     Card(Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
         Column(Modifier.padding(12.dp)) {
-            Row { Text("Purchase cost (${vm.lines.size} items)", Modifier.weight(1f)); Text(Decimals.rupees(Decimals.money(t.cost)), fontWeight = FontWeight.Bold) }
+            Row { Text(tr("Purchase cost (%1\$s items)", vm.lines.size), Modifier.weight(1f)); Text(Decimals.rupees(Decimals.money(t.cost)), fontWeight = FontWeight.Bold) }
             if (vm.showProfit) {
-                Row { Text("Expected sales", Modifier.weight(1f)); Text(Decimals.rupees(Decimals.money(t.sales))) }
-                Row { Text("Expected gross profit", Modifier.weight(1f)); Text(Decimals.rupees(Decimals.money(t.profit))) }
-                Row { Text("Margin / markup", Modifier.weight(1f)); Text("${percentText(t.margin?.toPlainString())} / ${percentText(t.markup?.toPlainString())}") }
+                Row { Text(tr("Expected sales"), Modifier.weight(1f)); Text(Decimals.rupees(Decimals.money(t.sales))) }
+                Row { Text(tr("Expected gross profit"), Modifier.weight(1f)); Text(Decimals.rupees(Decimals.money(t.profit))) }
+                Row { Text(tr("Margin / markup"), Modifier.weight(1f)); Text("${percentText(t.margin?.toPlainString())} / ${percentText(t.markup?.toPlainString())}") }
             }
         }
     }
@@ -364,62 +368,62 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(l.itemName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                if (got.signum() == 0) IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, "Remove item") }
+                if (got.signum() == 0) IconButton(onClick = { vm.remove(i) }) { Icon(Icons.Filled.Close, tr("Remove item")) }
             }
-            if (got.signum() != 0) Text("Already received ${Decimals.format(got)}", style = MaterialTheme.typography.bodySmall)
+            if (got.signum() != 0) Text(tr("Already received %1\$s", Decimals.format(got)), style = MaterialTheme.typography.bodySmall)
             Row {
-                OutlinedTextField(l.quantity, { v -> vm.update(i) { it.copy(quantity = v) } }, label = { Text("Quantity") }, singleLine = true,
+                OutlinedTextField(l.quantity, { v -> vm.update(i) { it.copy(quantity = asciiDigits(v)) } }, label = { Text(tr("Quantity")) }, singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
-                DropdownField("Unit", l.unitId, units, { u -> u?.let { vm.update(i) { it.copy(unitId = u) } } }, Modifier.weight(1f),
+                DropdownField(tr("Unit"), l.unitId, units, { u -> u?.let { vm.update(i) { it.copy(unitId = u) } } }, Modifier.weight(1f),
                     enabled = got.signum() == 0)
             }
             SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                listOf(PurchaseCalculator.PER_UNIT to "Price per unit", PurchaseCalculator.TOTAL to "Total amount").forEachIndexed { idx, (b, label) ->
+                listOf(PurchaseCalculator.PER_UNIT to tr("Price per unit"), PurchaseCalculator.TOTAL to tr("Total amount")).forEachIndexed { idx, (b, label) ->
                     SegmentedButton(selected = l.priceBasis == b, onClick = { vm.switchBasis(i, b) }, enabled = vm.canBuyPrice,
                         shape = SegmentedButtonDefaults.itemShape(idx, 2)) { Text(label) }
                 }
             }
             Row {
-                OutlinedTextField(l.purchasePrice, { v -> vm.update(i) { it.copy(purchasePrice = v) } }, singleLine = true,
-                    label = { Text(if (l.priceBasis == PurchaseCalculator.TOTAL) "Total paid (₹)" else "Buy price / unit (₹)") },
+                OutlinedTextField(l.purchasePrice, { v -> vm.update(i) { it.copy(purchasePrice = asciiDigits(v)) } }, singleLine = true,
+                    label = { Text(if (l.priceBasis == PurchaseCalculator.TOTAL) tr("Total paid (₹)") else tr("Buy price / unit (₹)")) },
                     enabled = vm.canBuyPrice, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(8.dp))
-                OutlinedTextField(l.sellingPrice, { v -> vm.update(i) { it.copy(sellingPrice = v) } }, singleLine = true,
-                    label = { Text("Sell price / unit (₹)") }, enabled = vm.canSellPrice,
+                OutlinedTextField(l.sellingPrice, { v -> vm.update(i) { it.copy(sellingPrice = asciiDigits(v)) } }, singleLine = true,
+                    label = { Text(tr("Sell price / unit (₹)")) }, enabled = vm.canSellPrice,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.weight(1f))
             }
             if (c == null) {
-                Text("Check the numbers on this line", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                Text(tr("Check the numbers on this line"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             } else {
                 Text(buildString {
-                    append("Cost ${Decimals.rupees(Decimals.money(c.cost))}")
+                    append(tr("Cost %1\$s", Decimals.rupees(Decimals.money(c.cost))))
                     if (l.priceBasis == PurchaseCalculator.TOTAL && c.unitPrice != null) {
-                        append(" (not multiplied) · ${Decimals.rupees(Decimals.money(c.unitPrice))} per unit")
+                        append(tr(" (not multiplied) · %1\$s per unit", Decimals.rupees(Decimals.money(c.unitPrice))))
                     }
                     if (vm.showProfit && c.sales != null) {
-                        append("\nSales ${Decimals.rupees(Decimals.money(c.sales))} · profit ${Decimals.rupees(Decimals.money(c.profit))}")
-                        append(" · margin ${percentText(c.margin?.toPlainString())} · markup ${percentText(c.markup?.toPlainString())}")
+                        append(tr("\nSales %1\$s · profit %2\$s", Decimals.rupees(Decimals.money(c.sales)), Decimals.rupees(Decimals.money(c.profit))))
+                        append(tr(" · margin %1\$s · markup %2\$s", percentText(c.margin?.toPlainString()), percentText(c.markup?.toPlainString())))
                     }
                 }, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                 val sell = Decimals.tryParse(l.sellingPrice, 4, true)
                 if (sell != null && c.unitPrice != null && sell < c.unitPrice) {
-                    Text("Selling price is below the purchase price", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                    Text(tr("Selling price is below the purchase price"), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = l.updateCatalog, onCheckedChange = { v -> vm.update(i) { it.copy(updateCatalog = v) } })
-                Text("Update the item's latest prices", style = MaterialTheme.typography.bodySmall)
+                Text(tr("Update the item's latest prices"), style = MaterialTheme.typography.bodySmall)
             }
             if (vm.receiveNow && !vm.completed) {
-                OutlinedTextField(l.receivedNow, { v -> vm.update(i) { it.copy(receivedNow = v) } }, singleLine = true,
-                    label = { Text("Received now") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                OutlinedTextField(l.receivedNow, { v -> vm.update(i) { it.copy(receivedNow = asciiDigits(v)) } }, singleLine = true,
+                    label = { Text(tr("Received now")) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth())
                 Row {
                     OutlinedTextField(l.batchNo, { v -> vm.update(i) { it.copy(batchNo = v) } }, singleLine = true,
-                        label = { Text("Batch no.") }, modifier = Modifier.weight(1f))
+                        label = { Text(tr("Batch no.")) }, modifier = Modifier.weight(1f))
                     Spacer(Modifier.width(8.dp))
-                    DateField("Expiry", l.expiryDate.takeIf { it.isNotBlank() }?.let { LocalDate.parse(it) },
+                    DateField(tr("Expiry"), l.expiryDate.takeIf { it.isNotBlank() }?.let { LocalDate.parse(it) },
                         { d -> vm.update(i) { it.copy(expiryDate = d?.toString().orEmpty()) } }, Modifier.weight(1f), clearable = true)
                 }
             }
@@ -441,18 +445,18 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
     val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (creating) "New item" else "Add items") },
+        title = { Text(if (creating) tr("New item") else tr("Add items")) },
         text = {
             if (creating) {
                 Column {
-                    FormField(newName, { newName = it }, "Item name *")
-                    FormField(newCategory, { newCategory = it }, "Category")
-                    DropdownField("Unit", newUnit, units.map { Choice(it.id, "${it.name} (${it.code})") }, { it?.let { u -> newUnit = u } })
+                    FormField(newName, { newName = it }, tr("Item name *"))
+                    FormField(newCategory, { newCategory = it }, tr("Category"))
+                    DropdownField(tr("Unit"), newUnit, units.map { Choice(it.id, "${it.displayName} (${it.code})") }, { it?.let { u -> newUnit = u } })
                     ErrorText(newError)
                 }
             } else {
                 Column {
-                    OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text("Search items") },
+                    OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items")) },
                         leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
                     LazyColumn(Modifier.heightIn(max = 320.dp)) {
                         items(items, key = { it.id }) { item ->
@@ -461,8 +465,8 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                                 Checkbox(checked = item.id in chosen, onCheckedChange = null)
                                 Column {
                                     Text(item.name)
-                                    val last = listOfNotNull(item.latestPurchasePrice?.let { "buy ${Decimals.rupees(it)}" },
-                                        item.latestSellingPrice?.let { "sell ${Decimals.rupees(it)}" }).joinToString(" · ")
+                                    val last = listOfNotNull(item.latestPurchasePrice?.let { tr("buy %1\$s", Decimals.rupees(it)) },
+                                        item.latestSellingPrice?.let { tr("sell %1\$s", Decimals.rupees(it)) }).joinToString(" · ")
                                     if (last.isNotEmpty()) Text(last, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
@@ -470,7 +474,7 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                     }
                     if (vm.canAddItem) {
                         TextButton(onClick = { creating = true; newName = q.trim() }) {
-                            Text(if (q.isBlank()) "+ Add a new item" else "+ Add \"${q.trim()}\" as a new item")
+                            Text(if (q.isBlank()) tr("+ Add a new item") else tr("+ Add \"%1\$s\" as a new item", q.trim()))
                         }
                     }
                 }
@@ -483,12 +487,12 @@ private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                         newError = vm.addNewItem(newName, newCategory, newUnit)
                         if (newError == null) { vm.itemQuery.value = ""; onDismiss() }
                     }
-                }) { Text("Create and add") }
+                }) { Text(tr("Create and add")) }
             } else {
                 TextButton(onClick = { vm.addItems(chosen.values.toList()); vm.itemQuery.value = ""; onDismiss() },
-                    enabled = chosen.isNotEmpty()) { Text("Add ${chosen.size}") }
+                    enabled = chosen.isNotEmpty()) { Text(tr("Add %1\$s", chosen.size)) }
             }
         },
-        dismissButton = { TextButton(onClick = { if (creating) creating = false else onDismiss() }) { Text(if (creating) "Back" else "Cancel") } },
+        dismissButton = { TextButton(onClick = { if (creating) creating = false else onDismiss() }) { Text(if (creating) tr("Back") else tr("Cancel")) } },
     )
 }

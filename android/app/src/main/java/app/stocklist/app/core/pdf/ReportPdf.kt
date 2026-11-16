@@ -1,5 +1,7 @@
 package app.stocklist.app.core.pdf
 
+import app.stocklist.app.core.i18n.tr
+
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -127,7 +129,7 @@ object ReportPdf {
         }
 
         private fun continuedHeader() {
-            val l = text("${doc.business.name}  ·  ${doc.title} (continued)", subtitlePaint, CONTENT_W)
+            val l = text(tr("%1\$s  ·  %2\$s (continued)", doc.business.name, doc.title), subtitlePaint, CONTENT_W)
             place(l, MARGIN, y); y += l.height + 4
             val ry = y
             draw { it.drawLine(MARGIN, ry, PAGE_W - MARGIN, ry, rulePaint) }
@@ -310,9 +312,9 @@ object ReportPdf {
         val y = PAGE_H - MARGIN - FOOTER_H + 8
         c.drawLine(MARGIN, y, PAGE_W - MARGIN, y, rulePaint)
         val base = y + 12
-        val left = "Generated ${doc.generatedAt}" + (doc.generatedBy?.let { " by $it" } ?: "")
+        val left = doc.generatedBy?.let { tr("Generated %1\$s by %2\$s", doc.generatedAt, it) } ?: tr("Generated %1\$s", doc.generatedAt)
         c.drawText(left, MARGIN, base, footerPaint)
-        val right = "Page $n of $total"
+        val right = tr("Page %1\$s of %2\$s", n, total)
         c.drawText(right, PAGE_W - MARGIN - footerPaint.measureText(right), base, footerPaint)
     }
 }

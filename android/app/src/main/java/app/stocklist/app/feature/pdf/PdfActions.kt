@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.tr
+
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
@@ -37,7 +39,7 @@ object PdfActions {
             clipData = ClipData.newRawUri(pdf.fileName, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
-        return Intent.createChooser(send, "Share PDF").apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+        return Intent.createChooser(send, tr("Share PDF")).apply { addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION) }
     }
 
     /** Android's own print dialog (printers, or "Save as PDF"), A4 by default. */
@@ -49,7 +51,7 @@ object PdfActions {
 
     /** Copies the PDF to where the user chose in the system "Save to" picker (Storage Access Framework). */
     fun saveTo(context: Context, pdf: PdfFile, target: Uri) {
-        val out = context.contentResolver.openOutputStream(target, "wt") ?: error("Could not open the chosen file")
+        val out = context.contentResolver.openOutputStream(target, "wt") ?: error(tr("Could not open the chosen file"))
         out.use { o -> pdf.file.inputStream().use { it.copyTo(o) } }
     }
 

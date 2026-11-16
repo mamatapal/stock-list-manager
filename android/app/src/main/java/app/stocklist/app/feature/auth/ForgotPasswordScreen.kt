@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.auth
 
+import app.stocklist.app.core.i18n.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -55,7 +57,7 @@ class ForgotPasswordViewModel @Inject constructor(private val auth: AuthReposito
 
     fun requestCode() {
         if (username.isBlank()) {
-            error = "Enter your username"
+            error = tr("Enter your username")
             return
         }
         loading = true
@@ -64,15 +66,14 @@ class ForgotPasswordViewModel @Inject constructor(private val auth: AuthReposito
             val r = auth.forgotPassword(username)
             loading = false
             if (r is ApiResult.Failure) error = r.error.message
-            else message = "If this is an owner account with an email address, a reset code has been sent to it. " +
-                "Staff members: please ask the business owner to reset your password."
+            else message = tr("If this is an owner account with an email address, a reset code has been sent to it. Staff members: please ask the business owner to reset your password.")
         }
     }
 
     fun reset() {
         val pwError = Validators.newPassword(newPassword, username.ifBlank { null })
         if (code.isBlank() || pwError != null) {
-            error = if (code.isBlank()) "Enter the reset code from the email" else pwError
+            error = if (code.isBlank()) tr("Enter the reset code from the email") else pwError
             return
         }
         loading = true
@@ -89,8 +90,8 @@ class ForgotPasswordViewModel @Inject constructor(private val auth: AuthReposito
 @Composable
 fun ForgotPasswordScreen(onBack: () -> Unit, vm: ForgotPasswordViewModel = hiltViewModel()) {
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Reset password") }, navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
+        TopAppBar(title = { Text(tr("Reset password")) }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = tr("Back")) }
         })
     }) { padding ->
         Column(
@@ -98,21 +99,21 @@ fun ForgotPasswordScreen(onBack: () -> Unit, vm: ForgotPasswordViewModel = hiltV
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (vm.done) {
-                Text("Your password has been changed. Sign in with the new password.")
-                LoadingButton("Back to sign in", false, onBack)
+                Text(tr("Your password has been changed. Sign in with the new password."))
+                LoadingButton(tr("Back to sign in"), false, onBack)
                 return@Column
             }
-            Text("1. Request a reset code", style = MaterialTheme.typography.titleMedium)
-            FormField(vm.username, { vm.username = it.trim() }, "Username",
+            Text(tr("1. Request a reset code"), style = MaterialTheme.typography.titleMedium)
+            FormField(vm.username, { vm.username = it.trim() }, tr("Username"),
                 capitalization = KeyboardCapitalization.None, imeAction = ImeAction.Done, onDone = vm::requestCode)
-            LoadingButton("Send reset code", vm.loading, vm::requestCode)
+            LoadingButton(tr("Send reset code"), vm.loading, vm::requestCode)
             vm.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            Text("2. Enter the code and a new password", style = MaterialTheme.typography.titleMedium)
-            FormField(vm.code, { vm.code = it.trim() }, "Reset code", capitalization = KeyboardCapitalization.None)
-            PasswordField(vm.newPassword, { vm.newPassword = it }, "New password", onDone = vm::reset)
+            Text(tr("2. Enter the code and a new password"), style = MaterialTheme.typography.titleMedium)
+            FormField(vm.code, { vm.code = it.trim() }, tr("Reset code"), capitalization = KeyboardCapitalization.None)
+            PasswordField(vm.newPassword, { vm.newPassword = it }, tr("New password"), onDone = vm::reset)
             ErrorText(vm.error)
-            LoadingButton("Set new password", vm.loading, vm::reset)
+            LoadingButton(tr("Set new password"), vm.loading, vm::reset)
         }
     }
 }

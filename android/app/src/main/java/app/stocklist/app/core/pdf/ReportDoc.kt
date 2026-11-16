@@ -1,5 +1,7 @@
 package app.stocklist.app.core.pdf
 
+import app.stocklist.app.core.i18n.tr
+
 /** A document to print, independent of how it is drawn. Built by [PdfDocuments], drawn by [ReportPdf]. */
 data class ReportDoc(
     val business: BusinessInfo,
@@ -38,7 +40,7 @@ data class Table(
     val columns: List<Column>,
     val rows: List<Row>,
     val totals: List<Row> = emptyList(),
-    val emptyText: String = "No records",
+    val emptyText: String = tr("No records"),
 ) : Block {
     init {
         (rows + totals).forEach { require(it.cells.size == columns.size) { "Row has ${it.cells.size} cells for ${columns.size} columns" } }
