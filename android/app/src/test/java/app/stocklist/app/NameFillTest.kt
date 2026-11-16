@@ -90,6 +90,7 @@ class NameFillTest {
         // joined with other text, still one line per language
         assertEquals("शुगर · 5 kg\nSugar · 5 kg", Bilingual.twoLines("Sugar".bi() + " · 5 kg"))
         // a description goes under the main-language name only
+        Lang.setForTest(AppLanguage.HINDI, true)
         assertEquals("Sugar\nलाल\nशुगर", Bilingual.twoLines(Bilingual.both("Sugar", "शुगर") + Bilingual.mainOnly("\nलाल")))
         Lang.setForTest(AppLanguage.ENGLISH, false)
         assertEquals("Sugar", "Sugar".bi())
