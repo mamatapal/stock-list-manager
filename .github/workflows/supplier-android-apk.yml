@@ -1,0 +1,156 @@
+# Supplier Management app (supplier-android/): unit tests (including the Hindi catalogue check), debug APK and the
+# minified staging APK. Separate from the Stock List Manager app's workflow; it runs only for supplier changes.
+name: Supplier Management APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supplier-android/**"
+      - "backend/src/main/java/app/stocklist/supplieraccount/SupplierPortalError.java"
+      - ".github/workflows/supplier-android-apk.yml"
+  pull_request:
+    paths:
+      - "supplier-android/**"
+      - "backend/src/main/java/app/stocklist/supplieraccount/SupplierPortalError.java"
+      - ".github/workflows/supplier-android-apk.yml"
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: "Server the debug APK talks to, e.g. https://api.yourshop.in/ (empty: repository variable API_BASE_URL, else the server in DEPLOY_HOST)"
+        required: false
+
+concurrency:
+  group: supplier-android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Unit tests, debug and staging APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: supplier-android
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # The JDK download from GitHub sometimes fails (rate limit, connection reset): one retry after a pause.
+      - name: Set up JDK 21 (JetBrains Runtime)
+        id: jdk1
+        continue-on-error: true
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          token: ${{ github.token }}
+      - name: Wait before trying the JDK download again
+        if: steps.jdk1.outcome == 'failure'
+        run: sleep 45
+      - name: Set up JDK 21 (JetBrains Runtime) (second try)
+        if: steps.jdk1.outcome == 'failure'
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          token: ${{ github.token }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Accept Android SDK licences and install SDK 35
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      # Debug builds read the server address from local.properties (never committed). Only an address is written here.
+      - name: Choose the server address for the debug APK
+        env:
+          INPUT_URL: ${{ github.event.inputs.api_base_url }}
+          VAR_URL: ${{ vars.API_BASE_URL }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          URL="${INPUT_URL:-$VAR_URL}"
+          if [ -z "$URL" ] && echo "$DEPLOY_HOST" | grep -Eq '^[0-9]+(\.[0-9]+){3}$'; then
+            URL="https://$(echo "$DEPLOY_HOST" | tr . -).sslip.io/"
+          fi
+          if [ -n "$URL" ]; then
+            case "$URL" in */) ;; *) URL="$URL/";; esac
+            echo "api.baseUrl=$URL" > local.properties
+          else
+            URL="http://10.0.2.2:8080/ (Android emulator on the developer PC)"
+          fi
+          echo "API_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: ./gradlew --stacktrace testDebugUnitTest
+
+      - name: Build debug APK
+        run: ./gradlew --stacktrace assembleDebug
+
+      - name: Build minified staging APK
+        run: ./gradlew --stacktrace --max-workers=1 assembleStaging
+
+      - name: Collect APKs
+        id: apk
+        run: |
+          mkdir -p ../apk-out
+          DATE=$(date -u +%Y-%m-%d)
+          for v in debug staging; do
+            APK=$(find app/build/outputs/apk/$v -maxdepth 1 -name '*.apk' | head -n 1)
+            [ -n "$APK" ] || { echo "::error::No $v APK was produced"; exit 1; }
+            cp "$APK" "../apk-out/Supplier-Management-$v-${DATE}-${GITHUB_SHA::7}.apk"
+          done
+          ls -l ../apk-out
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: Supplier-Management-APKs
+          path: apk-out/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Build summary
+        if: always()
+        run: |
+          TESTS=0; FAILED=0
+          for f in app/build/test-results/testDebugUnitTest/*.xml; do
+            [ -f "$f" ] || continue
+            TESTS=$((TESTS + $(grep -o 'tests="[0-9]*"' "$f" | head -1 | tr -dc 0-9)))
+            FAILED=$((FAILED + $(grep -o 'failures="[0-9]*"' "$f" | head -1 | tr -dc 0-9) + $(grep -o 'errors="[0-9]*"' "$f" | head -1 | tr -dc 0-9)))
+          done
+          {
+            echo "## Supplier Management — debug and staging APK"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`${GITHUB_SHA::7}\` on \`${GITHUB_REF_NAME}\` |"
+            echo "| Unit tests | $TESTS run, $FAILED failed |"
+            echo "| Server address in the debug APK | ${API_URL:-not set} |"
+            echo ""
+            echo "Download: **Artifacts → Supplier-Management-APKs** at the bottom of this page (kept 30 days)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload test reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supplier-android-reports
+          path: |
+            supplier-android/app/build/reports/
+            supplier-android/app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
