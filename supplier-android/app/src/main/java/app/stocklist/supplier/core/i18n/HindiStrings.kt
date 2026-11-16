@@ -116,6 +116,7 @@ internal object HindiStrings {
         m["Waiting for approval"] = "मंज़ूरी का इंतज़ार"
         m["We sent a link to %1\$s. Open it and press Verify, then tap Refresh here."] = "हमने %1\$s पर लिंक भेजा है। उसे खोलकर \"सत्यापित करें\" दबाएँ, फिर यहाँ रीफ़्रेश दबाएँ।"
         m["We sent a verification link to %1\$s."] = "हमने %1\$s पर ईमेल पक्का करने का लिंक भेजा है।"
+        m["Verify your email first. Open the link we emailed you, or ask for a new one"] = "पहले अपना ईमेल पक्का करें। हमारा भेजा लिंक खोलें, या नया लिंक मँगाएँ"
         m["Wrong email or password. After 5 wrong attempts the account is locked for 15 minutes"] = "ईमेल या पासवर्ड गलत है। 5 बार गलत होने पर खाता 15 मिनट के लिए बंद हो जाता है"
         m["You do not have permission for this action"] = "आपको यह काम करने की अनुमति नहीं है"
         m["You will need your email and password to sign in again."] = "दोबारा साइन इन करने के लिए आपको अपना ईमेल और पासवर्ड चाहिए होगा।"

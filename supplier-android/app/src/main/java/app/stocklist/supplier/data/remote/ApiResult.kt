@@ -41,6 +41,7 @@ object ServerErrors {
         "WEAK_PASSWORD" to trKey("Password must have 8 to 128 characters and must not be a common password"),
         "SAME_PASSWORD" to trKey("The new password must be different from the current one"),
         "DEVICE_REQUIRED" to trKey("Device information is missing"),
+        "EMAIL_NOT_VERIFIED" to trKey("Verify your email first. Open the link we emailed you, or ask for a new one"),
         "INVALID_CREDENTIALS" to trKey("Wrong email or password. After 5 wrong attempts the account is locked for 15 minutes"),
         "WRONG_CURRENT_PASSWORD" to trKey("The current password is wrong"),
         "INVALID_REFRESH_TOKEN" to trKey("Please sign in again"),

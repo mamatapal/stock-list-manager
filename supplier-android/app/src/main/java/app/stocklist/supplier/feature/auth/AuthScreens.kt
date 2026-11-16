@@ -73,9 +73,24 @@ class LoginViewModel @Inject constructor(private val account: AccountRepository)
         private set
     var error by mutableStateOf<String?>(null)
         private set
+    /** The password was right but the email is not verified yet: offer a new link. */
+    var needsVerification by mutableStateOf(false)
+        private set
+    var notice by mutableStateOf<String?>(null)
+        private set
+
+    fun resendLink() {
+        viewModelScope.launch {
+            val r = account.resendVerification(email)
+            if (r is ApiResult.Failure) error = r.error.message
+            else notice = tr("If this email still needs verifying, a new link is on its way. Only the newest link works.")
+        }
+    }
 
     fun submit() {
         if (loading) return
+        needsVerification = false
+        notice = null
         if (email.isBlank() || password.isEmpty()) {
             error = tr("Enter your email and password")
             return
@@ -88,6 +103,7 @@ class LoginViewModel @Inject constructor(private val account: AccountRepository)
             loading = false
             if (r is ApiResult.Failure) {
                 error = r.error.message
+                needsVerification = r.error.code == "EMAIL_NOT_VERIFIED"
                 password = ""
             }
             // On success the session changes and the app moves to the home screen by itself.
@@ -107,6 +123,12 @@ fun LoginScreen(signedOutReason: String?, onBack: () -> Unit, onForgot: () -> Un
             capitalization = KeyboardCapitalization.None)
         PasswordField(vm.password, { vm.password = it }, onDone = vm::submit)
         ErrorText(vm.error)
+        vm.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        if (vm.needsVerification) {
+            OutlinedButton(onClick = vm::resendLink, modifier = Modifier.fillMaxWidth()) {
+                Text(tr("Send the link again"))
+            }
+        }
         LoadingButton(tr("Sign in"), vm.loading, vm::submit)
         TextButton(onClick = onForgot) { Text(tr("Forgot password?")) }
     }
