@@ -33,6 +33,8 @@ Keep a copy of the signing key file and its password outside GitHub (secrets can
 installed apps can never be updated; people would have to uninstall and reinstall.
 
 ### 2. The server
+On AWS (free plan): follow [AWS_SETUP.md](AWS_SETUP.md) instead of the generic steps below.
+
 1. At a hosting provider, create a server: **Ubuntu 24.04**, 2 GB RAM, location India (Mumbai/Bangalore/Delhi).
 2. In the provider's "user data" / "post-install script" / "startup script" box, paste the whole of
    [`deploy/server-setup.sh`](../deploy/server-setup.sh). (No such box? Open the provider's web console as root and

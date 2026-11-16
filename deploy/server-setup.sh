@@ -20,6 +20,13 @@ apt-get update
 apt-get -y -o Dpkg::Options::=--force-confold upgrade
 apt-get install -y ca-certificates curl openssl ufw fail2ban unattended-upgrades
 command -v docker >/dev/null || curl -fsSL https://get.docker.com | sh
+
+# 2 GB of swap as a safety margin on small (2 GB) servers.
+if [ ! -f /swapfile ] && [ "$(free -m | awk '/^Mem:/{print $2}')" -lt 4000 ]; then
+  fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+  echo '/swapfile none swap sw 0 0' >> /etc/fstab
+  sysctl -w vm.swappiness=10 && echo 'vm.swappiness=10' > /etc/sysctl.d/60-stocklist.conf
+fi
 systemctl enable --now docker
 
 id deploy >/dev/null 2>&1 || useradd -m -s /bin/bash deploy
