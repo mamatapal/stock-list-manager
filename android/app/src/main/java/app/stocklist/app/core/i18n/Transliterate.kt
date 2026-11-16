@@ -432,7 +432,7 @@ object Transliterate {
         'क' to "k", 'ख' to "kh", 'ग' to "g", 'घ' to "gh", 'ङ' to "ng", 'च' to "ch", 'छ' to "chh", 'ज' to "j", 'झ' to "jh",
         'ञ' to "n", 'ट' to "t", 'ठ' to "th", 'ड' to "d", 'ढ' to "dh", 'ण' to "n", 'त' to "t", 'थ' to "th", 'द' to "d",
         'ध' to "dh", 'न' to "n", 'प' to "p", 'फ' to "f", 'ब' to "b", 'भ' to "bh", 'म' to "m", 'य' to "y", 'र' to "r",
-        'ल' to "l", 'व' to "v", 'श' to "sh", 'ष' to "sh", 'स' to "s", 'ह' to "h", 'ळ' to "l", 'ड़' to "d", 'ढ़' to "dh",
+        'ल' to "l", '\u095C' to "d", '\u095D' to "dh", '\u095B' to "z", '\u095E' to "f", 'व' to "v", 'श' to "sh", 'ष' to "sh", 'स' to "s", 'ह' to "h", 'ळ' to "l",
     )
     private val vowelSigns = mapOf(
         'ा' to "a", 'ि' to "i", 'ी' to "i", 'ु' to "u", 'ू' to "u", 'े' to "e", 'ै' to "ai", 'ो' to "o", 'ौ' to "au",
@@ -465,11 +465,11 @@ object Transliterate {
         var i = 0
         while (i < word.length) {
             val ch = word[i]
-            val nuktaPair = if (i + 1 < word.length && word[i + 1] == '़') "$ch़" else null
-            val cons = when (nuktaPair) { "ड़" -> "d"; "ढ़" -> "dh"; "ज़" -> "z"; "फ़" -> "f"; else -> consonantsHi[ch] }
+            val hasNukta = i + 1 < word.length && word[i + 1] == '\u093C'
+            val cons = if (hasNukta) when (ch) { '\u0921' -> "d"; '\u0922' -> "dh"; '\u091C' -> "z"; '\u092B' -> "f"; else -> consonantsHi[ch] } else consonantsHi[ch]
             if (cons != null) {
                 sb.append(cons)
-                i += if (nuktaPair != null) 2 else 1
+                i += if (hasNukta) 2 else 1
                 val sign = word.getOrNull(i)
                 when {
                     sign == '्' -> i++
