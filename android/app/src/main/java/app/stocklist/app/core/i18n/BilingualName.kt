@@ -45,4 +45,33 @@ object BilingualName {
         val (en, hi) = split(name)
         return if (en.isNotBlank() && hi.isNotBlank()) en.trim() to hi.trim() else null
     }
+
+    /**
+     * A name as it is shown: both spellings, the main language first. A name saved with one spelling only (older data,
+     * or typed before the Hindi existed) gets the other one written by sound, so every screen and PDF shows both.
+     */
+    fun show(name: String): String {
+        if (name.isBlank()) return name
+        val both = both(name)
+        val en: String
+        val hi: String
+        if (both != null) { en = both.first; hi = both.second }
+        else if (hasDevanagari(name) && !hasLatin(name)) { hi = name.trim(); en = Transliterate.toEnglish(hi) }
+        else if (hasLatin(name) && !hasDevanagari(name)) { en = name.trim(); hi = Transliterate.toHindi(en) }
+        else return name
+        if (!Lang.showsBoth) return if (Lang.language == AppLanguage.HINDI) hi else en
+        return if (Lang.language == AppLanguage.HINDI) Bilingual.both(hi, en) else Bilingual.both(en, hi)
+    }
+
+    /** An existing name with its Hindi (or English) spelling added, ready to edit. */
+    fun withBothSpellings(name: String): String {
+        if (name.isBlank() || both(name) != null) return name
+        val (en, hi) = split(name)
+        return if (en.isNotBlank() && hi.isBlank()) combine(en.trim(), Transliterate.toHindi(en.trim()))
+        else if (hi.isNotBlank() && en.isBlank()) combine(Transliterate.toEnglish(hi.trim()), hi.trim())
+        else name
+    }
 }
+
+/** [BilingualName.show] for a saved name. */
+fun String.bi(): String = BilingualName.show(this)

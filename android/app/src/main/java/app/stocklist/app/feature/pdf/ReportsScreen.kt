@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.trMessage
@@ -222,7 +223,7 @@ private fun LazyListScope.purchases(r: PurchaseReportDto) {
     if (r.profitIncluded) item { EstimateBanner(r.profitNote ?: PdfDocuments.PROFIT_NOTE) }
     if (r.rows.isEmpty()) item { EmptyState(tr("No purchases in this period.")) }
     items(r.rows, key = { it.purchaseId }) { p ->
-        ReportRow(p.supplierName ?: "-",
+        ReportRow(p.supplierName?.bi() ?: "-",
             listOfNotNull(PdfFormat.date(p.purchaseDate), p.invoiceNo, PdfDocuments.purchaseStatus(p.status)).joinToString("  ·  "),
             PdfFormat.money(p.totalCost),
             if (r.profitIncluded && p.status != "CANCELLED") tr("Expected profit %1\$s", PdfFormat.money(p.expectedProfit)) else null)
@@ -234,7 +235,7 @@ private fun LazyListScope.suppliers(r: SupplierTotalsDto) {
     if (r.profitIncluded) item { EstimateBanner(r.profitNote ?: PdfDocuments.PROFIT_NOTE) }
     if (r.rows.isEmpty()) item { EmptyState(tr("No purchases in this period.")) }
     items(r.rows, key = { it.supplierId }) { s ->
-        ReportRow(s.supplierName ?: "-",
+        ReportRow(s.supplierName?.bi() ?: "-",
             tr("%1\$s purchase(s)  ·  %2\$s of total  ·  last %3\$s", s.purchaseCount, PdfFormat.percent(s.sharePercent), PdfFormat.date(s.lastPurchaseDate)),
             PdfFormat.money(s.totalCost), if (r.profitIncluded) tr("Expected profit %1\$s", PdfFormat.money(s.expectedProfit)) else null)
     }
@@ -243,7 +244,7 @@ private fun LazyListScope.suppliers(r: SupplierTotalsDto) {
 private fun LazyListScope.itemPrices(r: ItemPricesDto) {
     if (r.rows.isEmpty()) item { EmptyState(tr("No purchases in this period.")) }
     items(r.rows, key = { it.itemId + it.unitCode }) { i ->
-        ReportRow("${i.itemName} (${i.unitCode})",
+        ReportRow("${i.itemName.bi()} (${i.unitCode})",
             tr("Lowest %1\$s  ·  highest %2\$s  ·  average %3\$s\nLatest %4\$s on %5\$s from %6\$s  ·  bought %7\$s", PdfFormat.unitPrice(i.lowestUnitPrice), PdfFormat.unitPrice(i.highestUnitPrice), PdfFormat.unitPrice(i.averageUnitPrice), PdfFormat.unitPrice(i.latestUnitPrice), PdfFormat.date(i.latestDate), i.latestSupplierName ?: "-", PdfFormat.qty(i.totalQuantity, i.unitCode)),
             PdfFormat.money(i.totalCost),
             if (r.profitIncluded) tr("Selling price %1\$s  ·  expected profit %2\$s", PdfFormat.unitPrice(i.latestSellingPrice), PdfFormat.money(i.expectedProfit)) else null)

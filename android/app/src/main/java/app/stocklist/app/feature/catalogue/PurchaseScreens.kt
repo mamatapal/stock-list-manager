@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.tr
@@ -143,7 +144,7 @@ fun PurchasesScreen(access: Access, onBack: () -> Unit, onNew: () -> Unit, onOpe
                 }
                 FilterChip(selected = f.from != null || f.to != null || showDates, onClick = { showDates = !showDates }, label = { Text(tr("Dates"), maxLines = 1) })
             }
-            DropdownField(tr("Supplier"), f.supplierId, listOf(Choice("", tr("All suppliers"))) + suppliers.map { Choice(it.id, it.name) },
+            DropdownField(tr("Supplier"), f.supplierId, listOf(Choice("", tr("All suppliers"))) + suppliers.map { Choice(it.id, it.name.bi()) },
                 { vm.filter.value = f.copy(supplierId = it.orEmpty()) }, Modifier.padding(horizontal = 16.dp))
             if (showDates) {
                 Row(Modifier.padding(horizontal = 16.dp)) {
@@ -302,7 +303,7 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Row {
-                            Text(l.itemName, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Text(l.itemName.bi(), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                             Text(Decimals.rupees(l.totalCost), fontWeight = FontWeight.SemiBold)
                         }
                         Text(tr("Billed %1\$s %2\$s", l.quantity, l.unitCode) + (l.purchasePrice?.let {
@@ -362,7 +363,7 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
                 items(batches, key = { "b" + it.id }) { b ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Column(Modifier.weight(1f)) {
-                            Text("${b.itemName} · ${b.quantity} ${b.unitCode}", style = MaterialTheme.typography.bodyMedium)
+                            Text("${b.itemName.bi()} · ${b.quantity} ${b.unitCode}", style = MaterialTheme.typography.bodyMedium)
                             Text(listOfNotNull(b.batchNo?.let { tr("batch %1\$s", it) }, tr("expiry %1\$s", b.expiryDate.displayDate())).joinToString(" · "),
                                 style = MaterialTheme.typography.bodySmall)
                         }
@@ -443,7 +444,7 @@ class ReceiveGoodsViewModel @Inject constructor(
     fun overReceived(v: PurchaseView): List<String> = v.lines.filter { l ->
         val q = Decimals.tryParse(quantities[l.id], 3, true) ?: return@filter false
         q > v.progress(l).remaining
-    }.map { it.itemName }
+    }.map { it.itemName.bi() }
 
     fun save(onDone: () -> Unit) {
         if (saving) return
@@ -486,7 +487,7 @@ fun ReceiveGoodsScreen(onBack: () -> Unit, vm: ReceiveGoodsViewModel = hiltViewM
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             item {
                 Column {
-                    Text("${v.purchase.supplierName.orEmpty()} ${v.purchase.invoiceNo?.let { "#$it" }.orEmpty()}",
+                    Text("${v.purchase.supplierName.orEmpty().bi()} ${v.purchase.invoiceNo?.let { "#$it" }.orEmpty()}",
                         style = MaterialTheme.typography.titleMedium)
                     DateField(tr("Received date"), vm.date, { it?.let { d -> vm.date = d } }, Modifier.fillMaxWidth())
                     FormField(vm.notes, { vm.notes = it }, tr("Notes"))
@@ -498,7 +499,7 @@ fun ReceiveGoodsScreen(onBack: () -> Unit, vm: ReceiveGoodsViewModel = hiltViewM
                 val pr = v.progress(l)
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(l.itemName, style = MaterialTheme.typography.titleSmall)
+                        Text(l.itemName.bi(), style = MaterialTheme.typography.titleSmall)
                         Text(tr("Billed %1\$s %2\$s · received %3\$s · remaining %4\$s", l.quantity, l.unitCode, Decimals.format(pr.received), Decimals.format(pr.remaining)),
                             style = MaterialTheme.typography.bodySmall)
                         FormField(vm.quantities[l.id].orEmpty(), { vm.quantities[l.id] = it }, tr("Received now (%1\$s)", l.unitCode),
@@ -542,7 +543,7 @@ private fun RevisionsDialog(vm: PurchaseDetailViewModel, names: Map<String, Stri
                             Text(tr("Then: %1\$s%2\$s · cost %3\$s · %4\$s", r.before.invoiceNo?.let { "#$it · " } ?: "", r.before.purchaseDate.displayDate(), Decimals.rupees(r.before.totalCost), purchaseStatusLabel(r.before.status)),
                                 style = MaterialTheme.typography.bodySmall)
                             r.before.lines.forEach { l ->
-                                Text("  ${l.itemName}: ${l.quantity} ${l.unitCode}" + (l.purchasePrice?.let { " @ ${Decimals.rupees(it)}" } ?: ""),
+                                Text("  ${l.itemName.bi()}: ${l.quantity} ${l.unitCode}" + (l.purchasePrice?.let { " @ ${Decimals.rupees(it)}" } ?: ""),
                                     style = MaterialTheme.typography.bodySmall)
                             }
                             HorizontalDivider()

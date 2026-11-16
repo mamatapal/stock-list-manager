@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.BilingualName
 import app.stocklist.app.core.designsystem.BilingualNameFields
 import app.stocklist.app.core.i18n.Bilingual
@@ -133,7 +134,7 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive"), maxLines = 1) })
                 FilterChip(selected = cat.isEmpty(), onClick = { vm.category.value = "" }, label = { Text(tr("All categories"), maxLines = 1) })
-                cats.forEach { c -> FilterChip(selected = cat == c, onClick = { vm.category.value = c }, label = { Text(c, maxLines = 1) }) }
+                cats.forEach { c -> FilterChip(selected = cat == c, onClick = { vm.category.value = c }, label = { Text(c.bi(), maxLines = 1) }) }
             }
             val l = list
             when {
@@ -142,10 +143,10 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
                 else -> LazyColumn {
                     items(l, key = { it.id }) { item ->
                         ListItem(
-                            headlineContent = { Text(item.name) },
+                            headlineContent = { Text(item.name.bi()) },
                             supportingContent = {
                                 Column {
-                                    Text(listOfNotNull(item.category, units.code(item.defaultUnitId),
+                                    Text(listOfNotNull(item.category?.bi(), units.code(item.defaultUnitId),
                                         item.latestPurchasePrice?.let { tr("Buy %1\$s", Decimals.rupees(it)) },
                                         item.latestSellingPrice?.let { tr("Sell %1\$s", Decimals.rupees(it)) }).joinToString(" · "))
                                     SyncBadge(item.syncState, item.syncError)
@@ -212,7 +213,7 @@ fun ItemDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -> Uni
         Column(Modifier.fillMaxSize().padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SyncBadge(i.syncState, i.syncError)
-            SectionCard(i.name) {
+            SectionCard(i.name.bi()) {
                 LabelValue(tr("Category"), i.category)
                 LabelValue(tr("Default unit"), units.label(i.defaultUnitId))
                 LabelValue(tr("Latest purchase price"), i.latestPurchasePrice?.let { Decimals.rupees(it) })
@@ -277,7 +278,7 @@ class ItemEditViewModel @Inject constructor(
         if (id != null) viewModelScope.launch {
             repo.observeOne(id).first()?.let {
                 original = it
-                name = it.name; category = it.category.orEmpty(); unitId = it.defaultUnitId
+                name = BilingualName.withBothSpellings(it.name); category = BilingualName.withBothSpellings(it.category.orEmpty()); unitId = it.defaultUnitId
                 purchasePrice = it.latestPurchasePrice.orEmpty(); sellingPrice = it.latestSellingPrice.orEmpty()
                 supplierId = it.preferredSupplierId; notes = it.notes.orEmpty(); active = it.active
             }
@@ -348,7 +349,7 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
             val suggestions = categories.filter { it.contains(typedCategory, true) && !it.equals(vm.category.trim(), true) }.take(6)
             if (suggestions.isNotEmpty()) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    suggestions.forEach { c -> FilterChip(selected = false, onClick = { vm.category = c }, label = { Text(c, maxLines = 1) }) }
+                    suggestions.forEach { c -> FilterChip(selected = false, onClick = { vm.category = c }, label = { Text(c.bi(), maxLines = 1) }) }
                 }
             }
             Row {
@@ -366,7 +367,7 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             DropdownField(tr("Preferred supplier"), vm.supplierId,
-                listOf(Choice(null, tr("None"))) + suppliers.map { Choice(it.id, it.name) }, { vm.supplierId = it })
+                listOf(Choice(null, tr("None"))) + suppliers.map { Choice(it.id, it.name.bi()) }, { vm.supplierId = it })
             FormField(vm.notes, { vm.notes = it }, tr("Notes"), singleLine = false)
             ErrorText(if (vm.errors.isNotEmpty()) tr("Please correct the highlighted fields.") else null)
         }

@@ -1,5 +1,7 @@
 package app.stocklist.app.feature.pdf
 
+import app.stocklist.app.core.i18n.Bilingual
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.trMessage
 
 import app.stocklist.app.core.i18n.tr
@@ -85,7 +87,7 @@ object PdfDocuments {
                 l.priceBasis == "TOTAL" -> tr("%1\$s total", unitPrice(l.enteredPrice))
                 else -> unitPrice(l.enteredPrice) + (unit?.let { " / $it" } ?: "")
             }
-            Row(listOf((i + 1).toString(), l.itemName + (l.description?.takeIf { it.isNotBlank() }?.let { "\n$it" } ?: ""),
+            Row(listOf((i + 1).toString(), l.itemName.bi() + (l.description?.takeIf { it.isNotBlank() }?.let { Bilingual.mainOnly("\n$it") } ?: ""),
                 qty(l.quantity, unit), price, money(l.lineTotal)))
         }
         val total = list.totalAmount ?: PdfFormat.sum(lines.map { it.lineTotal }).toPlainString()
@@ -123,7 +125,7 @@ object PdfDocuments {
         }
         val rows = lines.sortedBy { it.sortOrder }.mapIndexed { i, l ->
             Row(buildList {
-                add((i + 1).toString()); add(l.itemName); add(qty(l.quantity, l.unitCode))
+                add((i + 1).toString()); add(l.itemName.bi()); add(qty(l.quantity, l.unitCode))
                 add(qty(received[l.id]?.toPlainString() ?: "0")); add(unitPrice(l.purchaseUnitPrice)); add(money(l.totalCost))
                 if (profit) { add(unitPrice(l.sellingPrice)); add(money(l.expectedProfit)) }
             })
@@ -133,7 +135,7 @@ object PdfDocuments {
             if (profit) { add(""); add(money(p.totalExpectedProfit)) }
         }))
         val byDelivery = deliveryLines.groupBy { it.deliveryId }
-        val lineName = lines.associate { it.id to (it.itemName to it.unitCode) }
+        val lineName = lines.associate { it.id to (it.itemName.bi() to it.unitCode) }
         val deliveryRows = deliveries.sortedWith(compareBy({ it.receivedDate }, { it.createdAt })).flatMap { d ->
             byDelivery[d.id].orEmpty().map { dl ->
                 val (name, unit) = lineName[dl.purchaseLineId] ?: (tr("Item") to null)
@@ -235,7 +237,7 @@ object PdfDocuments {
             listOf(Column(tr("Date"), 1.15f), Column(tr("Supplier"), 2.3f), Column(tr("Invoice"), 1.3f), Column(tr("Quantity"), 1.3f, Align.RIGHT),
                 Column(tr("Unit cost"), 1.25f, Align.RIGHT), Column(tr("Selling price"), 1.25f, Align.RIGHT), Column(tr("Amount"), 1.4f, Align.RIGHT)),
             sorted.map { r ->
-                Row(listOf(date(r.purchaseDate), (r.supplierName ?: PdfFormat.NONE) + if (r.status == "CANCELLED") "\nCancelled" else "",
+                Row(listOf(date(r.purchaseDate), (r.supplierName?.bi() ?: PdfFormat.NONE) + if (r.status == "CANCELLED") "\nCancelled" else "",
                     r.invoiceNo ?: PdfFormat.NONE, qty(r.quantity, r.unitCode), unitPrice(r.purchaseUnitPrice),
                     unitPrice(r.sellingPrice), money(r.totalCost)), muted = r.status == "CANCELLED")
             },
@@ -276,7 +278,7 @@ object PdfDocuments {
         }
         val rows = listed.map { p ->
             Row(buildList {
-                add(date(p.purchaseDate)); add(p.supplierName ?: PdfFormat.NONE); add(p.invoiceNo ?: PdfFormat.NONE)
+                add(date(p.purchaseDate)); add(p.supplierName?.bi() ?: PdfFormat.NONE); add(p.invoiceNo ?: PdfFormat.NONE)
                 add(purchaseStatus(p.status)); add(p.itemCount.toString()); add(money(p.totalCost))
                 if (profit) add(money(p.totalExpectedProfit))
             }, muted = p.status == "CANCELLED")
@@ -287,7 +289,7 @@ object PdfDocuments {
         }))
         val bySupplier = counted.groupBy { it.supplierId }.map { (_, ps) ->
             val cost = PdfFormat.sum(ps.map { it.totalCost })
-            Triple(ps.first().supplierName ?: PdfFormat.NONE, ps.size, cost)
+            Triple(ps.first().supplierName?.bi() ?: PdfFormat.NONE, ps.size, cost)
         }.sortedWith(compareByDescending<Triple<String, Int, BigDecimal>> { it.third }.thenBy { it.first.lowercase() })
         return doc(ctx, tr("Purchase report"), listOf(PdfFormat.period(from, to)),
             PdfFormat.fileName(tr("Purchases"), from?.toString(), to?.toString()),
@@ -322,8 +324,8 @@ object PdfDocuments {
     fun expiryReport(ctx: PdfContext, batches: List<BatchEntity>, filter: ExpiryCalculator.Filter, today: LocalDate): ReportDoc {
         val rows = batches.map { b ->
             val exp = b.expiryDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-            Row(listOf(b.itemName, b.batchNo ?: PdfFormat.NONE, date(b.expiryDate), ExpiryCalculator.label(exp, today),
-                qty(b.quantity, b.unitCode), b.supplierName ?: PdfFormat.NONE,
+            Row(listOf(b.itemName.bi(), b.batchNo ?: PdfFormat.NONE, date(b.expiryDate), ExpiryCalculator.label(exp, today),
+                qty(b.quantity, b.unitCode), b.supplierName?.bi() ?: PdfFormat.NONE,
                 listOfNotNull(b.invoiceNo, date(b.purchaseDate)).joinToString("\n")),
                 bold = exp != null && exp.isBefore(today))
         }
@@ -361,7 +363,7 @@ object PdfDocuments {
                 tr("Expected profit") to if (profit) money(r.expectedProfit) else null)),
             Table(cols, r.rows.map { p ->
                 Row(buildList {
-                    add(date(p.purchaseDate)); add(p.supplierName ?: PdfFormat.NONE); add(p.invoiceNo ?: PdfFormat.NONE)
+                    add(date(p.purchaseDate)); add(p.supplierName?.bi() ?: PdfFormat.NONE); add(p.invoiceNo ?: PdfFormat.NONE)
                     add(purchaseStatus(p.status)); add(p.itemCount.toString()); add(money(p.totalCost))
                     if (profit) add(money(p.expectedProfit))
                 }, muted = p.status == "CANCELLED")
@@ -387,7 +389,7 @@ object PdfDocuments {
                 tr("Total cost") to money(r.totalCost))),
             Table(cols, r.rows.map { s ->
                 Row(buildList {
-                    add(s.supplierName ?: PdfFormat.NONE); add(s.purchaseCount.toString()); add(money(s.totalCost))
+                    add(s.supplierName?.bi() ?: PdfFormat.NONE); add(s.purchaseCount.toString()); add(money(s.totalCost))
                     add(PdfFormat.percent(s.sharePercent)); add(date(s.lastPurchaseDate))
                     if (profit) add(money(s.expectedProfit))
                 })
@@ -411,7 +413,7 @@ object PdfDocuments {
             Facts(listOf(tr("Period") to period, tr("Items") to r.rows.size.toString())),
             Table(cols, r.rows.map { i ->
                 Row(buildList {
-                    add(i.itemName); add(qty(i.totalQuantity, i.unitCode) + tr("\n%1\$s purchase(s)", i.purchaseCount))
+                    add(i.itemName.bi()); add(qty(i.totalQuantity, i.unitCode) + tr("\n%1\$s purchase(s)", i.purchaseCount))
                     add(unitPrice(i.lowestUnitPrice)); add(unitPrice(i.highestUnitPrice)); add(unitPrice(i.averageUnitPrice))
                     add(unitPrice(i.latestUnitPrice) + "\n" + listOfNotNull(date(i.latestDate), i.latestSupplierName).joinToString(", "))
                     add(unitPrice(i.latestSellingPrice))
@@ -430,7 +432,7 @@ object PdfDocuments {
                 Column(tr("Expected profit"), 1.5f, Align.RIGHT), Column(tr("Expected margin"), 1.2f, Align.RIGHT))
         }
         fun rows(list: List<app.stocklist.app.data.remote.ProfitRowDto>) = list.map {
-            Row(listOf(it.name ?: PdfFormat.NONE, money(it.cost), money(it.expectedSales), money(it.expectedProfit),
+            Row(listOf(it.name?.bi() ?: PdfFormat.NONE, money(it.cost), money(it.expectedSales), money(it.expectedProfit),
                 PdfFormat.percent(it.marginPercent)))
         }
         return doc(ctx, tr("Expected profit report"), listOf(period, tr("Estimate only, not realised profit")),

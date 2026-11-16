@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.catalogue
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.tr
@@ -86,7 +87,7 @@ fun ItemHistoryScreen(onBack: () -> Unit, onOpenPurchase: (String) -> Unit, onPd
         LazyColumn(Modifier.fillMaxSize().padding(padding)) {
             item {
                 Column(Modifier.padding(horizontal = 16.dp)) {
-                    Text(item?.name.orEmpty(), style = MaterialTheme.typography.titleMedium)
+                    Text(item?.name.orEmpty().bi(), style = MaterialTheme.typography.titleMedium)
                     Row {
                         DateField(tr("From"), from, { vm.from.value = it }, Modifier.weight(1f), clearable = true)
                         Spacer(Modifier.width(8.dp))
@@ -109,7 +110,7 @@ fun ItemHistoryScreen(onBack: () -> Unit, onOpenPurchase: (String) -> Unit, onPd
             if (x.rows.isEmpty()) item { EmptyState(if (from != null || to != null) tr("This item has not been bought in these dates.") else tr("This item has not been bought yet.")) }
             items(x.rows, key = { it.purchaseLineId }) { r ->
                 ListItem(
-                    headlineContent = { Text("${r.purchaseDate.displayDate()} · ${r.supplierName.orEmpty()}") },
+                    headlineContent = { Text("${r.purchaseDate.displayDate()} · ${r.supplierName.orEmpty().bi()}") },
                     supportingContent = {
                         Column {
                             Text("${r.quantity} ${r.unitCode}" + (r.purchasePrice?.let {
