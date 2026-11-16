@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Supplier Administration</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<header class="top">
+  <h1>Supplier Administration</h1>
+  <div id="who" class="who" hidden>
+    <span id="who-name"></span>
+    <button id="logout" type="button" class="link">Sign out</button>
+  </div>
+</header>
+
+<main>
+  <div id="notice" class="notice" role="status" hidden></div>
+
+  <section id="login-view" class="card narrow" hidden>
+    <h2>Sign in</h2>
+    <form id="login-form" autocomplete="on">
+      <label>Username <input id="username" name="username" autocomplete="username" required maxlength="40"></label>
+      <label>Password <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128"></label>
+      <label>Authenticator code <input id="code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" required maxlength="7"></label>
+      <button type="submit" class="primary">Sign in</button>
+      <p class="hint">Use the 6-digit code from your authenticator app. Five failed attempts lock the account for 15 minutes.</p>
+    </form>
+  </section>
+
+  <section id="list-view" hidden>
+    <nav class="filters" aria-label="Status filter">
+      <button type="button" data-status="PENDING_APPROVAL" class="filter">Waiting for approval</button>
+      <button type="button" data-status="APPROVED" class="filter">Approved</button>
+      <button type="button" data-status="REJECTED" class="filter">Rejected</button>
+      <button type="button" data-status="SUSPENDED" class="filter">Suspended</button>
+      <button type="button" data-status="PENDING_EMAIL_VERIFICATION" class="filter">Email not verified</button>
+      <button type="button" data-status="" class="filter">All</button>
+      <button type="button" id="refresh" class="link">Refresh</button>
+    </nav>
+    <table class="list">
+      <thead><tr><th>Business</th><th>City</th><th>Email</th><th>Mobile</th><th>GSTIN</th><th>Status</th><th>Submitted</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <p id="empty" class="hint" hidden>No suppliers in this list.</p>
+  </section>
+
+  <section id="detail-view" class="card" hidden>
+    <button type="button" id="back" class="link">&larr; Back to the list</button>
+    <h2 id="d-title"></h2>
+    <p><span id="d-status" class="status"></span></p>
+    <div id="d-warnings"></div>
+    <dl id="d-fields" class="fields"></dl>
+    <h3>Users</h3>
+    <ul id="d-users" class="plain"></ul>
+    <h3>History</h3>
+    <ol id="d-history" class="history"></ol>
+    <div class="actions">
+      <label id="reason-label" hidden>Reason (shown to the supplier)
+        <textarea id="reason" maxlength="500" rows="3"></textarea>
+      </label>
+      <button type="button" id="approve" class="primary" hidden>Approve</button>
+      <button type="button" id="reject" class="danger" hidden>Reject</button>
+      <button type="button" id="suspend" class="danger" hidden>Suspend</button>
+      <button type="button" id="reinstate" class="primary" hidden>Reinstate</button>
+    </div>
+  </section>
+</main>
+<script src="admin.js"></script>
+</body>
+</html>

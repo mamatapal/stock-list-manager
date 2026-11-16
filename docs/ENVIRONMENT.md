@@ -46,7 +46,13 @@ default account**: the first owner registers from the app ("Register your busine
 | `JWT_KEY_ID` | no | Label of the signing key (default `k1`). |
 | `APP_BUSINESS_ZONE` | no | Time zone for "today" in expiry lists (default `Asia/Kolkata`). |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` | recommended | Sends owners their password-reset code. **Without SMTP an owner who forgets the password cannot reset it** (staff passwords are reset by the owner in the app). |
+| `SUPPLIER_JWT_SIGNING_KEY` | yes | Signing key of the Supplier Management app's tokens, separate from `JWT_SIGNING_KEY` (`openssl rand -base64 48`). Created automatically on the server by the deploy workflow if missing. Changing it signs every supplier out. |
+| `ADMIN_TOTP_KEY` | yes | Encrypts the Supplier Administration administrators' authenticator keys (`openssl rand -base64 32`). Created automatically by the deploy workflow if missing. **Back it up with `.env`**: without it every administrator must be reset with `create-admin.sh reset`. |
 | `BACKUP_DIR`, `BACKUP_KEEP_DAYS` | no | Where `backup.sh` writes and how long backups are kept (default `/var/backups/stocklist`, 30 days). |
+
+Set by the compose file from `API_DOMAIN`: `PUBLIC_BASE_URL=https://<API_DOMAIN>` (the address used in emailed
+supplier links). Until SMTP is configured, supplier emails are not sent; the server only logs that a link was
+requested (never the link itself).
 
 Fixed in production by the compose file: `SWAGGER_ENABLED=false` (no public API explorer) and
 `MAIL_LOG_TOKENS=false` (reset codes are never written to logs).

@@ -60,6 +60,11 @@ class SystemSecurityIT extends PurchaseTestSupport {
         assertEquals(200, docs.status());
         List<String[]> list = new ArrayList<>();
         for (Map.Entry<String, JsonNode> path : docs.body().get("paths").properties()) {
+            // Supplier Management and Supplier Administration endpoints do not accept shop users at all; they are
+            // covered by SupplierPortalIT and SupplierAdministrationIT.
+            if (path.getKey().startsWith("/api/v1/supplier-portal/") || path.getKey().startsWith("/api/v1/admin/")) {
+                continue;
+            }
             for (Map.Entry<String, JsonNode> op : path.getValue().properties()) {
                 list.add(new String[]{op.getKey().toUpperCase(), path.getKey()});
             }

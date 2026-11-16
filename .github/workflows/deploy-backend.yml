@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir -p bundle
           cp backend/target/stock-list-backend-*.jar bundle/app.jar
-          cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/.env.example bundle/
+          cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/create-admin.sh deploy/.env.example bundle/
           sed -i 's/\r$//' bundle/*.sh
           chmod +x bundle/*.sh
 
@@ -101,6 +101,9 @@ jobs:
               IP=$(curl -fsS --max-time 10 https://api.ipify.org)
               [ -n "$IP" ] && sed -i "s/^API_DOMAIN=.*/API_DOMAIN=$(echo "$IP" | tr . -).sslip.io/" .env
             fi
+            # Keys added in later versions are created on the server the first time they are needed (never in GitHub).
+            grep -q "^SUPPLIER_JWT_SIGNING_KEY=." .env || { sed -i "/^SUPPLIER_JWT_SIGNING_KEY=/d" .env; echo "SUPPLIER_JWT_SIGNING_KEY=$(openssl rand -base64 48 | tr -d "\n")" >> .env; }
+            grep -q "^ADMIN_TOTP_KEY=." .env || { sed -i "/^ADMIN_TOTP_KEY=/d" .env; echo "ADMIN_TOTP_KEY=$(openssl rand -base64 32 | tr -d "\n")" >> .env; }
             # Back up the database before every update (skipped on the very first deploy).
             if [ -n "$(docker compose -f docker-compose.prod.yml ps -q mysql 2>/dev/null)" ]; then ./backup.sh; else echo "First deploy: nothing to back up yet"; fi
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
