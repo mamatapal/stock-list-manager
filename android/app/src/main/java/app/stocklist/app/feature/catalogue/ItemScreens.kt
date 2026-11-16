@@ -220,7 +220,7 @@ fun ItemDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -> Uni
                 LabelValue(tr("Latest selling price"), i.latestSellingPrice?.let { Decimals.rupees(it) })
                 LabelValue(tr("Last purchased"), i.lastPurchaseDate.displayDate())
                 LabelValue(tr("Preferred supplier"), suppliers.firstOrNull { it.id == i.preferredSupplierId }?.name)
-                LabelValue(tr("Notes"), i.notes)
+                LabelValue(tr("Notes"), i.notes?.bi())
                 LabelValue(tr("Status"), if (i.active) tr("Active") else tr("Inactive"))
                 LabelValue(tr("Added by"), personName(names, i.createdBy, vm.me))
                 LabelValue(tr("Last changed by"), personName(names, i.updatedBy, vm.me))

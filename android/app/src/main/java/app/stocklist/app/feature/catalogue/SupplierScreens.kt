@@ -132,7 +132,7 @@ fun SupplierListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, on
                             headlineContent = { Text(s.name.bi()) },
                             supportingContent = {
                                 Column {
-                                    Text(listOfNotNull(s.city, s.mobile, s.contactPerson).joinToString(" · ").ifEmpty { "-" })
+                                    Text(listOfNotNull(s.city?.bi(), s.mobile, s.contactPerson?.bi()).joinToString(" · ").ifEmpty { "-" })
                                     SyncBadge(s.syncState, s.syncError)
                                 }
                             },
@@ -221,10 +221,10 @@ fun SupplierDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
                 LabelValue(tr("Contact person"), sup.contactPerson)
                 LabelValue(tr("Mobile"), sup.mobile)
                 LabelValue(tr("Other phone"), sup.altPhone)
-                LabelValue(tr("Address"), sup.address)
-                LabelValue(tr("City"), sup.city)
+                LabelValue(tr("Address"), sup.address?.bi())
+                LabelValue(tr("City"), sup.city?.bi())
                 LabelValue(tr("GST number"), sup.gstin)
-                LabelValue(tr("Notes"), sup.notes)
+                LabelValue(tr("Notes"), sup.notes?.bi())
                 LabelValue(tr("Status"), if (sup.active) tr("Active") else tr("Inactive"))
                 LabelValue(tr("Added by"), personName(names, sup.createdBy, vm.me))
                 LabelValue(tr("Last changed by"), personName(names, sup.updatedBy, vm.me))

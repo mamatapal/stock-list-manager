@@ -87,19 +87,19 @@ object PdfDocuments {
                 l.priceBasis == "TOTAL" -> tr("%1\$s total", unitPrice(l.enteredPrice))
                 else -> unitPrice(l.enteredPrice) + (unit?.let { " / $it" } ?: "")
             }
-            Row(listOf((i + 1).toString(), l.itemName.bi() + (l.description?.takeIf { it.isNotBlank() }?.let { Bilingual.mainOnly("\n$it") } ?: ""),
+            Row(listOf((i + 1).toString(), l.itemName.bi() + (l.description?.takeIf { it.isNotBlank() }?.let { "\n" + it.bi() } ?: ""),
                 qty(l.quantity, unit), price, money(l.lineTotal)))
         }
         val total = list.totalAmount ?: PdfFormat.sum(lines.map { it.lineTotal }).toPlainString()
-        return doc(ctx, tr("Out-of-stock list"), listOf(list.title), PdfFormat.fileName(tr("List"), list.title, list.listDate),
+        return doc(ctx, tr("Out-of-stock list"), listOf(list.title.bi()), PdfFormat.fileName(tr("List"), list.title, list.listDate),
             Facts(listOf(
                 tr("List date") to date(list.listDate),
-                tr("Supplier") to supplier?.let { s -> listOfNotNull(s.name, s.mobile, s.city).joinToString(", ") },
+                tr("Supplier") to supplier?.let { s -> listOfNotNull(s.name.bi(), s.mobile, s.city?.bi()).joinToString(", ") },
                 tr("Status") to label(list.status),
                 tr("Items") to lines.size.toString(),
                 tr("Prepared by") to ctx.name(list.createdBy),
             )),
-            list.notes?.takeIf { it.isNotBlank() }?.let { Note(tr("Notes: %1\$s", it)) },
+            list.notes?.takeIf { it.isNotBlank() }?.let { Note(tr("Notes: %1\$s", it.bi())) },
             Table(
                 listOf(Column("#", 0.5f, Align.RIGHT), Column(tr("Item"), 4.6f), Column(tr("Quantity"), 1.5f, Align.RIGHT),
                     Column(tr("Price"), 1.7f, Align.RIGHT), Column(tr("Amount"), 1.6f, Align.RIGHT)),
@@ -154,7 +154,7 @@ object PdfDocuments {
                 (p.cancelReason?.let { tr(" Reason: %1\$s", it) } ?: ""), warning = true) else null,
             Facts(listOf(
                 tr("Supplier") to (p.supplierName ?: supplier?.name),
-                tr("Supplier contact") to supplier?.let { s -> listOfNotNull(s.mobile, s.city).joinToString(", ").ifBlank { null } },
+                tr("Supplier contact") to supplier?.let { s -> listOfNotNull(s.mobile, s.city?.bi()).joinToString(", ").ifBlank { null } },
                 tr("Invoice no.") to p.invoiceNo,
                 tr("Supplier GSTIN") to supplier?.gstin,
                 tr("Purchase date") to date(p.purchaseDate),
@@ -167,7 +167,7 @@ object PdfDocuments {
             )),
             Table(cols, rows, totals, emptyText = tr("This purchase has no items")),
             if (profit && p.totalExpectedProfit != null) Note(PROFIT_NOTE, warning = true) else null,
-            p.notes?.takeIf { it.isNotBlank() }?.let { Note(tr("Notes: %1\$s", it)) },
+            p.notes?.takeIf { it.isNotBlank() }?.let { Note(tr("Notes: %1\$s", it.bi())) },
             if (deliveryRows.isNotEmpty()) Heading(tr("Goods received")) else null,
             if (deliveryRows.isNotEmpty()) Table(
                 listOf(Column(tr("Date"), 1.2f), Column(tr("Received by"), 1.6f), Column(tr("Item"), 3.2f),
@@ -206,7 +206,7 @@ object PdfDocuments {
             Facts(listOf(
                 tr("Supplier") to supplier.name,
                 tr("Contact") to listOfNotNull(supplier.contactPerson, supplier.mobile).joinToString(", ").ifBlank { null },
-                tr("Address") to listOfNotNull(supplier.address, supplier.city).joinToString(", ").ifBlank { null },
+                tr("Address") to listOfNotNull(supplier.address?.bi(), supplier.city?.bi()).joinToString(", ").ifBlank { null },
                 "GSTIN" to supplier.gstin,
                 tr("Period") to PdfFormat.period(from, to),
                 tr("Purchases") to counted.size.toString(),

@@ -1,5 +1,6 @@
 package app.stocklist.app.data.repository
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.tr
 
 import android.content.Context
@@ -60,10 +61,10 @@ class PdfRepository @Inject constructor(
         val fresh = withTimeoutOrNull(4_000) { (apiCall { api.business() } as? ApiResult.Ok)?.value }
         if (fresh != null) db.meta().put(LocalMeta(META_BUSINESS, json.encodeToString(BusinessDto.serializer(), fresh)))
         val b = fresh ?: db.meta().get(META_BUSINESS)?.let { runCatching { json.decodeFromString(BusinessDto.serializer(), it) }.getOrNull() }
-        if (b == null || b.id != me.businessId) return BusinessInfo(me.businessName)
-        return BusinessInfo(b.name, listOf(
-            b.address,
-            listOf(b.city, listOf(b.state, b.pinCode).filter { it.isNotBlank() }.joinToString(" ")).filter { it.isNotBlank() }.joinToString(", "),
+        if (b == null || b.id != me.businessId) return BusinessInfo(me.businessName.bi())
+        return BusinessInfo(b.name.bi(), listOf(
+            b.address.bi(),
+            listOf(b.city.bi(), listOf(b.state.bi(), b.pinCode).filter { it.isNotBlank() }.joinToString(" ")).filter { it.isNotBlank() }.joinToString(", "),
             listOf(b.phone.takeIf { it.isNotBlank() }?.let { tr("Phone %1\$s", it) }, b.email.takeIf { it.isNotBlank() }).filterNotNull().joinToString("  ·  "),
             b.gstin?.takeIf { it.isNotBlank() }?.let { tr("GSTIN %1\$s", it) }.orEmpty(),
         ).filter { it.isNotBlank() })
@@ -71,9 +72,9 @@ class PdfRepository @Inject constructor(
 
     suspend fun context(me: MeDto = user()): PdfContext = PdfContext(
         business = business(me),
-        generatedBy = me.fullName,
+        generatedBy = me.fullName.bi(),
         generatedAt = System.currentTimeMillis(),
-        people = db.people().observeAll().first().associate { it.id to it.fullName },
+        people = db.people().observeAll().first().associate { it.id to it.fullName.bi() },
         showProfit = me.has(Permission.EXPECTED_PROFIT_VIEW),
     )
 

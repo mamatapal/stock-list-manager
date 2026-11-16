@@ -102,4 +102,11 @@ class NameFillTest {
         assertEquals("Sugar / शुगर", BilingualName.withBothSpellings("Sugar / शुगर"))
         assertEquals("", BilingualName.withBothSpellings(""))
     }
+
+    @Test fun notesAndPeopleGetHindiToo() {
+        assertEquals("ऐड एक्सपायरी डेट. आइटम्स शुड फ्रेश", Transliterate.toHindi("Add expiry date. Items should fresh"))
+        assertEquals("ममता पाल", Transliterate.toHindi("Mamata Pal"))
+        Lang.setForTest(AppLanguage.ENGLISH, true)
+        assertEquals("Mamata Pal" to "ममता पाल", Bilingual.lines("Mamata Pal".bi()))
+    }
 }

@@ -1,5 +1,6 @@
 package app.stocklist.app.feature.business
 
+import app.stocklist.app.core.i18n.bi
 import app.stocklist.app.core.i18n.Bilingual
 
 import app.stocklist.app.core.i18n.tr
@@ -185,8 +186,8 @@ fun BusinessProfileScreen(canEdit: Boolean, onBack: () -> Unit, vm: BusinessProf
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 SectionCard(b.name) {
-                    LabelValue(tr("Address"), b.address)
-                    LabelValue(tr("City"), b.city)
+                    LabelValue(tr("Address"), b.address.bi())
+                    LabelValue(tr("City"), b.city.bi())
                     LabelValue(tr("State"), b.state)
                     LabelValue(tr("PIN code"), b.pinCode)
                     LabelValue(tr("Phone"), b.phone)
