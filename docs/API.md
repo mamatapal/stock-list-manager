@@ -96,3 +96,31 @@ Suppliers `/suppliers`, items `/items` (+`/categories`), units `/units`, lists `
 `/by-item/{id}`), batches and expiry `/batches` (`expiry=EXPIRED|WITHIN_7|WITHIN_30|WITHIN_90|ALL`, `/alert`),
 staff `/staff` (+`/permissions`, `/sessions`, `/activate`, `/deactivate`, `/reset-password`), activity log
 `/activity` (owner), business profile `/business`, people `/people`. Details and examples: `openapi.json`.
+
+## Supplier Management app and Supplier Administration (Phase S1)
+
+These endpoints are separate from the shop API above. Shop tokens are refused there, and their tokens are refused here.
+
+**Supplier Management app** - `/api/v1/supplier-portal` with its own bearer tokens (issuer `supplier-management`,
+key `SUPPLIER_JWT_SIGNING_KEY`):
+
+| Purpose | Request | Notes |
+| --- | --- | --- |
+| Register | `POST /auth/register` `{legalName, tradeName?, contactPerson, mobile, email, password, address, city, state, pinCode, gstin?}` | Always `202`. A verification link is emailed; an already-registered email gets a notice instead, so the answer never reveals which emails exist. |
+| Verify the email | `POST /auth/verify-email` `{token}` | Token from the link `https://<server>/supplier/verify-email.html#t=<token>` (24 hours, single use). The business then waits for approval. |
+| New link | `POST /auth/resend-verification` `{email}` | Always `202`; at most one email a minute. |
+| Sign in | `POST /auth/login` `{email, password, deviceId, deviceName?}` | Only after the email is verified (`EMAIL_NOT_VERIFIED` otherwise; a wrong password always gives `INVALID_CREDENTIALS`). Access token 15 minutes, refresh token 30 days. Works in every review state, so the app can show it. |
+| Refresh / sign out | `POST /auth/refresh`, `POST /auth/logout` `{refreshToken}` | Rotation; a reused refresh token ends the session. |
+| Passwords | `POST /auth/password/forgot` `{email}` (always `202`), `POST /auth/password/reset` `{token, newPassword}`, `POST /auth/password/change` | Reset links last 1 hour. A reset or change signs out every other phone and emails a security notice to the registered address. |
+| Account | `GET /me`, `PUT /profile` (with `If-Match: <org version>`) | Details can change before approval and after a rejection; saving after a rejection sends the business for review again. |
+
+Review states: `PENDING_EMAIL_VERIFICATION`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `SUSPENDED`. Supplier
+business features (later phases) require `APPROVED`, checked on every request. Error codes are listed in
+`SupplierPortalError` (the app translates each one into Hindi and English). No SMS and no one-time codes are used.
+
+**Supplier Administration portal** - page at `https://<server>/admin/`, API under `/api/v1/admin` with an HttpOnly,
+SameSite=Strict session cookie and the header `X-Requested-With: SupplierAdministration` on every change:
+`POST /auth/login` `{username, password, code}` (code from an authenticator app), `POST /auth/logout`, `GET /auth/me`,
+`GET /suppliers?status=`, `GET /suppliers/{id}`, `POST /suppliers/{id}/approve | reject | suspend | reinstate`
+(`If-Match: <version>`; reject and suspend need `{reason}`, which the supplier sees). Administrators are created only
+on the server: see `docs/SUPPLIER_ADMINISTRATION.md`.

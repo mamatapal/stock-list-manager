@@ -63,10 +63,19 @@ public abstract class IntegrationTestBase {
             r.add("spring.datasource.password", MYSQL::getPassword);
         }
         r.add("app.jwt.signing-key", () -> TestSupport.SIGNING_KEY);
+        r.add("app.supplier.jwt-signing-key", () -> SUPPLIER_SIGNING_KEY);
+        r.add("app.supplier.public-base-url", () -> "https://test.example");
+        r.add("app.admin.totp-key", () -> ADMIN_TOTP_KEY);
         r.add("app.login-rate-per-minute", () -> 10_000);
         r.add("springdoc.api-docs.enabled", () -> true);
         r.add("springdoc.swagger-ui.enabled", () -> true);
     }
+
+    /** Test-only keys for the supplier side (Phase S1). */
+    static final String SUPPLIER_SIGNING_KEY = java.util.Base64.getEncoder()
+            .encodeToString("supplier-test-signing-key-0123456789-abcdef".getBytes());
+    static final String ADMIN_TOTP_KEY = java.util.Base64.getEncoder()
+            .encodeToString("admin-totp-test-key-0123456789-ab".getBytes());
 
     @Autowired
     protected Environment env;
@@ -209,12 +218,53 @@ public abstract class IntegrationTestBase {
         }
     }
 
+    /** Keeps the links that would have been emailed to suppliers, by email address. */
+    public static class CapturingSupplierMailer implements app.stocklist.supplieraccount.SupplierMailer {
+        public final Map<String, String> verifyLinks = new ConcurrentHashMap<>();
+        public final Map<String, String> resetLinks = new ConcurrentHashMap<>();
+        public final Map<String, String> alreadyRegistered = new ConcurrentHashMap<>();
+        public final Map<String, String> lastStatus = new ConcurrentHashMap<>();
+        public final Map<String, Integer> passwordChanged = new ConcurrentHashMap<>();
+
+        @Override
+        public void verificationLink(app.stocklist.supplieraccount.SupplierUser user, String link) {
+            verifyLinks.put(user.getEmail(), link);
+        }
+
+        @Override
+        public void passwordResetLink(app.stocklist.supplieraccount.SupplierUser user, String link) {
+            resetLinks.put(user.getEmail(), link);
+        }
+
+        @Override
+        public void alreadyRegistered(app.stocklist.supplieraccount.SupplierUser user, String resetLink) {
+            alreadyRegistered.put(user.getEmail(), resetLink);
+        }
+
+        @Override
+        public void passwordChanged(app.stocklist.supplieraccount.SupplierUser user) {
+            passwordChanged.merge(user.getEmail(), 1, Integer::sum);
+        }
+
+        @Override
+        public void statusChanged(app.stocklist.supplieraccount.SupplierUser user,
+                                  app.stocklist.supplieraccount.SupplierOrg org) {
+            lastStatus.put(user.getEmail(), org.getStatus());
+        }
+    }
+
     @TestConfiguration
     static class TestMailerConfig {
         @Bean
         @Primary
         CapturingMailer capturingMailer() {
             return new CapturingMailer();
+        }
+
+        @Bean
+        @Primary
+        CapturingSupplierMailer capturingSupplierMailer() {
+            return new CapturingSupplierMailer();
         }
     }
 }

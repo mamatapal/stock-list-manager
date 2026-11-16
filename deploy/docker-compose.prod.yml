@@ -38,6 +38,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SIGNING_KEY: ${JWT_SIGNING_KEY:?set JWT_SIGNING_KEY in .env}
       JWT_KEY_ID: ${JWT_KEY_ID:-k1}
+      # Supplier Management app and Supplier Administration portal (Phase S1)
+      SUPPLIER_JWT_SIGNING_KEY: ${SUPPLIER_JWT_SIGNING_KEY:?set SUPPLIER_JWT_SIGNING_KEY in .env}
+      ADMIN_TOTP_KEY: ${ADMIN_TOTP_KEY:?set ADMIN_TOTP_KEY in .env}
+      PUBLIC_BASE_URL: https://${API_DOMAIN}
       APP_BUSINESS_ZONE: ${APP_BUSINESS_ZONE:-Asia/Kolkata}
       SMTP_HOST: ${SMTP_HOST:-}
       SMTP_PORT: ${SMTP_PORT:-587}

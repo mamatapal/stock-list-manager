@@ -22,7 +22,15 @@ class OpenApiIT extends IntegrationTestBase {
             "POST /api/v1/auth/login",
             "POST /api/v1/auth/refresh",
             "POST /api/v1/auth/password/forgot",
-            "POST /api/v1/auth/password/reset");
+            "POST /api/v1/auth/password/reset",
+            "POST /api/v1/supplier-portal/auth/register",
+            "POST /api/v1/supplier-portal/auth/verify-email",
+            "POST /api/v1/supplier-portal/auth/resend-verification",
+            "POST /api/v1/supplier-portal/auth/login",
+            "POST /api/v1/supplier-portal/auth/refresh",
+            "POST /api/v1/supplier-portal/auth/password/forgot",
+            "POST /api/v1/supplier-portal/auth/password/reset",
+            "POST /api/v1/admin/auth/login");
 
     private List<String[]> endpoints(JsonNode doc) {
         List<String[]> list = new ArrayList<>();

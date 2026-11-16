@@ -7,6 +7,8 @@ import app.stocklist.permission.UserPermissionRepository;
 import app.stocklist.user.AppUserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -31,7 +33,9 @@ public class SecurityConfig {
             "/api/v1/auth/password/reset"
     };
 
+    /** The shop app's chain: the last, catch-all chain (supplier chains in PortalSecurityConfig come first). */
     @Bean
+    @Order(Ordered.LOWEST_PRECEDENCE)
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, AppUserRepository users,
                                                    BusinessRepository businesses,
                                                    UserPermissionRepository permissions) throws Exception {

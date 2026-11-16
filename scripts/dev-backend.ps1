@@ -25,6 +25,12 @@ if ($LASTEXITCODE -ne 0) {
 $bytes = New-Object byte[] 48
 [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
 $env:JWT_SIGNING_KEY = [Convert]::ToBase64String($bytes)
+[System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+$env:SUPPLIER_JWT_SIGNING_KEY = [Convert]::ToBase64String($bytes)
+# Fixed development key, so administrators created locally keep working after a restart (never use it on a server).
+$env:ADMIN_TOTP_KEY = "ZGV2ZWxvcG1lbnQtb25seS1hZG1pbi10b3RwLWtleSEh"
+$env:ADMIN_SECURE_COOKIE = "false"
+$env:PUBLIC_BASE_URL = "http://localhost:8080"
 $env:DB_URL = "jdbc:mysql://localhost:3307/stocklist?serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false"
 $env:DB_USER = "stocklist"
 $env:DB_PASSWORD = "stocklist-dev"
