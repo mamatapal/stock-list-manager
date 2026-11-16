@@ -25,7 +25,7 @@ class HindiCatalogueTest {
     fun backToEnglish() = Lang.setForTest(AppLanguage.ENGLISH)
 
     private val literal = Regex("""\b(?:tr|trKey)\(\s*"((?:[^"\\]|\\.)*)"""")
-    private val placeholder = Regex("""%(\d+)\$s""")
+    private val placeholder = Regex("%(\\d+)\\\$s") // matches %1$s
 
     private fun unescape(s: String) = s.replace("\\$", "$").replace("\\\"", "\"").replace("\\n", "\n").replace("\\\\", "\\")
 
