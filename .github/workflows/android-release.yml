@@ -13,8 +13,9 @@ concurrency:
   group: android-release
   cancel-in-progress: false
 
+# write: lets the job publish the APK on the repository's Releases page (it does not push code).
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   release:
@@ -139,6 +140,27 @@ jobs:
           if-no-files-found: error
           retention-days: 90
 
+      # Puts the APK on the Releases page as a plain .apk link that opens straight on a phone (no zip, no sign-in,
+      # because the repository is public). Stock-List-Manager.apk is the same file under a fixed name, so
+      # https://github.com/<owner>/<repo>/releases/latest/download/Stock-List-Manager.apk always gives the newest build.
+      - name: Publish on the Releases page
+        id: release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.apk.outputs.name }}
+          VN: ${{ steps.apk.outputs.vn }}
+          VC: ${{ steps.apk.outputs.vc }}
+          SHA256: ${{ steps.apk.outputs.sha256 }}
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then TAG="$GITHUB_REF_NAME"; else TAG="v${VN}-build${VC}"; fi
+          cp "apk-out/$NAME" apk-out/Stock-List-Manager.apk
+          printf 'Stock List Manager %s (build %s)\n\nOn your phone, tap **%s** below and install it.\n\nAPK SHA-256: `%s`\n' \
+            "$VN" "$VC" "$NAME" "$SHA256" > release-notes.md
+          gh release create "$TAG" "apk-out/$NAME" apk-out/Stock-List-Manager.apk \
+            --target "$GITHUB_SHA" --title "Stock List Manager $VN (build $VC)" --notes-file release-notes.md --latest
+          echo "url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+
       - name: Summary
         if: always()
         run: |
@@ -150,6 +172,7 @@ jobs:
             echo "| Version | ${{ steps.apk.outputs.vn || 'not built' }} (code ${{ steps.apk.outputs.vc || '-' }}) |"
             echo "| Server address | ${API_URL:-not set} |"
             echo "| APK | ${{ steps.apk.outputs.name || 'not produced' }} |"
+            echo "| Download on a phone | ${{ steps.release.outputs.url || 'not published' }} |"
             echo "| APK SHA-256 | \`${{ steps.apk.outputs.sha256 || '-' }}\` |"
             echo "| Signing certificate SHA-256 | \`${{ steps.apk.outputs.cert || '-' }}\` |"
             echo "| Date (UTC) | $(date -u '+%Y-%m-%d %H:%M') |"
