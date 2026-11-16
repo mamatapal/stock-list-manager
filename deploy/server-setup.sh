@@ -10,7 +10,7 @@
 set -euxo pipefail
 
 # Public half of the GitHub Actions deploy key (the private half is the DEPLOY_SSH_KEY secret on GitHub).
-DEPLOY_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ54AvSMNM+D7FTJXF3e4JfTLVpnXFeP4kWpUya6RNll github-actions-deploy@stock-list-manager"
+DEPLOY_KEY="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIO0p4SaQLGr0C6njcDY4BPkKL0gPhdvYFTOC6ydSZm37 github-actions-deploy@stock-list-manager"
 # Optional: your own domain, e.g. API_DOMAIN=api.yourshop.in (its DNS A record must point at this server).
 # Left empty, the server uses <ip-with-dashes>.sslip.io, a free name that always points at this IP.
 API_DOMAIN="${API_DOMAIN:-}"
