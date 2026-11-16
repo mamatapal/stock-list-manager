@@ -38,6 +38,11 @@ public class SmtpSupplierMailer implements SupplierMailer {
     }
 
     @Override
+    public void passwordChanged(SupplierUser user) {
+        send(user, "password changed", SupplierEmails.passwordChanged(user));
+    }
+
+    @Override
     public void statusChanged(SupplierUser user, SupplierOrg org) {
         send(user, "status " + org.getStatus(), SupplierEmails.statusChanged(user, org));
     }

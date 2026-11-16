@@ -72,12 +72,13 @@ public class SupplierReviewService {
             Map<UUID, String> names = new HashMap<>();
             List<AdminDtos.SupplierEvent> history = events.findBySupplierOrgIdOrderByIdAsc(id).stream()
                     .map(e -> new AdminDtos.SupplierEvent(e.getAction(), e.getActorType(), actorName(e, names),
-                            e.getFromStatus(), e.getToStatus(), e.getReason(), e.getCreatedAt()))
+                            e.getFromStatus(), e.getToStatus(), e.getReason(), e.getIp(), e.getCreatedAt()))
                     .toList();
             long sameGstin = o.getGstin() == null ? 0 : orgs.countOtherWithGstin(id, o.getGstin());
             long sameMobile = orgs.countOtherWithMobile(id, o.getMobile());
+            boolean byReset = history.stream().anyMatch(e -> SupplierOrgEvent.EMAIL_VERIFIED_BY_RESET.equals(e.action()));
             return new AdminDtos.SupplierDetail(summary(o), o.getContactPerson(), o.getAddress(), o.getPinCode(),
-                    o.getStatusReason(), o.getEmailVerifiedAt(), people, sameGstin, sameMobile, history);
+                    o.getStatusReason(), o.getEmailVerifiedAt(), people, sameGstin, sameMobile, byReset, history);
         });
     }
 

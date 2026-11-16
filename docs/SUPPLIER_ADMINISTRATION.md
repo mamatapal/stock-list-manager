@@ -19,7 +19,21 @@ an administrator approves the business in the **Supplier Administration** portal
 Until email is configured (Amazon SES, see the plan), links are not emailed. For testing before then, the logs show
 only that a link was requested; nothing secret is written to the logs in production.
 
-## 2. Administrators
+## 2. Account recovery (who can take over an account)
+
+Only someone who can read the registered email can get into a supplier account:
+
+- Nobody can sign in until the email address has been verified with the emailed link.
+- A forgotten password can only be replaced through a single-use link sent to the registered email (valid 1 hour;
+  a newer link cancels older ones). There are no recovery questions, SMS or codes, and administrators cannot set a
+  supplier's password.
+- After a reset or a password change, every other phone is signed out and the registered email receives a notice.
+- Every step is kept in the supplier's history with the time and IP address: reset requested, password reset,
+  password changed, a second registration attempt with the same email, and "email verified through a password-reset
+  link". In the last case the portal also shows a warning, because the business details were typed before the email
+  was proven: check that they belong to the email owner before approving.
+
+## 3. Administrators
 
 Administrators sign in with **username + password + a 6-digit code from an authenticator app** (Google
 Authenticator, Microsoft Authenticator or similar). Five failed attempts lock the account for 15 minutes. A portal

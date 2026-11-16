@@ -20,7 +20,12 @@
     APPROVED: 'Approved',
     REJECTED: 'Rejected',
     SUSPENDED: 'Suspended',
-    REINSTATED: 'Reinstated'
+    REINSTATED: 'Reinstated',
+    REGISTRATION_ATTEMPT: 'Someone tried to register again with this email (the owner was emailed)',
+    PASSWORD_RESET_REQUESTED: 'Password reset link requested',
+    PASSWORD_RESET: 'Password reset with the emailed link',
+    PASSWORD_CHANGED: 'Password changed in the app',
+    EMAIL_VERIFIED_BY_RESET: 'Email verified through a password-reset link'
   };
 
   const $ = (id) => document.getElementById(id);
@@ -169,6 +174,8 @@
     if (d.otherSuppliersWithSameMobile > 0) addWarning(warnings, d.otherSuppliersWithSameMobile
       + ' other supplier(s) registered with the same mobile number.');
     if (!d.emailVerifiedAt) addWarning(warnings, 'The email address has not been verified yet.');
+    if (d.emailVerifiedByReset) addWarning(warnings, 'The email was verified through a password reset, after the '
+      + 'business details had been entered. Check that the details belong to the email owner before approving.');
 
     const fields = $('d-fields');
     fields.replaceChildren();
@@ -203,6 +210,7 @@
       let text = fmt(e.at) + ' - ' + (ACTION_TEXT[e.action] || e.action);
       if (e.actorName) text += ' by ' + e.actorName;
       if (e.reason) text += ': ' + e.reason;
+      if (e.ip) text += ' (from ' + e.ip + ')';
       li.textContent = text;
       history.appendChild(li);
     }

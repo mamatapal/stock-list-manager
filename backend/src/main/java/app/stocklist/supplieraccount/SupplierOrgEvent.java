@@ -20,6 +20,13 @@ public class SupplierOrgEvent {
     public static final String REJECTED = "REJECTED";
     public static final String SUSPENDED = "SUSPENDED";
     public static final String REINSTATED = "REINSTATED";
+    // Account security (recovery is auditable: who asked, from where, and what it changed)
+    public static final String REGISTRATION_ATTEMPT = "REGISTRATION_ATTEMPT";
+    public static final String PASSWORD_RESET_REQUESTED = "PASSWORD_RESET_REQUESTED";
+    public static final String PASSWORD_RESET = "PASSWORD_RESET";
+    public static final String PASSWORD_CHANGED = "PASSWORD_CHANGED";
+    /** The email was first proven through a password-reset link (the details were entered before that). */
+    public static final String EMAIL_VERIFIED_BY_RESET = "EMAIL_VERIFIED_BY_RESET";
 
     public static final String ACTOR_SUPPLIER = "SUPPLIER";
     public static final String ACTOR_ADMIN = "ADMIN";
@@ -61,5 +68,6 @@ public class SupplierOrgEvent {
     public String getFromStatus() { return fromStatus; }
     public String getToStatus() { return toStatus; }
     public String getReason() { return reason; }
+    public String getIp() { return ip; }
     public Instant getCreatedAt() { return createdAt; }
 }

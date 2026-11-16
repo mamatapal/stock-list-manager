@@ -31,6 +31,11 @@ public class LoggingSupplierMailer implements SupplierMailer {
     }
 
     @Override
+    public void passwordChanged(SupplierUser user) {
+        log.info("Supplier password-changed notice for user {} not sent: no mail server configured", user.getId());
+    }
+
+    @Override
     public void statusChanged(SupplierUser user, SupplierOrg org) {
         log.info("Supplier status email ({}) for user {} not sent: no mail server configured", org.getStatus(),
                 user.getId());

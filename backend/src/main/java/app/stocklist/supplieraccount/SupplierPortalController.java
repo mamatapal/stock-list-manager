@@ -63,7 +63,8 @@ public class SupplierPortalController {
         service.resendVerification(body.email(), ClientIp.of(req));
     }
 
-    @Operation(summary = "Sign in with email and password. 5 wrong passwords lock the account for 15 minutes")
+    @Operation(summary = "Sign in with email and password (only after the email is verified). 5 wrong passwords lock "
+            + "the account for 15 minutes")
     @SecurityRequirements
     @PostMapping("/auth/login")
     public SessionResponse login(@RequestBody LoginRequest body, HttpServletRequest req) {
@@ -102,8 +103,8 @@ public class SupplierPortalController {
 
     @Operation(summary = "Change own password; signs out every other phone and returns a new session")
     @PostMapping("/auth/password/change")
-    public SessionResponse changePassword(@RequestBody ChangePasswordRequest body) {
-        return service.changePassword(SupplierPrincipal.current(), body);
+    public SessionResponse changePassword(@RequestBody ChangePasswordRequest body, HttpServletRequest req) {
+        return service.changePassword(SupplierPrincipal.current(), body, ClientIp.of(req));
     }
 
     @Operation(summary = "The signed-in supplier user and the business, with its review status")

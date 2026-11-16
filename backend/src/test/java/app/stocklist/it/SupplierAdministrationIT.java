@@ -189,6 +189,22 @@ class SupplierAdministrationIT extends SupplierTestSupport {
     }
 
     @Test
+    void verificationThroughAPasswordResetIsFlaggedForTheReviewer() {
+        String email = supplierEmail();
+        registerSupplier(email);
+        post(PORTAL + "/auth/password/forgot", "{\"email\":\"" + email + "\"}");
+        post(PORTAL + "/auth/password/reset", "{\"token\":\"" + token(supplierMail.resetLinks.get(email))
+                + "\",\"newPassword\":\"Owner-Pass-2026\"}");
+        Resp owner = supplierLogin(email, "Owner-Pass-2026");
+        String session = signIn(newAdmin());
+        Http d = adminGet(ADMIN + "/suppliers/" + orgId(owner), session);
+        assertEquals("true", text(d.body().get("emailVerifiedByReset")), d.raw());
+        assertNotNull(text(d.body().at("/history/1/ip")));
+        Http normal = adminGet(ADMIN + "/suppliers/" + orgId(verifiedSupplier(supplierEmail())), session);
+        assertEquals("false", text(normal.body().get("emailVerifiedByReset")));
+    }
+
+    @Test
     void possibleDuplicatesAreFlaggedForTheReviewer() {
         Resp first = verifiedSupplier(supplierEmail());
         Resp second = verifiedSupplier(supplierEmail());

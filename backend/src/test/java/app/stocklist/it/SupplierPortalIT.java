@@ -20,16 +20,16 @@ class SupplierPortalIT extends SupplierTestSupport {
         String link = supplierMail.verifyLinks.get(email);
         assertTrue(link.startsWith("https://test.example/supplier/verify-email.html#t="), link);
 
-        // Signing in works before verification, and shows what is still needed.
+        // No sign-in until the email is proven (the right password gets this answer; a wrong one does not).
         Resp early = supplierLogin(email, SUPPLIER_PW);
-        assertEquals(200, early.status(), early.raw());
-        assertEquals("PENDING_EMAIL_VERIFICATION", text(early.at("/me/org/status")));
-        assertEquals("false", text(early.at("/me/user/emailVerified")));
+        assertEquals(403, early.status(), early.raw());
+        assertEquals("EMAIL_NOT_VERIFIED", early.str("code"));
+        assertEquals("INVALID_CREDENTIALS", supplierLogin(email, "Wrong-Pass-99").str("code"));
 
         // Opening the page does not verify (email scanners open links); only the button's POST does.
         Resp page = call("GET", "/supplier/verify-email.html", null, null, null);
         assertEquals(200, page.status());
-        assertEquals("PENDING_EMAIL_VERIFICATION", text(supplierMe(early.str("accessToken")).at("/org/status")));
+        assertEquals("EMAIL_NOT_VERIFIED", supplierLogin(email, SUPPLIER_PW).str("code"));
 
         Resp v = verify(token(link));
         assertEquals(200, v.status(), v.raw());
@@ -37,7 +37,9 @@ class SupplierPortalIT extends SupplierTestSupport {
         // A second click on the same link is harmless.
         assertEquals(200, verify(token(link)).status());
 
-        Resp me = supplierMe(early.str("accessToken"));
+        Resp session = supplierLogin(email, SUPPLIER_PW);
+        assertEquals(200, session.status(), session.raw());
+        Resp me = supplierMe(session.str("accessToken"));
         assertEquals(200, me.status(), me.raw());
         assertEquals("PENDING_APPROVAL", text(me.at("/org/status")));
         assertEquals("true", text(me.at("/user/emailVerified")));
@@ -81,6 +83,17 @@ class SupplierPortalIT extends SupplierTestSupport {
         assertEquals("अग्रवाल ट्रेडर्स", text(me.at("/org/legalName")));
         assertEquals("9876543210", text(me.at("/org/mobile")));
         assertEquals("23AAPCA1234B1Z5", text(me.at("/org/gstin")));
+    }
+
+    @Test
+    void aSecondRegistrationWithTheSameEmailIsRecorded() {
+        String email = supplierEmail();
+        verifiedSupplier(email);
+        registerSupplier(email);
+        Integer attempts = jdbc.queryForObject("select count(*) from supplier_org_event e join supplier_user u "
+                + "on u.supplier_org_id = e.supplier_org_id where u.email = ? and e.action = 'REGISTRATION_ATTEMPT'",
+                Integer.class, email);
+        assertEquals(1, attempts);
     }
 
     @Test
@@ -143,8 +156,7 @@ class SupplierPortalIT extends SupplierTestSupport {
     @Test
     void passwordResetByLinkSignsOutEveryPhoneAndProvesTheEmail() {
         String email = supplierEmail();
-        registerSupplier(email);
-        Resp before = supplierLogin(email, SUPPLIER_PW);
+        Resp before = verifiedSupplier(email);
         assertEquals(202, post(PORTAL + "/auth/password/forgot", "{\"email\":\"" + email + "\"}").status());
         String t = token(supplierMail.resetLinks.get(email));
         Resp weak = post(PORTAL + "/auth/password/reset", "{\"token\":\"" + t + "\",\"newPassword\":\"12345678\"}");
@@ -159,7 +171,43 @@ class SupplierPortalIT extends SupplierTestSupport {
                 "{\"refreshToken\":\"" + before.str("refreshToken") + "\"}").status());
         Resp after = supplierLogin(email, "Fresh-Pass-2026");
         assertEquals(200, after.status(), after.raw());
-        assertEquals("PENDING_APPROVAL", text(after.at("/me/org/status")), "the emailed link proved the address");
+        assertEquals(1, supplierMail.passwordChanged.get(email), "the registered email is told");
+    }
+
+    /**
+     * Someone registers with another person's email. They cannot sign in (email not proven). The real owner uses
+     * "forgot password": only the emailed link resets the password, the registrant's password stops working, and
+     * every step is in the history with its IP address, flagged for the reviewer.
+     */
+    @Test
+    void recoveryNeedsTheEmailedLinkAndIsAudited() {
+        String email = supplierEmail();
+        registerSupplier(email);
+        assertEquals("EMAIL_NOT_VERIFIED", supplierLogin(email, SUPPLIER_PW).str("code"));
+
+        // Without the link nothing changes.
+        assertEquals("LINK_INVALID", post(PORTAL + "/auth/password/reset",
+                "{\"token\":\"guessed\",\"newPassword\":\"Owner-Pass-2026\"}").str("code"));
+        assertEquals(202, post(PORTAL + "/auth/password/forgot", "{\"email\":\"" + email + "\"}").status());
+        assertEquals(202, post(PORTAL + "/auth/password/forgot", "{\"email\":\"" + email + "\"}").status());
+        String t = token(supplierMail.resetLinks.get(email));
+        assertEquals(204, post(PORTAL + "/auth/password/reset",
+                "{\"token\":\"" + t + "\",\"newPassword\":\"Owner-Pass-2026\"}").status());
+
+        assertEquals("INVALID_CREDENTIALS", supplierLogin(email, SUPPLIER_PW).str("code"), "old password is gone");
+        Resp owner = supplierLogin(email, "Owner-Pass-2026");
+        assertEquals(200, owner.status(), owner.raw());
+        assertEquals("PENDING_APPROVAL", text(owner.at("/me/org/status")));
+        assertEquals(1, supplierMail.passwordChanged.get(email));
+
+        java.util.List<String> actions = jdbc.queryForList("select action from supplier_org_event e "
+                + "join supplier_user u on u.supplier_org_id = e.supplier_org_id where u.email = ? order by e.id",
+                String.class, email);
+        assertEquals(java.util.List.of("REGISTERED", "PASSWORD_RESET_REQUESTED", "PASSWORD_RESET_REQUESTED",
+                "PASSWORD_RESET", "EMAIL_VERIFIED_BY_RESET"), actions);
+        Integer withIp = jdbc.queryForObject("select count(*) from supplier_org_event e join supplier_user u "
+                + "on u.supplier_org_id = e.supplier_org_id where u.email = ? and e.ip is not null", Integer.class, email);
+        assertEquals(5, withIp);
     }
 
     @Test

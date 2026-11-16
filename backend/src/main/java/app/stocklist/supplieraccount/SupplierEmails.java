@@ -87,6 +87,24 @@ public final class SupplierEmails {
                 """.formatted(u.getFullName(), resetLink) + FOOTER);
     }
 
+    public static Email passwordChanged(SupplierUser u) {
+        return new Email("आपका पासवर्ड बदला गया / Your password was changed - Supplier Management", """
+                नमस्ते %1$s,
+
+                आपके Supplier Management खाते (%2$s) का पासवर्ड अभी बदला गया है और बाकी सभी फ़ोन साइन आउट कर दिए गए हैं।
+                अगर यह आपने किया है, तो कुछ करने की ज़रूरत नहीं है।
+                अगर यह आपने नहीं किया, तो तुरंत ऐप में "पासवर्ड भूल गए?" से नया पासवर्ड रखें और अपने ईमेल खाते का पासवर्ड भी बदलें।
+
+                ----
+
+                Hello %1$s,
+
+                The password of your Supplier Management account (%2$s) was just changed and all other phones were signed out.
+                If this was you, nothing else is needed.
+                If this was not you, set a new password at once with "Forgot password?" in the app, and change the password of your email account too.
+                """.formatted(u.getFullName(), u.getEmail()) + FOOTER);
+    }
+
     public static Email statusChanged(SupplierUser u, SupplierOrg o) {
         String reason = o.getStatusReason() == null ? "" : o.getStatusReason();
         String hi, en, subject;

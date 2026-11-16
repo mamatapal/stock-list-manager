@@ -109,9 +109,9 @@ key `SUPPLIER_JWT_SIGNING_KEY`):
 | Register | `POST /auth/register` `{legalName, tradeName?, contactPerson, mobile, email, password, address, city, state, pinCode, gstin?}` | Always `202`. A verification link is emailed; an already-registered email gets a notice instead, so the answer never reveals which emails exist. |
 | Verify the email | `POST /auth/verify-email` `{token}` | Token from the link `https://<server>/supplier/verify-email.html#t=<token>` (24 hours, single use). The business then waits for approval. |
 | New link | `POST /auth/resend-verification` `{email}` | Always `202`; at most one email a minute. |
-| Sign in | `POST /auth/login` `{email, password, deviceId, deviceName?}` | Access token 15 minutes, refresh token 30 days. Works in every review state, so the app can show it. |
+| Sign in | `POST /auth/login` `{email, password, deviceId, deviceName?}` | Only after the email is verified (`EMAIL_NOT_VERIFIED` otherwise; a wrong password always gives `INVALID_CREDENTIALS`). Access token 15 minutes, refresh token 30 days. Works in every review state, so the app can show it. |
 | Refresh / sign out | `POST /auth/refresh`, `POST /auth/logout` `{refreshToken}` | Rotation; a reused refresh token ends the session. |
-| Passwords | `POST /auth/password/forgot` `{email}` (always `202`), `POST /auth/password/reset` `{token, newPassword}`, `POST /auth/password/change` | Reset links last 1 hour. |
+| Passwords | `POST /auth/password/forgot` `{email}` (always `202`), `POST /auth/password/reset` `{token, newPassword}`, `POST /auth/password/change` | Reset links last 1 hour. A reset or change signs out every other phone and emails a security notice to the registered address. |
 | Account | `GET /me`, `PUT /profile` (with `If-Match: <org version>`) | Details can change before approval and after a rejection; saving after a rejection sends the business for review again. |
 
 Review states: `PENDING_EMAIL_VERIFICATION`, `PENDING_APPROVAL`, `APPROVED`, `REJECTED`, `SUSPENDED`. Supplier

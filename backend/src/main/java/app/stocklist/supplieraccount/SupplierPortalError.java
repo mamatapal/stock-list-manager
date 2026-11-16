@@ -20,6 +20,7 @@ public enum SupplierPortalError {
     WEAK_PASSWORD(HttpStatus.BAD_REQUEST, "Password must have 8 to 128 characters and must not be a common password"),
     SAME_PASSWORD(HttpStatus.BAD_REQUEST, "The new password must be different from the current one"),
     DEVICE_REQUIRED(HttpStatus.BAD_REQUEST, "Device information is missing"),
+    EMAIL_NOT_VERIFIED(HttpStatus.FORBIDDEN, "Verify your email first. Open the link we emailed you, or ask for a new one"),
     INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "Wrong email or password. After 5 wrong attempts the account is locked for 15 minutes"),
     WRONG_CURRENT_PASSWORD(HttpStatus.UNAUTHORIZED, "The current password is wrong"),
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "Please sign in again"),

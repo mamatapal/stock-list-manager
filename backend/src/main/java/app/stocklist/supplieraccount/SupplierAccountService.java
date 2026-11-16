@@ -26,6 +26,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * <p>
  * Answers never reveal whether an email address is registered: registration, "resend link" and "forgot password"
  * answer the same in every case, and sign-in failures all give the same error.
+ * <p>
+ * Account recovery: nobody gets a session without proving the email. Sign-in is refused until the email is verified,
+ * and a password can only be reset through the emailed link. Every recovery step (request, reset, a re-registration
+ * attempt, verification through a reset link) is written to the supplier's history with the IP address, and the
+ * registered email is told whenever the password changes.
  * Emails are sent after the database transaction has committed.
  */
 @Service
@@ -90,6 +95,8 @@ public class SupplierAccountService {
             Optional<SupplierUser> existing = users.findByEmail(email);
             if (existing.isPresent()) {
                 SupplierUser u = existing.get();
+                orgs.findById(u.getSupplierOrgId()).ifPresent(o -> event(o, SupplierOrgEvent.REGISTRATION_ATTEMPT,
+                        SupplierOrgEvent.ACTOR_SYSTEM, null, o.getStatus(), o.getStatus(), null, ip, now));
                 newLink(u, SupplierEmailToken.PASSWORD_RESET, now)
                         .ifPresent(link -> out.add(() -> mailer.alreadyRegistered(u, link)));
                 return out;
@@ -97,7 +104,8 @@ public class SupplierAccountService {
             SupplierOrg org = orgs.save(new SupplierOrg(details, email, now));
             SupplierUser user = users.save(new SupplierUser(org.getId(), email, details.contactPerson(),
                     details.mobile(), hash, now));
-            event(org, SupplierOrgEvent.REGISTERED, user.getId(), null, org.getStatus(), null, ip, now);
+            event(org, SupplierOrgEvent.REGISTERED, SupplierOrgEvent.ACTOR_SUPPLIER, user.getId(), null,
+                    org.getStatus(), null, ip, now);
             newLink(user, SupplierEmailToken.VERIFY_EMAIL, now)
                     .ifPresent(link -> out.add(() -> mailer.verificationLink(user, link)));
             return out;
@@ -119,7 +127,7 @@ public class SupplierAccountService {
             }
             checkUsable(t, now);
             t.markUsed(now);
-            markVerified(user, org, ip, now);
+            markVerified(user, org, SupplierOrgEvent.EMAIL_VERIFIED, ip, now);
             return new SupplierDtos.VerifyEmailResponse(org.getStatus());
         });
     }
@@ -163,6 +171,10 @@ public class SupplierAccountService {
             // Correct password: only now is it safe to say why access is refused.
             if (!user.isActive()) {
                 return Outcome.fail(SupplierPortalError.ACCOUNT_INACTIVE.ex());
+            }
+            // No session until the email is proven: whoever registered with someone else's address can do nothing.
+            if (!user.isEmailVerified()) {
+                return Outcome.fail(SupplierPortalError.EMAIL_NOT_VERIFIED.ex());
             }
             user.recordSuccessfulLogin(now);
             return Outcome.ok(startSession(user, deviceId, trimTo(r.deviceName(), 100), now));
@@ -221,9 +233,14 @@ public class SupplierAccountService {
         String email = SupplierInputs.emailKey(rawEmail);
         List<Mail> mails = tx.execute(status -> {
             List<Mail> out = new ArrayList<>();
-            users.findByEmail(email).filter(SupplierUser::isActive).ifPresent(u ->
-                    newLink(u, SupplierEmailToken.PASSWORD_RESET, Instant.now(clock))
-                            .ifPresent(link -> out.add(() -> mailer.passwordResetLink(u, link))));
+            users.findByEmail(email).filter(SupplierUser::isActive).ifPresent(u -> {
+                Instant now = Instant.now(clock);
+                Optional<String> link = newLink(u, SupplierEmailToken.PASSWORD_RESET, now);
+                orgs.findById(u.getSupplierOrgId()).ifPresent(o -> event(o, SupplierOrgEvent.PASSWORD_RESET_REQUESTED,
+                        SupplierOrgEvent.ACTOR_SYSTEM, null, o.getStatus(), o.getStatus(),
+                        link.isPresent() ? null : "not sent: asked again within a minute", ip, now));
+                link.ifPresent(l -> out.add(() -> mailer.passwordResetLink(u, l)));
+            });
             return out;
         });
         mails.forEach(Runnable::run);
@@ -231,7 +248,7 @@ public class SupplierAccountService {
 
     /** Sets the new password and signs out every phone. Opening the emailed link also proves the email address. */
     public void resetPassword(String rawToken, String newPassword, String ip) {
-        tx.executeWithoutResult(status -> {
+        SupplierUser changed = tx.execute(status -> {
             Instant now = Instant.now(clock);
             SupplierEmailToken t = emailToken(rawToken, SupplierEmailToken.PASSWORD_RESET);
             checkUsable(t, now);
@@ -240,16 +257,22 @@ public class SupplierAccountService {
             SupplierInputs.password(newPassword, user.getEmail());
             user.changePassword(encoder.encode(newPassword), now);
             t.markUsed(now);
-            refreshTokens.revokeAllForUser(user.getId(), SupplierRefreshToken.REASON_PASSWORD, now);
+            int signedOut = refreshTokens.revokeAllForUser(user.getId(), SupplierRefreshToken.REASON_PASSWORD, now);
+            SupplierOrg org = orgs.findForUpdate(user.getSupplierOrgId()).orElseThrow();
+            event(org, SupplierOrgEvent.PASSWORD_RESET, SupplierOrgEvent.ACTOR_SUPPLIER, user.getId(), org.getStatus(),
+                    org.getStatus(), "by emailed link; " + signedOut + " session(s) signed out", ip, now);
             if (!user.isEmailVerified()) {
-                SupplierOrg org = orgs.findForUpdate(user.getSupplierOrgId()).orElseThrow();
-                markVerified(user, org, ip, now);
+                // Opening the link proves the address. The business details were typed before that, so the
+                // reviewer is shown this in the history and on the review page.
+                markVerified(user, org, SupplierOrgEvent.EMAIL_VERIFIED_BY_RESET, ip, now);
             }
+            return user;
         });
+        mailer.passwordChanged(changed);
     }
 
     /** Changes the password, signs out every other phone and returns a new session for this one. */
-    public SessionResponse changePassword(SupplierPrincipal caller, ChangePasswordRequest r) {
+    public SessionResponse changePassword(SupplierPrincipal caller, ChangePasswordRequest r, String ip) {
         Outcome<SessionResponse> outcome = tx.execute(status -> {
             Instant now = Instant.now(clock);
             SupplierUser user = loadCaller(caller);
@@ -264,10 +287,14 @@ public class SupplierAccountService {
             }
             user.changePassword(encoder.encode(r.newPassword()), now);
             refreshTokens.revokeAllForUser(user.getId(), SupplierRefreshToken.REASON_PASSWORD, now);
+            orgs.findById(user.getSupplierOrgId()).ifPresent(o -> event(o, SupplierOrgEvent.PASSWORD_CHANGED,
+                    SupplierOrgEvent.ACTOR_SUPPLIER, user.getId(), o.getStatus(), o.getStatus(), null, ip, now));
             return Outcome.ok(startSession(user, caller.deviceId() == null ? "unknown" : caller.deviceId(), null,
                     now));
         });
-        return outcome.get();
+        SessionResponse session = outcome.get();
+        users.findById(caller.userId()).ifPresent(mailer::passwordChanged);
+        return session;
     }
 
     // ---------------------------------------------------------------- the business
@@ -293,11 +320,12 @@ public class SupplierAccountService {
             if (!SupplierOrg.EDITABLE.contains(org.getStatus())) throw SupplierPortalError.DETAILS_LOCKED.ex();
             org.apply(details);
             org.touch(now);
-            event(org, SupplierOrgEvent.DETAILS_UPDATED, user.getId(), org.getStatus(), org.getStatus(), null, ip, now);
+            event(org, SupplierOrgEvent.DETAILS_UPDATED, SupplierOrgEvent.ACTOR_SUPPLIER, user.getId(), org.getStatus(),
+                    org.getStatus(), null, ip, now);
             if (SupplierOrg.REJECTED.equals(org.getStatus())) {
                 org.resubmit(now);
-                event(org, SupplierOrgEvent.RESUBMITTED, user.getId(), SupplierOrg.REJECTED, org.getStatus(), null,
-                        ip, now);
+                event(org, SupplierOrgEvent.RESUBMITTED, SupplierOrgEvent.ACTOR_SUPPLIER, user.getId(),
+                        SupplierOrg.REJECTED, org.getStatus(), null, ip, now);
             }
             orgs.saveAndFlush(org);
             return me(user);
@@ -319,11 +347,11 @@ public class SupplierAccountService {
         return new SessionResponse(access.token(), access.expiresAt(), raw, token.getExpiresAt(), me(user));
     }
 
-    private void markVerified(SupplierUser user, SupplierOrg org, String ip, Instant now) {
+    private void markVerified(SupplierUser user, SupplierOrg org, String action, String ip, Instant now) {
         String from = org.getStatus();
         user.emailVerified(now);
         org.emailVerified(now);
-        event(org, SupplierOrgEvent.EMAIL_VERIFIED, user.getId(), from, org.getStatus(), null, ip, now);
+        event(org, action, SupplierOrgEvent.ACTOR_SUPPLIER, user.getId(), from, org.getStatus(), null, ip, now);
     }
 
     /**
@@ -356,10 +384,9 @@ public class SupplierAccountService {
         if (t.isExpired(now)) throw SupplierPortalError.LINK_EXPIRED.ex();
     }
 
-    private void event(SupplierOrg org, String action, UUID actor, String from, String to, String reason, String ip,
-                       Instant now) {
-        events.save(new SupplierOrgEvent(org.getId(), action, SupplierOrgEvent.ACTOR_SUPPLIER, actor, from, to, reason,
-                ip, now));
+    private void event(SupplierOrg org, String action, String actorType, UUID actor, String from, String to,
+                       String reason, String ip, Instant now) {
+        events.save(new SupplierOrgEvent(org.getId(), action, actorType, actor, from, to, reason, ip, now));
     }
 
     private SupplierUser loadCaller(SupplierPrincipal caller) {

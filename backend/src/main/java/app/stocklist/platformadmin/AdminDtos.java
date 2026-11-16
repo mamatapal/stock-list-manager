@@ -19,7 +19,7 @@ public final class AdminDtos {
                                   Instant submittedAt, Instant reviewedAt, long version) {}
 
     public record SupplierEvent(String action, String actorType, String actorName, String fromStatus,
-                                String toStatus, String reason, Instant at) {}
+                                String toStatus, String reason, String ip, Instant at) {}
 
     public record SupplierUserInfo(UUID id, String email, String fullName, String mobile, String role,
                                    boolean emailVerified, Instant lastLoginAt) {}
@@ -28,5 +28,5 @@ public final class AdminDtos {
     public record SupplierDetail(SupplierSummary summary, String contactPerson, String address, String pinCode,
                                  String statusReason, Instant emailVerifiedAt, List<SupplierUserInfo> users,
                                  long otherSuppliersWithSameGstin, long otherSuppliersWithSameMobile,
-                                 List<SupplierEvent> history) {}
+                                 boolean emailVerifiedByReset, List<SupplierEvent> history) {}
 }

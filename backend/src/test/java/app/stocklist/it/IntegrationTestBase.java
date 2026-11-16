@@ -224,6 +224,7 @@ public abstract class IntegrationTestBase {
         public final Map<String, String> resetLinks = new ConcurrentHashMap<>();
         public final Map<String, String> alreadyRegistered = new ConcurrentHashMap<>();
         public final Map<String, String> lastStatus = new ConcurrentHashMap<>();
+        public final Map<String, Integer> passwordChanged = new ConcurrentHashMap<>();
 
         @Override
         public void verificationLink(app.stocklist.supplieraccount.SupplierUser user, String link) {
@@ -238,6 +239,11 @@ public abstract class IntegrationTestBase {
         @Override
         public void alreadyRegistered(app.stocklist.supplieraccount.SupplierUser user, String resetLink) {
             alreadyRegistered.put(user.getEmail(), resetLink);
+        }
+
+        @Override
+        public void passwordChanged(app.stocklist.supplieraccount.SupplierUser user) {
+            passwordChanged.merge(user.getEmail(), 1, Integer::sum);
         }
 
         @Override
