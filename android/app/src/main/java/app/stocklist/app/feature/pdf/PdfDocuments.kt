@@ -196,7 +196,7 @@ object PdfDocuments {
         }
         val totalCost = PdfFormat.sum(counted.map { it.totalCost })
         val totals = listOf(Row(buildList {
-            add(tr("Total")); add(tr("%1\$s purchase(s)", counted.size)); add(""); add("")
+            add(tr("Total")); add(if (counted.size == 1) tr("1 purchase") else tr("%1\$s purchases", counted.size)); add(""); add("")
             add(totalCost.m()); if (profit) add(PdfFormat.sum(counted.map { it.totalExpectedProfit }).m())
         }))
         return doc(ctx, tr("Supplier purchase report"), listOf(supplier.name, PdfFormat.period(from, to)),
