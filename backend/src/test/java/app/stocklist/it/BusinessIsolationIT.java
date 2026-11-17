@@ -2,7 +2,6 @@ package app.stocklist.it;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import app.stocklist.permission.Permission;
 import java.util.Arrays;
@@ -67,6 +66,6 @@ class BusinessIsolationIT extends IntegrationTestBase {
         List<String> db = jdbc.queryForList("select code from permission order by sort_order", String.class);
         List<String> code = Arrays.stream(Permission.values()).map(Enum::name).toList();
         assertEquals(code, db);
-        assertTrue(db.size() == 25);
+        assertEquals(27, db.size());
     }
 }

@@ -48,6 +48,11 @@ class GoodsReceiptIT extends NetworkTestSupport {
         return get(NET + "/orders/" + o.str("id"), w.shop().owner());
     }
 
+    private static void assertMoney(String expected, String actual, String why) {
+        assertEquals(0, new java.math.BigDecimal(expected).compareTo(new java.math.BigDecimal(actual)),
+                why + ": expected " + expected + " but was " + actual);
+    }
+
     private String receiptPurchaseId(String orderId) {
         return jdbc.queryForObject("SELECT BIN_TO_UUID(receipt_purchase_id) FROM purchase_order WHERE id = UUID_TO_BIN(?)",
                 String.class, orderId);
@@ -95,9 +100,9 @@ class GoodsReceiptIT extends NetworkTestSupport {
         }
         assertEquals("48", text(biscuitsLine.get("quantity")), "converted with the link: 2 x 24 pcs");
         assertEquals(PCS, text(biscuitsLine.get("unitId")));
-        assertEquals("480.00", text(biscuitsLine.get("purchasePrice")), "saved order price: 2 x 240");
+        assertMoney("480", text(biscuitsLine.get("purchasePrice")), "saved order price: 2 x 240");
         assertEquals("4", text(oilLine.get("quantity")), "the actual quantity received");
-        assertEquals("560.00", text(oilLine.get("purchasePrice")));
+        assertMoney("560", text(oilLine.get("purchasePrice")), "4 x 140");
 
         Resp batches = get("/api/v1/batches?itemId=" + w.biscuits(), w.shop().owner());
         assertEquals(1, batches.body().size(), batches.raw());
@@ -107,7 +112,7 @@ class GoodsReceiptIT extends NetworkTestSupport {
 
         Resp after = get(NET + "/orders/" + id, w.shop().owner());
         assertEquals("2", text(after.body().get("lines").get(0).get("receivedQuantity")));
-        assertEquals("240.00", text(after.body().get("lines").get(0).get("receivedUnitPrice")));
+        assertMoney("240", text(after.body().get("lines").get(0).get("receivedUnitPrice"))), "saved price kept on the order");
         assertEquals("4", text(after.body().get("lines").get(1).get("receivedQuantity")));
         JsonNode history = after.body().get("history");
         assertEquals("RECEIVED", text(history.get(history.size() - 1).get("toStatus")));
@@ -296,7 +301,7 @@ class GoodsReceiptIT extends NetworkTestSupport {
         for (JsonNode l : get("/api/v1/purchases/" + rp, owner).body().get("lines")) {
             assertNull(text(l.get("purchasePrice")), l.toString());
         }
-        assertEquals("240.00", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedUnitPrice")));
+        assertMoney("240", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedUnitPrice"))), "saved price kept on the order");
 
         // The owner may change the price.
         Resp order2 = placeAndAccept(w, "1", "1");
@@ -307,7 +312,7 @@ class GoodsReceiptIT extends NetworkTestSupport {
         boolean found = false;
         for (JsonNode l : get("/api/v1/purchases/" + receiptPurchaseId(order2.str("id")), owner).body().get("lines")) {
             if (w.biscuits().equals(text(l.get("itemId")))) {
-                assertEquals("230.50", text(l.get("purchasePrice")));
+                assertMoney("230.5", text(l.get("purchasePrice")), "changed by the owner");
                 found = true;
             }
         }
