@@ -5,9 +5,9 @@ on:
     types: [labeled]
 
 permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+  contents: read
+  issues: read
+  pull-requests: read
 
 concurrency:
   group: claude-issue-${{ github.event.issue.number }}
@@ -20,9 +20,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
+      # Use an installation token so PR/CI workflows triggered by Claude are not held
+      # for manual approval as they can be when a workflow uses GITHUB_TOKEN.
+      - name: Create scoped AI automation GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.AI_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.AI_AUTOMATION_APP_PRIVATE_KEY }}
+          owner: mamatapal
+          repositories: stock-list-manager
+
       - name: Run Claude Code on the labelled issue
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ steps.app-token.outputs.token }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: --max-turns 12
           prompt: |
