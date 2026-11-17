@@ -5,10 +5,10 @@ name: Android APK
 on:
   push:
     branches: [main]
-    paths-ignore: ["backend/**", "deploy/**", "docs/**", "**/*.md"]
+    paths-ignore: ["backend/**", "deploy/**", "docs/**", "**/*.md", "supplier-android/**", ".github/workflows/supplier-android-*.yml"]
   pull_request:
     branches: [main]
-    paths-ignore: ["backend/**", "deploy/**", "docs/**", "**/*.md"]
+    paths-ignore: ["backend/**", "deploy/**", "docs/**", "**/*.md", "supplier-android/**", ".github/workflows/supplier-android-*.yml"]
   workflow_dispatch:
     inputs:
       api_base_url:
