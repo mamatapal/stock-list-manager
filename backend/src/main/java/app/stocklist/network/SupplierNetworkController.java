@@ -75,7 +75,7 @@ public class SupplierNetworkController {
 
     @Operation(summary = "Accept a shop's connection request")
     @PostMapping("/connections/{connectionId}/accept")
-    public SupplierConnectionDto accept(@PathVariable UUID connectionId) {
+    public SupplierConnectionDto acceptConnection(@PathVariable UUID connectionId) {
         return connections.accept(SupplierPrincipal.current(), connectionId);
     }
 
@@ -141,7 +141,7 @@ public class SupplierNetworkController {
 
     @Operation(summary = "Accept a new order")
     @PostMapping("/orders/{orderId}/accept")
-    public SupplierOrderDto accept(@PathVariable UUID orderId) {
+    public SupplierOrderDto acceptOrder(@PathVariable UUID orderId) {
         return orders.accept(SupplierPrincipal.current(), orderId);
     }
 
