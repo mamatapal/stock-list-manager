@@ -44,6 +44,8 @@ public class SupplierOrg {
     private String statusReason;
     private Instant createdAt;
     private Instant updatedAt;
+    /** Shown in shop discovery only when true and the organisation is APPROVED. Off until the supplier opts in. */
+    private boolean listedInDirectory;
 
     protected SupplierOrg() {}
 
@@ -98,6 +100,14 @@ public class SupplierOrg {
     }
 
     public boolean isApproved() { return APPROVED.equals(status); }
+
+    /** The supplier's own choice to appear in shop discovery (V7). */
+    public void listInDirectory(boolean listed, Instant now) {
+        this.listedInDirectory = listed;
+        this.updatedAt = now;
+    }
+
+    public boolean isListedInDirectory() { return listedInDirectory; }
 
     public UUID getId() { return id; }
     public Long getVersion() { return version; }

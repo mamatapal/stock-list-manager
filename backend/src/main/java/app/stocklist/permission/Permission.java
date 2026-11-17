@@ -5,8 +5,9 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * The fixed permission catalogue. Must match the rows seeded in V1__access.sql
- * and the Kotlin enum in the Android app (checked by tests).
+ * The fixed permission catalogue. Must match the rows seeded in V1__access.sql (the first 25, which the Android
+ * app's Kotlin enum mirrors, checked by its tests) and V7__supplier_network.sql (the supplier network permissions,
+ * which the app ignores until its Supplier Network screens are added).
  * The owner implicitly holds all of them; staff hold only what is granted.
  */
 public enum Permission {
@@ -20,7 +21,10 @@ public enum Permission {
     EXPIRY_VIEW(true),
     EXPECTED_PROFIT_VIEW(false), PROFIT_REPORT_VIEW(false),
     SETTINGS_MANAGE(false),
-    STAFF_MANAGE(false);
+    STAFF_MANAGE(false),
+    // V7: off for staff; owners hold them implicitly.
+    SUPPLIER_NETWORK_MANAGE(false),
+    PURCHASE_ORDER_MANAGE(false);
 
     private final boolean staffDefault;
 
@@ -31,6 +35,24 @@ public enum Permission {
     public boolean staffDefault() {
         return staffDefault;
     }
+
+    /**
+     * The codes every released Stock List Manager app understands: exactly the 25 seeded by V1__access.sql. A client
+     * that does not say which codes it knows is assumed to know only these, so an older app never removes a code it
+     * cannot show. Listed one by one on purpose: this set must never grow when a permission is added to the enum.
+     */
+    public static final Set<Permission> FIRST_RELEASE = Set.copyOf(EnumSet.of(
+            SUPPLIER_VIEW, SUPPLIER_ADD, SUPPLIER_EDIT, SUPPLIER_DELETE,
+            ITEM_VIEW, ITEM_ADD, ITEM_EDIT, ITEM_DELETE,
+            LIST_CREATE, LIST_EDIT, LIST_DELETE,
+            PURCHASE_RECORD, PURCHASE_EDIT, PURCHASE_DELETE,
+            PURCHASE_PRICE_ENTER, SELLING_PRICE_ENTER, CATALOG_SELLING_PRICE_CHANGE,
+            PURCHASE_HISTORY_VIEW,
+            PDF_GENERATE, PDF_SHARE,
+            EXPIRY_VIEW,
+            EXPECTED_PROFIT_VIEW, PROFIT_REPORT_VIEW,
+            SETTINGS_MANAGE,
+            STAFF_MANAGE));
 
     public static Set<Permission> all() {
         return EnumSet.allOf(Permission.class);

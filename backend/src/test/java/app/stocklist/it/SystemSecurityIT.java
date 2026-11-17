@@ -20,7 +20,7 @@ import tools.jackson.databind.JsonNode;
  * Requests use real ids, valid bodies, the right If-Match version and a valid step-up token, so a refusal comes from
  * the permission or tenant check and not from a malformed request.
  */
-class SystemSecurityIT extends PurchaseTestSupport {
+class SystemSecurityIT extends NetworkTestSupport {
     /** Public, or harmful to the test session itself (logout, password change), or covered elsewhere. */
     private static final Set<String> SKIP = Set.of(
             "POST /api/v1/auth/register-business", "POST /api/v1/auth/login", "POST /api/v1/auth/refresh",
@@ -32,8 +32,16 @@ class SystemSecurityIT extends PurchaseTestSupport {
             "GET /api/v1/auth/me", "GET /api/v1/business", "GET /api/v1/permissions", "GET /api/v1/units",
             "GET /api/v1/people", "GET /api/v1/sync/pull");
 
+    /**
+     * The supplier directory is shared by every shop (approved suppliers that opted in), so another shop's owner may
+     * read a listed supplier: it is not a record of this business. Everything else under /supplier-network is.
+     */
+    private static final Set<String> NOT_A_BUSINESS_RECORD = Set.of(
+            "GET /api/v1/supplier-network/directory/{supplierOrgId}");
+
     record World(Shop shop, String ownerToken, String sup, String item, String unit, String list, String purchase,
-                 String purchaseLine, String draft, String batch, String staffId) {}
+                 String purchaseLine, String draft, String batch, String staffId, String supplierOrg,
+                 String connection, String product, String order) {}
 
     private World world() {
         Shop s = shop();
@@ -52,7 +60,14 @@ class SystemSecurityIT extends PurchaseTestSupport {
         assertEquals(201, draft.status(), draft.raw());
         Resp staff = createStaff(s.owner(), stepUp(s.owner(), PW), unique("st"), null);
         String staffId = staff.at("/staff/id").toString().replace("\"", "");
-        return new World(s, s.owner(), sup, item, unit, list.str("id"), p.str("id"), line, draft.str("id"), receipt, staffId);
+        // Supplier network records of this business: a connection, a linked product and an order.
+        Sup network = approvedSupplier(true);
+        String connection = connect(s.owner(), network);
+        String product = product(network, "Rice", "kg", "38");
+        assertEquals(200, link(s.owner(), connection, product, item, KG, "1").status());
+        String order = order(s.owner(), connection, orderLine(product, "2")).str("id");
+        return new World(s, s.owner(), sup, item, unit, list.str("id"), p.str("id"), line, draft.str("id"), receipt,
+                staffId, network.orgId(), connection, product, order);
     }
 
     private List<String[]> endpoints() {
@@ -97,6 +112,8 @@ class SystemSecurityIT extends PurchaseTestSupport {
         else if (template.startsWith("/api/v1/batches/{id}")) id = w.batch();
         else if (template.startsWith("/api/v1/staff/{id}")) id = w.staffId();
         if (id != null) path = path.replace("{id}", id);
+        path = path.replace("{supplierOrgId}", w.supplierOrg()).replace("{connectionId}", w.connection())
+                .replace("{productId}", w.product()).replace("{orderId}", w.order());
         if (path.startsWith("/api/v1/reports/")) path += "?from=2026-01-01&to=2026-12-31";
 
         String body = switch (method + " " + template) {
@@ -183,6 +200,7 @@ class SystemSecurityIT extends PurchaseTestSupport {
         int checked = 0;
         for (String[] ep : endpoints()) {
             if (!ep[1].contains("{")) continue; // endpoints that name a record
+            if (NOT_A_BUSINESS_RECORD.contains(ep[0] + " " + ep[1])) continue;
             Call call = request(ep[0], ep[1], a, stepB);
             // Use B's own step-up; the If-Match versions are A's real ones.
             int status = callWithHeaders(ep[0], call.path(), call.body(), b.owner(), call.headers()).status();
