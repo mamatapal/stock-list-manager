@@ -15,22 +15,21 @@ The OpenAI API reviewer does not have code-write or merge permissions. It does n
 
 After this setup PR is merged:
 
-1. Install the official Claude GitHub App and grant it access to this repository: https://github.com/apps/claude
-2. In Anthropic Console, create an API key (or configure a supported Claude Code OAuth/workload identity arrangement): https://console.anthropic.com/
-3. Add repository Actions secret `ANTHROPIC_API_KEY`.
-4. Create a dedicated GitHub App for the automation under GitHub → Settings → Developer settings → GitHub Apps → New GitHub App. It does not need webhook subscriptions. Give it only these repository permissions:
+1. In Anthropic Console, create an API key (or configure a supported Claude Code OAuth/workload identity arrangement): https://console.anthropic.com/
+2. Add repository Actions secret `ANTHROPIC_API_KEY`.
+3. Create a dedicated GitHub App for the automation under GitHub → Settings → Developer settings → GitHub Apps → New GitHub App. It does not need webhook subscriptions. Give it only these repository permissions:
    - Contents: Read and write
    - Issues: Read and write
    - Pull requests: Read and write
    - Metadata: Read-only (required)
-5. Install that new GitHub App on **only** `mamatapal/stock-list-manager`. Generate a private key and store:
+4. Install that new GitHub App on **only** `mamatapal/stock-list-manager`. Generate a private key and store:
    - `AI_AUTOMATION_APP_ID`: the GitHub App ID
    - `AI_AUTOMATION_APP_PRIVATE_KEY`: the complete PEM private-key contents
-6. In OpenAI Platform, create an API key: https://platform.openai.com/api-keys
-7. Add repository Actions secret `OPENAI_API_KEY`.
-8. Add repository Actions variable `OPENAI_REVIEW_MODEL` with a model available to your API project that supports the Responses API and Structured Outputs. The value is an API model identifier, not your ChatGPT subscription tier.
-9. Create the repository label `ai-develop` (Settings → Issues → Labels). Use a distinct color/name so it is obvious that applying it starts an AI coding workflow.
-10. Confirm the default branch is protected and requires a human pull-request approval plus successful CI checks.
+5. In OpenAI Platform, create an API key: https://platform.openai.com/api-keys
+6. Add repository Actions secret `OPENAI_API_KEY`.
+7. Add repository Actions variable `OPENAI_REVIEW_MODEL` with a model available to your API project that supports the Responses API and Structured Outputs. The value is an API model identifier, not your ChatGPT subscription tier.
+8. Create the repository label `ai-develop` (Settings → Issues → Labels). Use a distinct color/name so it is obvious that applying it starts an AI coding workflow.
+9. Confirm the default branch is protected and requires a human pull-request approval plus successful CI checks.
 
 Secrets and variables are configured under Repository → Settings → Secrets and variables → Actions. Never put secret values in issue comments, source files, or workflow YAML. Protect the GitHub App private key as carefully as a password.
 
@@ -58,7 +57,7 @@ Secrets and variables are configured under Repository → Settings → Secrets a
 The existing `android-apk.yml`, `supplier-android-apk.yml`, release workflows, `backend-ci.yml`, and `deploy-backend.yml` are not replaced by this setup. Their deployment and signing secrets remain outside AI-agent access.
 
 ## Troubleshooting
-- Claude does not start: verify the `ai-develop` label exists, the issue was labelled by `mamatapal`, the Claude GitHub App is installed for this repository, the dedicated AI automation GitHub App is installed for this repository, and `ANTHROPIC_API_KEY`, `AI_AUTOMATION_APP_ID`, and `AI_AUTOMATION_APP_PRIVATE_KEY` are configured.
+- Claude does not start: verify the `ai-develop` label exists, the issue was labelled by `mamatapal`, the dedicated AI automation GitHub App is installed for this repository, and `ANTHROPIC_API_KEY`, `AI_AUTOMATION_APP_ID`, and `AI_AUTOMATION_APP_PRIVATE_KEY` are configured.
 - OpenAI review does not start: this workflow becomes active after it is merged into the base branch. Check `OPENAI_API_KEY`, `OPENAI_REVIEW_MODEL`, and the Actions logs. Fork PRs are intentionally skipped.
 - CI fails: use the existing workflow logs and artifacts. Do not ask an AI agent to mark a failing check as passed.
 - API billing: check Anthropic Console and OpenAI Platform usage independently.
