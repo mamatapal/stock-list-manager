@@ -17,6 +17,7 @@ public class PurchaseOrderLine {
     @Id
     private UUID id;
     private UUID businessId;
+    private UUID supplierOrgId;
     private UUID orderId;
     private int lineNo;
     private UUID supplierProductId;
@@ -39,6 +40,7 @@ public class PurchaseOrderLine {
                              SupplierProductLink link, BigDecimal quantity, BigDecimal lineAmount) {
         this.id = id;
         this.businessId = businessId;
+        this.supplierOrgId = product.getSupplierOrgId();
         this.orderId = orderId;
         this.lineNo = lineNo;
         this.supplierProductId = product.getId();
@@ -61,6 +63,7 @@ public class PurchaseOrderLine {
 
     public UUID getId() { return id; }
     public UUID getBusinessId() { return businessId; }
+    public UUID getSupplierOrgId() { return supplierOrgId; }
     public UUID getOrderId() { return orderId; }
     public int getLineNo() { return lineNo; }
     public UUID getSupplierProductId() { return supplierProductId; }

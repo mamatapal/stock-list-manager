@@ -134,6 +134,22 @@ public class PurchaseService {
 
     @Transactional
     public PurchaseDto create(AuthUser caller, UUID id, PurchaseInput in) {
+        return create(caller, id, in, Set.of());
+    }
+
+    /**
+     * The same purchase creation for the goods receipt of a supplier purchase order. The prices of the lines named in
+     * {@code savedPriceLines} were not entered by this user: the server copied them from the order the supplier
+     * accepted, so they do not need PURCHASE_PRICE_ENTER. Every other rule is unchanged (PURCHASE_RECORD, validation,
+     * and PURCHASE_PRICE_ENTER for any price the user enters or changes). Never call this with ids of lines whose
+     * price came from a request.
+     */
+    @Transactional
+    public PurchaseDto createWithSavedPrices(AuthUser caller, UUID id, PurchaseInput in, Set<UUID> savedPriceLines) {
+        return create(caller, id, in, Set.copyOf(savedPriceLines));
+    }
+
+    private PurchaseDto create(AuthUser caller, UUID id, PurchaseInput in, Set<UUID> savedPriceLines) {
         require(caller, Permission.PURCHASE_RECORD);
         if (purchases.existsById(id)) {
             Purchase existing = purchases.findByBusinessIdAndId(caller.businessId(), id)
@@ -141,7 +157,7 @@ public class PurchaseService {
             throw new VersionConflictException("VERSION_CONFLICT", "This purchase already exists",
                     dto(caller, existing), existing.getVersion());
         }
-        Prepared p = prepare(caller, null, in);
+        Prepared p = prepare(caller, null, in, savedPriceLines);
         Instant now = Instant.now(clock);
         // save() returns the managed copy of a new record: keep using that one, not the object passed in.
         Purchase purchase = write(caller, new Purchase(id, caller.businessId(), caller.userId(), now,
@@ -175,7 +191,7 @@ public class PurchaseService {
         }
         Set<UUID> listsBefore = new HashSet<>(receiving.listsOf(caller.businessId(), currentLines(purchase)));
         if (purchase.getStockListId() != null) listsBefore.add(purchase.getStockListId());
-        Prepared p = prepare(caller, purchase, in);
+        Prepared p = prepare(caller, purchase, in, Set.of());
         if (wasCompleted) keepRevision(caller, purchase, null);
         purchase.touch(caller.userId(), Instant.now(clock), seq.next(caller.businessId()));
         purchase = write(caller, purchase, p, in);
@@ -266,7 +282,7 @@ public class PurchaseService {
 
     private record Prepared(List<PreparedLine> lines, List<PurchaseLine> remove, PurchaseCalculator.Totals totals) {}
 
-    private Prepared prepare(AuthUser caller, Purchase purchase, PurchaseInput in) {
+    private Prepared prepare(AuthUser caller, Purchase purchase, PurchaseInput in, Set<UUID> savedPriceLines) {
         UUID bid = caller.businessId();
         if (in.complete() && in.lines().isEmpty()) {
             throw ApiException.badRequest("EMPTY_PURCHASE", "Add at least one item before completing the purchase");
@@ -306,7 +322,8 @@ public class PurchaseService {
             BigDecimal selling = Decimals.parse(li.sellingPrice(), "Selling price for " + name, 4, true);
 
             // Price permissions apply to prices this user enters or changes, not to prices already on the line.
-            if (entered != null && (isNew || !same(entered, line.getEnteredAmount())
+            boolean savedPrice = isNew && savedPriceLines.contains(li.id());
+            if (entered != null && !savedPrice && (isNew || !same(entered, line.getEnteredAmount())
                     || !li.priceBasis().equals(line.getPriceBasis()))) {
                 requirePrice(caller, Permission.PURCHASE_PRICE_ENTER, "enter purchase prices");
             }

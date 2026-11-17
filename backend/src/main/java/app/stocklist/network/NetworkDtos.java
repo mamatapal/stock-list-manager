@@ -109,9 +109,6 @@ public final class NetworkDtos {
                                    String statusReason, long version, List<OrderLineDto> lines,
                                    List<EventDto> history) {}
 
-    /**
-     * pricesRecorded = false when the receiving user may not enter purchase prices (PURCHASE_PRICE_ENTER): the
-     * purchase is then saved without prices, as for any purchase that user records, and the order keeps them.
-     */
-    public record ReceiptDto(ShopOrderDto order, UUID purchaseId, boolean pricesRecorded) {}
+    /** The received order and the purchase the receipt created (with the saved or changed order prices). */
+    public record ReceiptDto(ShopOrderDto order, UUID purchaseId) {}
 }

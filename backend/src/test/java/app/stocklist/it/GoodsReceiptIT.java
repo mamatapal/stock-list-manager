@@ -81,7 +81,6 @@ class GoodsReceiptIT extends NetworkTestSupport {
         assertEquals("RECEIVED", text(r.at("/order/status")));
         assertEquals(rp, r.str("purchaseId"));
         assertEquals(rp, text(r.at("/order/purchaseId")));
-        assertEquals("true", text(r.at("/pricesRecorded")));
         assertArrayEquals(new long[]{1, 1, 2}, receiptRows(rp), "one purchase, one delivery, one batch per line");
 
         // It is an ordinary purchase of this shop, made by the existing purchase workflow.
@@ -270,66 +269,107 @@ class GoodsReceiptIT extends NetworkTestSupport {
         assertEquals(1, batchCount(item));
     }
 
+    /** Staff who may order and record purchases; with or without PURCHASE_PRICE_ENTER. */
+    private String receiver(String owner, boolean canEnterPrices) {
+        String u = unique("rcv");
+        String perms = canEnterPrices ? "[\"PURCHASE_ORDER_MANAGE\",\"PURCHASE_RECORD\",\"PURCHASE_PRICE_ENTER\"]"
+                : "[\"PURCHASE_ORDER_MANAGE\",\"PURCHASE_RECORD\"]";
+        Resp c = createStaff(owner, stepUp(owner, PW), u, perms);
+        assertEquals(201, c.status(), c.raw());
+        return staffSession(u, c.str("temporaryPassword")).str("accessToken");
+    }
+
+    /** Purchase price (line amount, TOTAL basis) per shop item of the purchase a receipt created. */
+    private java.util.Map<String, String> purchasePrices(String purchaseId, String owner) {
+        java.util.Map<String, String> out = new java.util.HashMap<>();
+        for (JsonNode l : get("/api/v1/purchases/" + purchaseId, owner).body().get("lines")) {
+            out.put(text(l.get("itemId")), text(l.get("purchasePrice")));
+        }
+        return out;
+    }
+
     @Test
-    void pricesFollowThePurchasePricePermissionAndReceivingFollowsThePurchasePermissions() {
+    void staffWithoutPriceEntryReceiveAtTheSavedOrderPriceAndCannotChangeIt() {
         World w = world();
         String owner = w.shop().owner();
+        String staff = receiver(owner, false);
 
-        // Staff who may order and record purchases, but not enter prices.
-        String u = unique("rcv");
-        Resp c = createStaff(owner, stepUp(owner, PW), u, "[\"PURCHASE_ORDER_MANAGE\",\"PURCHASE_RECORD\"]");
-        assertEquals(201, c.status(), c.raw());
-        String staff = staffSession(u, c.str("temporaryPassword")).str("accessToken");
-
-        Resp order = placeAndAccept(w, "1", "2");
+        Resp order = placeAndAccept(w, "2", "3");
         String id = order.str("id");
         String rp = receiptPurchaseId(id);
+
+        // A different price is refused, not ignored, and nothing is written.
         Resp changed = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
-                receiptLine(lineFor(order, w.boxProduct()), "1", "200", null, null),
-                receiptLine(lineFor(order, w.oilProduct()), "2", null, null, null)), staff);
+                receiptLine(lineFor(order, w.boxProduct()), "2", "200", null, null),
+                receiptLine(lineFor(order, w.oilProduct()), "3", null, null, null)), staff);
         assertEquals(403, changed.status(), changed.raw());
         assertEquals("PERMISSION_DENIED", changed.str("code"));
         assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+        assertEquals(0, batchCount(w.biscuits()));
+        assertEquals("ACCEPTED", get(NET + "/orders/" + id, owner).str("status"));
 
-        // The saved prices are kept on the order; the purchase is recorded without prices, as for any purchase
-        // this user records.
-        Resp saved = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
-                receiptLine(lineFor(order, w.boxProduct()), "1", "240", null, null),
-                receiptLine(lineFor(order, w.oilProduct()), "2", null, null, null)), staff);
-        assertEquals(200, saved.status(), saved.raw());
-        assertEquals("false", text(saved.at("/pricesRecorded")));
-        for (JsonNode l : get("/api/v1/purchases/" + rp, owner).body().get("lines")) {
-            assertNull(text(l.get("purchasePrice")), l.toString());
-        }
-        assertMoney("240", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedUnitPrice")), "saved price kept on the order");
+        // Without a price (or repeating the saved one) the saved order prices go into the purchase.
+        Resp ok = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order, w.boxProduct()), "2", null, null, null),
+                receiptLine(lineFor(order, w.oilProduct()), "3", "140.00", null, null)), staff);
+        assertEquals(200, ok.status(), ok.raw());
+        java.util.Map<String, String> prices = purchasePrices(rp, owner);
+        assertMoney("480", prices.get(w.biscuits()), "2 boxes at the saved 240");
+        assertMoney("420", prices.get(w.oil()), "3 litres at the saved 140");
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(rp));
+        Resp after = get(NET + "/orders/" + id, owner);
+        assertMoney("240", text(after.at("/lines/0/receivedUnitPrice")), "saved price kept on the order");
+        assertMoney("140", text(after.at("/lines/1/receivedUnitPrice")), "saved price kept on the order");
+    }
 
-        // The owner may change the price.
-        Resp order2 = placeAndAccept(w, "1", "1");
-        Resp ownerChanged = post(NET + "/orders/" + order2.str("id") + "/receive", receiptJson(null, null,
-                receiptLine(lineFor(order2, w.boxProduct()), "1", "230.50", null, null),
-                receiptLine(lineFor(order2, w.oilProduct()), "1", null, null, null)), owner);
-        assertEquals(200, ownerChanged.status(), ownerChanged.raw());
-        boolean found = false;
-        for (JsonNode l : get("/api/v1/purchases/" + receiptPurchaseId(order2.str("id")), owner).body().get("lines")) {
-            if (w.biscuits().equals(text(l.get("itemId")))) {
-                assertMoney("230.5", text(l.get("purchasePrice")), "changed by the owner");
-                found = true;
-            }
-        }
-        assertTrue(found);
+    @Test
+    void ownersAndStaffWithPriceEntryMayChangeTheSavedPrice() {
+        World w = world();
+        String owner = w.shop().owner();
+
+        Resp order = placeAndAccept(w, "1", "1");
+        Resp byOwner = post(NET + "/orders/" + order.str("id") + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order, w.boxProduct()), "1", "230.50", null, null),
+                receiptLine(lineFor(order, w.oilProduct()), "1", null, null, null)), owner);
+        assertEquals(200, byOwner.status(), byOwner.raw());
+        java.util.Map<String, String> prices = purchasePrices(receiptPurchaseId(order.str("id")), owner);
+        assertMoney("230.5", prices.get(w.biscuits()), "changed by the owner");
+        assertMoney("140", prices.get(w.oil()), "unchanged line keeps the saved price");
+
+        String pricer = receiver(owner, true);
+        Resp order2 = placeAndAccept(w, "2", "1");
+        Resp byStaff = post(NET + "/orders/" + order2.str("id") + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order2, w.boxProduct()), "2", "250", null, null),
+                receiptLine(lineFor(order2, w.oilProduct()), "1", "135", null, null)), pricer);
+        assertEquals(200, byStaff.status(), byStaff.raw());
+        prices = purchasePrices(receiptPurchaseId(order2.str("id")), owner);
+        assertMoney("500", prices.get(w.biscuits()), "2 x 250");
+        assertMoney("135", prices.get(w.oil()), "1 x 135");
+    }
+
+    @Test
+    void receivingStillNeedsThePurchasePermissionAndRefusalsWriteNothing() {
+        World w = world();
+        String owner = w.shop().owner();
 
         // Ordering alone does not allow recording purchases: the existing purchase permission still applies.
-        String u2 = unique("ord");
-        Resp c2 = createStaff(owner, stepUp(owner, PW), u2, "[\"PURCHASE_ORDER_MANAGE\"]");
-        String orderOnly = staffSession(u2, c2.str("temporaryPassword")).str("accessToken");
-        Resp order3 = placeAndAccept(w, "1", "1");
-        Resp refused = post(NET + "/orders/" + order3.str("id") + "/receive", fullReceipt(order3, w, "1", "1"), orderOnly);
+        String u = unique("ord");
+        Resp c = createStaff(owner, stepUp(owner, PW), u, "[\"PURCHASE_ORDER_MANAGE\"]");
+        assertEquals(201, c.status(), c.raw());
+        String orderOnly = staffSession(u, c.str("temporaryPassword")).str("accessToken");
+        Resp order = placeAndAccept(w, "1", "1");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        Resp refused = post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "1", "1"), orderOnly);
         assertEquals(403, refused.status(), refused.raw());
-        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(receiptPurchaseId(order3.str("id"))));
-        assertEquals("ACCEPTED", get(NET + "/orders/" + order3.str("id"), owner).str("status"));
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+        assertEquals(0, batchCount(w.biscuits()));
+        assertEquals(0, batchCount(w.oil()));
+        assertEquals("ACCEPTED", get(NET + "/orders/" + id, owner).str("status"));
 
         // Default staff cannot reach purchase orders at all.
-        assertEquals(403, post(NET + "/orders/" + order3.str("id") + "/receive", fullReceipt(order3, w, "1", "1"),
+        assertEquals(403, post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "1", "1"),
                 w.shop().staff()).status());
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
     }
 }

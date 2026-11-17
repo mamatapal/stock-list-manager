@@ -35,6 +35,7 @@ public enum NetworkError {
     DUPLICATE_PRODUCT(HttpStatus.BAD_REQUEST, "The same product appears twice in the order"),
     ORDER_STATUS(HttpStatus.CONFLICT, "This order cannot change from its current status"),
     ORDER_ALREADY_RECEIVED(HttpStatus.CONFLICT, "The goods for this order have already been received"),
+    ORDER_ID_REUSED(HttpStatus.CONFLICT, "This order id was already used for a different order"),
     RECEIPT_LINES(HttpStatus.BAD_REQUEST, "Enter the received quantity for every line of the order, once"),
     RECEIVED_TOO_MUCH(HttpStatus.BAD_REQUEST, "A received quantity is more than the quantity ordered"),
     NOTHING_RECEIVED(HttpStatus.BAD_REQUEST, "Enter at least one received quantity"),

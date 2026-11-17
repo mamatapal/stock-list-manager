@@ -143,12 +143,22 @@ Records of other shops answer `404`.
 | Supplier contact | `PUT /connections/{id}/contact` `{supplierId}` or `{createContact: true}` | Links the supplier to one of the shop's own supplier contacts (purchases are recorded against it). Needed before receiving. |
 | Catalogue | `GET /connections/{id}/catalogue` | Active products of an `ACTIVE` connection, each with the shop's link or `null`. |
 | Product links | `PUT /connections/{id}/products/{productId}/link` `{itemId \| newItem{name, category?, defaultUnitId}, unitId?, unitsPerPack?}`, `DELETE` the same | Only by the shopkeeper; never automatic (no name or barcode matching). `unitsPerPack`: shop units in one supplier unit. |
-| Orders | `POST /orders` `{id?, connectionId, note?, lines[{productId, quantity}]}`, `GET /orders?status=`, `GET /orders/{id}`, `POST /orders/{id}/cancel` `{reason?}` | Every product must be linked. Lines keep the name, unit, price and link of the moment the order was placed. |
-| Goods receipt | `POST /orders/{id}/receive` `{receivedDate?, invoiceNo?, notes?, lines[{lineId, quantity, unitPrice?, batchNo?, expiryDate?}]}` | Once per order, every line once (quantity in the supplier's unit, 0 to the ordered quantity). Creates the purchase, delivery and batches in one transaction; also needs `PURCHASE_RECORD`, and a changed price needs `PURCHASE_PRICE_ENTER`. |
+| Orders | `POST /orders` `{id?, connectionId, note?, lines[{productId, quantity}]}`, `GET /orders?status=`, `GET /orders/{id}`, `POST /orders/{id}/cancel` `{reason?}` | Every product must be linked. Lines keep the name, unit, price and link of the moment the order was placed. `id` is an idempotency key: the same request again returns the original order; the same `id` with a different connection, note, products or quantities gets `409 ORDER_ID_REUSED`. |
+| Goods receipt | `POST /orders/{id}/receive` `{receivedDate?, invoiceNo?, notes?, lines[{lineId, quantity, unitPrice?, batchNo?, expiryDate?}]}` | Once per order, every line once (quantity in the supplier's unit, 0 to the ordered quantity). Creates the purchase, delivery and batches in one transaction; also needs `PURCHASE_RECORD`. The purchase gets the price saved in the order; only a user with `PURCHASE_PRICE_ENTER` may send a different `unitPrice` (anyone else gets `403` and nothing is written). |
 
 Order statuses: `SENT` -> `ACCEPTED` or `REJECTED` (supplier; rejecting needs a reason); `ACCEPTED` -> `DISPATCHED`
 (supplier); `ACCEPTED` or `DISPATCHED` -> `RECEIVED` (shop); `SENT` or `ACCEPTED` -> `CANCELLED` (shop). `REJECTED`,
 `CANCELLED` and `RECEIVED` are final. Every change is kept in the order's history.
+
+The goods receipt is the single, final receipt of an order. A line may be received short (less than ordered, or 0
+if nothing of it arrived); its actual quantity is recorded, only that quantity reaches stock, and the order still
+becomes `RECEIVED` and is closed: no later receipt is possible for the missing goods (a new order is needed). At least
+one line must have a quantity above 0. Each line shows the ordered and the received quantity, so the shortage stays
+visible. *(Current behaviour, awaiting the product owner's confirmation; see PR #20.)*
+
+Changes to one connection and its orders happen one at a time (the server locks the connection, then the order).
+Ending a connection cancels its `SENT` and `ACCEPTED` orders in the same step, so no order is placed, accepted or
+dispatched under an ended connection; `DISPATCHED` orders are never cancelled and stay receivable.
 
 **Supplier side** - `/api/v1/supplier-portal`, supplier tokens, `APPROVED` businesses only:
 `GET | PUT /directory-listing` `{listed}` (off until turned on), `GET /connections?status=`, `GET /connections/{id}`,
@@ -158,4 +168,4 @@ Order statuses: `SENT` -> `ACCEPTED` or `REJECTED` (supplier; rejecting needs a 
 `POST /orders/{id}/dispatch` `{reason?}`. Suppliers see a shop's name, city and state only.
 
 Error codes of these endpoints are listed in `NetworkError` (for example `CONNECTION_EXISTS`, `PRODUCT_NOT_LINKED`,
-`ORDER_STATUS`, `ORDER_ALREADY_RECEIVED`, `CONTACT_NOT_LINKED`).
+`ORDER_STATUS`, `ORDER_ALREADY_RECEIVED`, `ORDER_ID_REUSED`, `CONTACT_NOT_LINKED`).

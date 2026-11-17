@@ -500,9 +500,9 @@ class SupplierNetworkIT extends NetworkTestSupport {
         assertEquals(id, second.str("id"), second.raw());
         assertEquals(1L, jdbc.queryForObject("SELECT COUNT(*) FROM purchase_order WHERE id = UUID_TO_BIN(?)",
                 Long.class, id));
-        // Another shop cannot take over that id.
+        // Another shop cannot use this shop's connection (or take over the id: see NetworkIntegrityIT).
         Shop other = shop();
-        assertEquals(400, post(NET + "/orders", orderJson(id, conn, orderLine(product, "5")), other.owner()).status());
+        assertEquals(404, post(NET + "/orders", orderJson(id, conn, orderLine(product, "5")), other.owner()).status());
     }
 
     @Test
@@ -554,5 +554,67 @@ class SupplierNetworkIT extends NetworkTestSupport {
         // The catalogue rows still list both codes, staff_default off.
         assertEquals(0L, jdbc.queryForObject("SELECT COUNT(*) FROM permission WHERE code IN "
                 + "('SUPPLIER_NETWORK_MANAGE','PURCHASE_ORDER_MANAGE') AND staff_default = TRUE", Long.class));
+    }
+
+    private String staffWith(String owner, String permissionsJson) {
+        String u = unique("perm");
+        Resp c = createStaff(owner, stepUp(owner, PW), u, permissionsJson);
+        assertEquals(201, c.status(), c.raw());
+        return staffSession(u, c.str("temporaryPassword")).str("accessToken");
+    }
+
+    @Test
+    void eachNewPermissionGrantsExactlyItsDocumentedAccess() {
+        Shop shop = shop();
+        String owner = shop.owner();
+        Sup s = approvedSupplier(true);
+        Sup other = approvedSupplier(true);
+        String conn = connect(owner, s);
+        String item = item(owner, "Sugar", KG, "40", "45");
+        String product = product(s, "Sugar", "kg", "38");
+        String linkPath = NET + "/connections/" + conn + "/products/" + product + "/link";
+        assertEquals(200, link(owner, conn, product, item, KG, "1").status());
+        String placed = order(owner, conn, orderLine(product, "5")).str("id");
+
+        // Only PURCHASE_ORDER_MANAGE: reads connections and catalogues, orders; no discovery, no network changes.
+        String orders = staffWith(owner, "[\"PURCHASE_ORDER_MANAGE\"]");
+        assertEquals(403, get(NET + "/directory", orders).status(), "discovery needs SUPPLIER_NETWORK_MANAGE");
+        assertEquals(403, get(NET + "/directory/" + other.orgId(), orders).status());
+        assertEquals(200, get(NET + "/connections", orders).status());
+        assertEquals(200, get(NET + "/connections/" + conn, orders).status());
+        assertEquals(200, get(NET + "/connections/" + conn + "/catalogue", orders).status());
+        assertEquals(403, post(NET + "/connections", "{\"supplierOrgId\":\"" + other.orgId() + "\"}", orders).status());
+        assertEquals(403, put(NET + "/connections/" + conn + "/contact", "{\"createContact\":true}", orders, null)
+                .status());
+        assertEquals(403, link(orders, conn, product, item, KG, "2").status(), "product links need the network permission");
+        assertEquals(403, delete(linkPath, orders, null).status());
+        assertEquals(403, post(NET + "/connections/" + conn + "/end", null, orders).status());
+        assertEquals(200, get(NET + "/orders", orders).status());
+        assertEquals(200, get(NET + "/orders/" + placed, orders).status());
+        Resp own = post(NET + "/orders", orderJson(null, conn, orderLine(product, "1")), orders);
+        assertEquals(201, own.status(), own.raw());
+        assertEquals(200, post(NET + "/orders/" + own.str("id") + "/cancel", null, orders).status());
+        // Nothing changed through the refused calls.
+        assertEquals("ACTIVE", get(NET + "/connections/" + conn, owner).str("status"));
+        assertEquals("1", text(get(NET + "/connections/" + conn + "/catalogue", owner)
+                .at("/products/0/link/unitsPerPack")));
+        assertEquals(0L, jdbc.queryForObject("SELECT COUNT(*) FROM supplier_connection WHERE supplier_org_id = "
+                + "UUID_TO_BIN(?)", Long.class, other.orgId()));
+
+        // Only SUPPLIER_NETWORK_MANAGE: discovery, connections, contacts and links; no orders.
+        String network = staffWith(owner, "[\"SUPPLIER_NETWORK_MANAGE\"]");
+        assertEquals(200, get(NET + "/directory", network).status());
+        assertEquals(200, get(NET + "/directory/" + other.orgId(), network).status());
+        assertEquals(200, get(NET + "/connections/" + conn, network).status());
+        assertEquals(200, get(NET + "/connections/" + conn + "/catalogue", network).status());
+        assertEquals(200, link(network, conn, product, item, KG, "1").status());
+        assertEquals(403, get(NET + "/orders", network).status(), "orders need PURCHASE_ORDER_MANAGE");
+        assertEquals(403, get(NET + "/orders/" + placed, network).status());
+        assertEquals(403, post(NET + "/orders", orderJson(null, conn, orderLine(product, "1")), network).status());
+        assertEquals(403, post(NET + "/orders/" + placed + "/cancel", null, network).status());
+        assertEquals(403, post(NET + "/orders/" + placed + "/receive", receiptJson(null, null), network).status());
+        assertEquals("SENT", get(NET + "/orders/" + placed, owner).str("status"));
+        assertEquals(201, post(NET + "/connections", "{\"supplierOrgId\":\"" + other.orgId() + "\"}", network)
+                .status());
     }
 }

@@ -39,6 +39,8 @@ CREATE TABLE supplier_connection (
     PRIMARY KEY (id),
     UNIQUE KEY uk_connection_pair (business_id, supplier_org_id),
     UNIQUE KEY uk_connection_business_id (business_id, id),
+    -- Referenced by events and orders, so their shop and supplier always match the connection they belong to.
+    UNIQUE KEY uk_connection_tenant (business_id, supplier_org_id, id),
     UNIQUE KEY uk_connection_contact (business_id, supplier_id),
     KEY idx_connection_org_status (supplier_org_id, status),
     CONSTRAINT fk_connection_business FOREIGN KEY (business_id) REFERENCES business (id) ON DELETE RESTRICT,
@@ -63,7 +65,7 @@ CREATE TABLE supplier_connection_event (
     created_at      DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     KEY idx_connection_event_connection (connection_id, id),
-    CONSTRAINT fk_connection_event_connection FOREIGN KEY (connection_id) REFERENCES supplier_connection (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_connection_event_connection FOREIGN KEY (business_id, supplier_org_id, connection_id) REFERENCES supplier_connection (business_id, supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT chk_connection_event_actor CHECK (actor_type IN ('SHOP', 'SUPPLIER', 'SYSTEM'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
@@ -143,13 +145,17 @@ CREATE TABLE purchase_order (
     version             BIGINT        NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_purchase_order_business_id (business_id, id),
+    -- Referenced by lines and events, so their shop and supplier always match the order.
+    UNIQUE KEY uk_purchase_order_tenant (business_id, supplier_org_id, id),
     UNIQUE KEY uk_purchase_order_receipt_purchase (receipt_purchase_id),
     UNIQUE KEY uk_purchase_order_purchase (purchase_id),
     KEY idx_purchase_order_business_status (business_id, status, created_at),
     KEY idx_purchase_order_org_status (supplier_org_id, status, created_at),
+    KEY idx_purchase_order_connection_status (connection_id, status),
     CONSTRAINT fk_purchase_order_business FOREIGN KEY (business_id) REFERENCES business (id) ON DELETE RESTRICT,
     CONSTRAINT fk_purchase_order_org FOREIGN KEY (supplier_org_id) REFERENCES supplier_org (id) ON DELETE RESTRICT,
-    CONSTRAINT fk_purchase_order_connection FOREIGN KEY (business_id, connection_id) REFERENCES supplier_connection (business_id, id) ON DELETE RESTRICT,
+    -- Shop, supplier and connection together must be one existing connection.
+    CONSTRAINT fk_purchase_order_connection FOREIGN KEY (business_id, supplier_org_id, connection_id) REFERENCES supplier_connection (business_id, supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_purchase_order_purchase FOREIGN KEY (business_id, purchase_id) REFERENCES purchase (business_id, id) ON DELETE RESTRICT,
     CONSTRAINT chk_purchase_order_status CHECK (status IN ('SENT', 'ACCEPTED', 'REJECTED', 'DISPATCHED', 'RECEIVED', 'CANCELLED')),
     CONSTRAINT chk_purchase_order_total CHECK (total_amount >= 0)
@@ -160,6 +166,7 @@ CREATE TABLE purchase_order (
 CREATE TABLE purchase_order_line (
     id                  BINARY(16)    NOT NULL,
     business_id         BINARY(16)    NOT NULL,
+    supplier_org_id     BINARY(16)    NOT NULL,
     order_id            BINARY(16)    NOT NULL,
     line_no             INT           NOT NULL,
     supplier_product_id BINARY(16)    NULL,
@@ -178,8 +185,9 @@ CREATE TABLE purchase_order_line (
     PRIMARY KEY (id),
     UNIQUE KEY uk_purchase_order_line_no (order_id, line_no),
     KEY idx_purchase_order_line_business (business_id, order_id),
-    CONSTRAINT fk_po_line_order FOREIGN KEY (business_id, order_id) REFERENCES purchase_order (business_id, id) ON DELETE RESTRICT,
-    CONSTRAINT fk_po_line_product FOREIGN KEY (supplier_product_id) REFERENCES supplier_product (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_po_line_order FOREIGN KEY (business_id, supplier_org_id, order_id) REFERENCES purchase_order (business_id, supplier_org_id, id) ON DELETE RESTRICT,
+    -- The product must belong to the order's supplier.
+    CONSTRAINT fk_po_line_product FOREIGN KEY (supplier_org_id, supplier_product_id) REFERENCES supplier_product (supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_po_line_item FOREIGN KEY (business_id, item_id) REFERENCES item (business_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_po_line_unit FOREIGN KEY (item_unit_id) REFERENCES unit (id) ON DELETE RESTRICT,
     CONSTRAINT chk_po_line_quantity CHECK (quantity > 0),
@@ -202,6 +210,6 @@ CREATE TABLE purchase_order_event (
     created_at      DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     KEY idx_po_event_order (order_id, id),
-    CONSTRAINT fk_po_event_order FOREIGN KEY (order_id) REFERENCES purchase_order (id) ON DELETE RESTRICT,
+    CONSTRAINT fk_po_event_order FOREIGN KEY (business_id, supplier_org_id, order_id) REFERENCES purchase_order (business_id, supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT chk_po_event_actor CHECK (actor_type IN ('SHOP', 'SUPPLIER', 'SYSTEM'))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

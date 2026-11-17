@@ -277,8 +277,10 @@ public class ConnectionService {
      * orders stay receivable: the goods are already on their way.
      */
     private void cancelOpenOrders(SupplierConnection c, Instant now) {
-        for (PurchaseOrder o : orders.findByBusinessIdAndConnectionIdAndStatusIn(c.getBusinessId(), c.getId(),
-                PurchaseOrder.CANCELLABLE)) {
+        // The connection row is already locked by the caller (lock order: connection, then its orders, the same order
+        // every order change uses). The orders are read with a locking read, so an order committed while this
+        // transaction waited for the connection lock is seen and cancelled too.
+        for (PurchaseOrder o : orders.lockOpenForConnection(c.getBusinessId(), c.getId(), PurchaseOrder.CANCELLABLE)) {
             String from = o.getStatus();
             o.cancel("The supplier connection ended", now);
             orders.save(o);

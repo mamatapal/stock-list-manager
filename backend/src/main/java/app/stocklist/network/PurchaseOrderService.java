@@ -52,8 +52,12 @@ import org.springframework.transaction.annotation.Transactional;
  * receipt back and the order stays receivable.
  *
  * <p>Shop callers need PURCHASE_ORDER_MANAGE (checked first; receiving also needs the existing PURCHASE_RECORD, and
- * entering or changing prices PURCHASE_PRICE_ENTER, both enforced by PurchaseService). Supplier callers must belong to
- * the order's APPROVED organisation.
+ * changing a saved price PURCHASE_PRICE_ENTER). Supplier callers must belong to the order's APPROVED organisation.
+ *
+ * <p>Concurrency: every change locks the order's connection row first and then the order row (ending a connection
+ * locks the connection and then its open orders, see ConnectionService). One lock order everywhere means no deadlocks,
+ * and changes to one connection and its orders happen one after another: an order cannot be placed on, or accepted or
+ * dispatched under, a connection that has ended, and ending a connection never cancels a dispatched order.
  */
 @Service
 public class PurchaseOrderService {
@@ -110,19 +114,31 @@ public class PurchaseOrderService {
     /**
      * Places an order with a supplier the shop has an ACTIVE connection with (the supplier must still be approved).
      * Every product must be active in that supplier's catalogue and linked by the shopkeeper to a shop item. Names,
-     * units, prices and the link are copied into the order lines. Sending the same id again returns the same order.
+     * units, prices and the link are copied into the order lines.
+     *
+     * <p>The optional id is an idempotency key: sending the same request again returns the order it placed, while the
+     * same id with a different connection, note or lines is refused (ORDER_ID_REUSED). The connection is locked
+     * before the id is looked up, so two requests with the same id for the same connection run one after the other
+     * and the second finds the first; with different connections the second insert hits the primary key and is
+     * refused (409). Either way only one order and one event are written.
      */
     @Transactional
     public ShopOrderDto create(AuthUser caller, OrderInput in) {
         NetworkSupport.requireAny(caller, Permission.PURCHASE_ORDER_MANAGE);
         if (in == null || in.connectionId() == null) throw NetworkError.INVALID_REQUEST.ex();
         UUID bid = caller.businessId();
-        if (in.id() != null && orders.existsById(in.id())) {
-            return shopDto(orders.findByBusinessIdAndId(bid, in.id())
-                    .orElseThrow(NetworkError.INVALID_REQUEST::ex), true);
-        }
+        // First statement of the transaction: the connection lock (see the class comment for the lock order).
         SupplierConnection c = connections.lockForShop(bid, in.connectionId())
                 .orElseThrow(() -> ApiException.notFound("Connection"));
+        if (in.id() != null) {
+            PurchaseOrder existing = orders.findById(in.id()).orElse(null);
+            if (existing != null) {
+                if (!bid.equals(existing.getBusinessId()) || !sameRequest(existing, in)) {
+                    throw NetworkError.ORDER_ID_REUSED.ex();
+                }
+                return shopDto(existing, true);
+            }
+        }
         if (!c.isActive()) throw NetworkError.CONNECTION_NOT_ACTIVE.ex();
         if (!support.org(c.getSupplierOrgId()).isApproved()) throw NetworkError.SUPPLIER_NOT_AVAILABLE.ex();
         String note = NetworkSupport.text(in.note(), 1000);
@@ -159,11 +175,36 @@ public class PurchaseOrderService {
         return shopDto(order, true);
     }
 
+    /**
+     * Whether a repeated create request is the one that placed this order: same connection, same note and the same
+     * products and quantities in the same order. Names, units and prices are copied from the catalogue, not sent.
+     */
+    private boolean sameRequest(PurchaseOrder o, OrderInput in) {
+        if (!o.getConnectionId().equals(in.connectionId())) return false;
+        if (!java.util.Objects.equals(o.getNote(), NetworkSupport.text(in.note(), 1000))) return false;
+        List<OrderLineInput> wanted = in.lines() == null ? List.of() : in.lines();
+        List<PurchaseOrderLine> stored = lines.findByBusinessIdAndOrderIdOrderByLineNoAsc(o.getBusinessId(), o.getId());
+        if (wanted.size() != stored.size()) return false;
+        for (int i = 0; i < wanted.size(); i++) {
+            OrderLineInput li = wanted.get(i);
+            PurchaseOrderLine line = stored.get(i);
+            if (li == null || !line.getSupplierProductId().equals(li.productId())) return false;
+            BigDecimal qty;
+            try {
+                qty = Decimals.parse(li.quantity(), "Quantity", 3, false);
+            } catch (ApiException e) {
+                return false;
+            }
+            if (qty == null || qty.compareTo(line.getQuantity()) != 0) return false;
+        }
+        return true;
+    }
+
     /** The shop cancels an order that has not been dispatched yet (SENT or ACCEPTED). */
     @Transactional
     public ShopOrderDto cancel(AuthUser caller, UUID id, ReasonInput in) {
         NetworkSupport.requireAny(caller, Permission.PURCHASE_ORDER_MANAGE);
-        PurchaseOrder o = lockShopRow(caller, id);
+        PurchaseOrder o = lockShopRow(caller, id).order();
         String reason = NetworkSupport.reason(in);
         String from = o.getStatus();
         Instant now = Instant.now(clock);
@@ -183,10 +224,12 @@ public class PurchaseOrderService {
         NetworkSupport.requireAny(caller, Permission.PURCHASE_ORDER_MANAGE);
         UUID bid = caller.businessId();
         // The row lock makes a second, concurrent receipt wait here and then find the order already RECEIVED.
-        PurchaseOrder order = lockShopRow(caller, id);
+        Locked locked = lockShopRow(caller, id);
+        PurchaseOrder order = locked.order();
         if (PurchaseOrder.RECEIVED.equals(order.getStatus())) throw NetworkError.ORDER_ALREADY_RECEIVED.ex();
         if (!PurchaseOrder.RECEIVABLE.contains(order.getStatus())) throw NetworkError.ORDER_STATUS.ex();
-        SupplierConnection c = connections.findByBusinessIdAndId(bid, order.getConnectionId()).orElseThrow();
+        // A dispatched order stays receivable after the connection ended (the goods are on their way).
+        SupplierConnection c = locked.connection();
         if (c.getSupplierId() == null) throw NetworkError.CONTACT_NOT_LINKED.ex();
         if (in == null || in.lines() == null) throw NetworkError.RECEIPT_LINES.ex();
 
@@ -208,6 +251,7 @@ public class PurchaseOrderService {
 
         List<LineInput> purchaseLines = new ArrayList<>();
         List<DeliveryLineInput> deliveryLines = new ArrayList<>();
+        Set<UUID> savedPriceLines = new HashSet<>();
         Map<UUID, BigDecimal[]> outcome = new HashMap<>();
         for (PurchaseOrderLine line : ordered) {
             ReceiptLineInput li = given.get(line.getId());
@@ -215,11 +259,15 @@ public class PurchaseOrderService {
             BigDecimal qty = Decimals.parse(li.quantity(), "Received quantity of " + name, 3, true);
             if (qty == null) throw NetworkError.RECEIPT_LINES.ex();
             if (qty.compareTo(line.getQuantity()) > 0) throw NetworkError.RECEIVED_TOO_MUCH.ex();
+            // The price saved in the order (what the supplier accepted) is the trusted baseline. Only a user with
+            // PURCHASE_PRICE_ENTER may change it; anyone else sending a different price is refused, not ignored.
             BigDecimal price = line.getUnitPrice();
+            boolean saved = true;
             BigDecimal entered = Decimals.parse(li.unitPrice(), "Price of " + name, 2, true);
             if (entered != null && entered.compareTo(price) != 0) {
                 if (!canPrice) throw NetworkError.PERMISSION_DENIED.ex();
                 price = entered;
+                saved = false;
             }
             String batchNo = NetworkSupport.text(li.batchNo(), 60);
             outcome.put(line.getId(), new BigDecimal[]{qty, price});
@@ -234,8 +282,9 @@ public class PurchaseOrderService {
                 throw NetworkError.QUANTITY_PRECISION.ex();
             }
             UUID purchaseLineId = UUID.randomUUID();
+            if (saved) savedPriceLines.add(purchaseLineId);
             // TOTAL basis: the line amount in the supplier's unit, so no per-unit rounding happens on conversion.
-            String amount = canPrice ? Decimals.money(qty.multiply(price)) : null;
+            String amount = Decimals.money(qty.multiply(price));
             purchaseLines.add(new LineInput(purchaseLineId, line.getItemId(), shopQty.toPlainString(),
                     line.getItemUnitId(), PurchaseCalculator.TOTAL, amount, null, null, null));
             deliveryLines.add(new DeliveryLineInput(UUID.randomUUID(), purchaseLineId, DeliveryLine.RECEIPT,
@@ -247,9 +296,10 @@ public class PurchaseOrderService {
                 + (notes == null ? "" : ": " + notes);
         PurchaseInput purchase = new PurchaseInput(c.getSupplierId(), invoiceNo, date, null, purchaseNotes, true,
                 purchaseLines, new DeliveryInput(UUID.randomUUID(), null, date, null, deliveryLines));
-        // The existing purchase workflow: its own validation and permission checks, the purchase, the delivery and the
+        // The existing purchase workflow: its own validation and permission checks (PURCHASE_RECORD; and
+        // PURCHASE_PRICE_ENTER for every price that is not the saved order price), the purchase, the delivery and the
         // batches. Its id is the one fixed when the order was placed (primary key: never twice).
-        purchases.create(caller, order.getReceiptPurchaseId(), purchase);
+        purchases.createWithSavedPrices(caller, order.getReceiptPurchaseId(), purchase, savedPriceLines);
 
         Instant now = Instant.now(clock);
         for (PurchaseOrderLine line : ordered) {
@@ -262,7 +312,7 @@ public class PurchaseOrderService {
         order = orders.saveAndFlush(order);
         record(order, PurchaseOrderEvent.ACTOR_SHOP, caller.userId(), from, null, now);
         orders.flush();
-        return new ReceiptDto(shopDto(order, true), order.getPurchaseId(), canPrice);
+        return new ReceiptDto(shopDto(order, true), order.getPurchaseId());
     }
 
     // ================================================================== supplier
@@ -284,7 +334,9 @@ public class PurchaseOrderService {
     @Transactional
     public SupplierOrderDto accept(SupplierPrincipal caller, UUID id) {
         supplierAccess.requireApproved(caller);
-        PurchaseOrder o = lockSupplierRow(caller, id);
+        Locked locked = lockSupplierRow(caller, id);
+        PurchaseOrder o = locked.order();
+        requireOpenConnection(locked);
         String from = o.getStatus();
         Instant now = Instant.now(clock);
         o.accept(now);
@@ -295,7 +347,7 @@ public class PurchaseOrderService {
     @Transactional
     public SupplierOrderDto reject(SupplierPrincipal caller, UUID id, ReasonInput in) {
         supplierAccess.requireApproved(caller);
-        PurchaseOrder o = lockSupplierRow(caller, id);
+        PurchaseOrder o = lockSupplierRow(caller, id).order();
         String reason = NetworkSupport.reason(in);
         if (reason == null) throw NetworkError.REASON_REQUIRED.ex();
         String from = o.getStatus();
@@ -307,12 +359,24 @@ public class PurchaseOrderService {
     @Transactional
     public SupplierOrderDto dispatch(SupplierPrincipal caller, UUID id, ReasonInput in) {
         supplierAccess.requireApproved(caller);
-        PurchaseOrder o = lockSupplierRow(caller, id);
+        Locked locked = lockSupplierRow(caller, id);
+        PurchaseOrder o = locked.order();
+        requireOpenConnection(locked);
         String note = NetworkSupport.reason(in);
         String from = o.getStatus();
         Instant now = Instant.now(clock);
         o.dispatch(now);
         return supplierChange(caller, o, from, note, now);
+    }
+
+    /**
+     * Accepting or dispatching needs an ACTIVE connection. Ending a connection already cancels its SENT and ACCEPTED
+     * orders under the same lock, so this only makes the rule explicit: a closed order gets ORDER_STATUS, anything
+     * else on a closed connection CONNECTION_NOT_ACTIVE.
+     */
+    private static void requireOpenConnection(Locked locked) {
+        if (PurchaseOrder.FINAL.contains(locked.order().getStatus())) throw NetworkError.ORDER_STATUS.ex();
+        if (!locked.connection().isActive()) throw NetworkError.CONNECTION_NOT_ACTIVE.ex();
     }
 
     private SupplierOrderDto supplierChange(SupplierPrincipal caller, PurchaseOrder o, String from, String reason,
@@ -339,12 +403,23 @@ public class PurchaseOrderService {
         return orders.findByBusinessIdAndId(caller.businessId(), id).orElseThrow(() -> ApiException.notFound("Order"));
     }
 
-    private PurchaseOrder lockShopRow(AuthUser caller, UUID id) {
-        return orders.lockForShop(caller.businessId(), id).orElseThrow(() -> ApiException.notFound("Order"));
+    /** An order and its connection, both locked: the connection first, then the order (one lock order everywhere). */
+    private record Locked(SupplierConnection connection, PurchaseOrder order) {}
+
+    private Locked lockShopRow(AuthUser caller, UUID id) {
+        UUID bid = caller.businessId();
+        UUID connectionId = orders.connectionIdForShop(bid, id).orElseThrow(() -> ApiException.notFound("Order"));
+        SupplierConnection c = connections.lockForShop(bid, connectionId).orElseThrow();
+        PurchaseOrder o = orders.lockForShop(bid, id).orElseThrow(() -> ApiException.notFound("Order"));
+        return new Locked(c, o);
     }
 
-    private PurchaseOrder lockSupplierRow(SupplierPrincipal caller, UUID id) {
-        return orders.lockForSupplier(caller.orgId(), id).orElseThrow(() -> ApiException.notFound("Order"));
+    private Locked lockSupplierRow(SupplierPrincipal caller, UUID id) {
+        UUID connectionId = orders.connectionIdForSupplier(caller.orgId(), id)
+                .orElseThrow(() -> ApiException.notFound("Order"));
+        SupplierConnection c = connections.lockForSupplier(caller.orgId(), connectionId).orElseThrow();
+        PurchaseOrder o = orders.lockForSupplier(caller.orgId(), id).orElseThrow(() -> ApiException.notFound("Order"));
+        return new Locked(c, o);
     }
 
     private List<OrderLineDto> lineDtos(PurchaseOrder o, boolean forShop) {
