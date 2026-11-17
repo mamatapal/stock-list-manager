@@ -33,10 +33,10 @@ jobs:
           [ "$HAS_KEY" = "true" ] || { echo "::error::Add the repository secret DEPLOY_SSH_KEY (the private deploy key)."; exit 1; }
 
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"

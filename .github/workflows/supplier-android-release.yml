@@ -23,12 +23,12 @@ jobs:
         working-directory: supplier-android
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up JDK 21 (JetBrains Runtime)
         id: jdk1
         continue-on-error: true
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: jetbrains
           java-version: "21"
@@ -38,14 +38,14 @@ jobs:
         run: sleep 45
       - name: Set up JDK 21 (JetBrains Runtime) (second try)
         if: steps.jdk1.outcome == 'failure'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: jetbrains
           java-version: "21"
           token: ${{ github.token }}
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           packages: platform-tools
 
@@ -55,7 +55,7 @@ jobs:
           sdkmanager --install "platforms;android-35" "build-tools;35.0.0" > /dev/null
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - name: Signing key and server address
         env:
@@ -109,7 +109,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Upload APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Supplier-Management-release-APK
           path: apk-out/*.apk
