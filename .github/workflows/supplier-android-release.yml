@@ -1,0 +1,152 @@
+# Signed release APK of the Supplier Management app. Manual only. Uses its OWN signing key (secrets
+# SUPPLIER_ANDROID_KEYSTORE_BASE64 / SUPPLIER_ANDROID_KEYSTORE_PASSWORD, alias "supplier"), never the Stock List
+# Manager key. The GitHub release is NOT marked "latest", so the Stock List Manager download link keeps working.
+name: Supplier Management release APK
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: supplier-android-release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Signed release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: supplier-android
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21 (JetBrains Runtime)
+        id: jdk1
+        continue-on-error: true
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          token: ${{ github.token }}
+      - name: Wait before trying the JDK download again
+        if: steps.jdk1.outcome == 'failure'
+        run: sleep 45
+      - name: Set up JDK 21 (JetBrains Runtime) (second try)
+        if: steps.jdk1.outcome == 'failure'
+        uses: actions/setup-java@v4
+        with:
+          distribution: jetbrains
+          java-version: "21"
+          token: ${{ github.token }}
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Accept Android SDK licences and install SDK 35
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Signing key and server address
+        env:
+          KEYSTORE_B64: ${{ secrets.SUPPLIER_ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.SUPPLIER_ANDROID_KEYSTORE_PASSWORD }}
+          VAR_URL: ${{ vars.API_BASE_URL }}
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+        run: |
+          [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] || {
+            echo "::error::Add the secrets SUPPLIER_ANDROID_KEYSTORE_BASE64 and SUPPLIER_ANDROID_KEYSTORE_PASSWORD (see docs/SUPPLIER_APP.md)."; exit 1; }
+          URL="$VAR_URL"
+          if [ -z "$URL" ] && echo "$DEPLOY_HOST" | grep -Eq '^[0-9]+(\.[0-9]+){3}$'; then
+            URL="https://$(echo "$DEPLOY_HOST" | tr . -).sslip.io/"
+          fi
+          case "$URL" in https://*/) ;; https://*) URL="$URL/";; *)
+            echo "::error::Set the variable API_BASE_URL to your server (https://...) or DEPLOY_HOST to its IP."; exit 1;; esac
+          echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/supplier-release.p12"
+          chmod +x gradlew
+          umask 077
+          {
+            echo "storeFile=$RUNNER_TEMP/supplier-release.p12"
+            echo "storePassword=$KEYSTORE_PASSWORD"
+            echo "keyAlias=supplier"
+            echo "keyPassword=$KEYSTORE_PASSWORD"
+            echo "api.baseUrl=$URL"
+          } > keystore.properties
+          echo "API_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Run unit tests
+        run: ./gradlew --stacktrace testDebugUnitTest
+
+      - name: Build signed release APK
+        run: ./gradlew --stacktrace assembleRelease -PappVersionCode=$((100 + GITHUB_RUN_NUMBER))
+
+      - name: Verify signature and collect APK
+        id: apk
+        run: |
+          DIR=app/build/outputs/apk/release
+          APK=$(find "$DIR" -maxdepth 1 -name '*.apk' | head -n 1)
+          [ -n "$APK" ] || { echo "::error::No release APK produced"; exit 1; }
+          APKSIGNER=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$APKSIGNER" verify --print-certs "$APK" | tee signature.txt
+          grep -q "CN=Supplier Management" signature.txt || { echo "::error::APK is not signed with the Supplier Management key"; exit 1; }
+          VN=$(jq -r '.elements[0].versionName' "$DIR/output-metadata.json")
+          VC=$(jq -r '.elements[0].versionCode' "$DIR/output-metadata.json")
+          NAME="Supplier-Management-${VN}-release-${VC}.apk"
+          mkdir -p ../apk-out && cp "$APK" "../apk-out/$NAME"
+          {
+            echo "name=$NAME"; echo "vn=$VN"; echo "vc=$VC"
+            echo "sha256=$(sha256sum "../apk-out/$NAME" | cut -d' ' -f1)"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Supplier-Management-release-APK
+          path: apk-out/*.apk
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish on the Releases page (not marked latest)
+        id: release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ steps.apk.outputs.name }}
+          VN: ${{ steps.apk.outputs.vn }}
+          VC: ${{ steps.apk.outputs.vc }}
+          SHA256: ${{ steps.apk.outputs.sha256 }}
+        run: |
+          TAG="supplier-v${VN}-build${VC}"
+          printf 'Supplier Management %s (build %s)\n\nOn the phone, tap **%s** below and install it.\n\nAPK SHA-256: `%s`\n' \
+            "$VN" "$VC" "$NAME" "$SHA256" > release-notes.md
+          gh release create "$TAG" "apk-out/$NAME" --target "$GITHUB_SHA" \
+            --title "Supplier Management $VN (build $VC)" --notes-file release-notes.md --latest=false
+          echo "url=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/releases/tag/$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Supplier Management — signed release APK"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Version | ${{ steps.apk.outputs.vn || 'not built' }} (code ${{ steps.apk.outputs.vc || '-' }}) |"
+            echo "| Server address | ${API_URL:-not set} |"
+            echo "| Download on a phone | ${{ steps.release.outputs.url || 'not published' }} |"
+            echo "| APK SHA-256 | \`${{ steps.apk.outputs.sha256 || '-' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the key from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/supplier-release.p12" keystore.properties
