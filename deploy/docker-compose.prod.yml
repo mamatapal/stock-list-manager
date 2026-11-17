@@ -48,6 +48,14 @@ services:
       SMTP_USERNAME: ${SMTP_USERNAME:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      # Email through the Gmail API instead of SMTP (docs/EMAIL_SETUP.md). smtp keeps the SMTP_* settings above.
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-smtp}
+      SUPPLIER_MAIL_FROM: ${SUPPLIER_MAIL_FROM:-}
+      GMAIL_SENDER: ${GMAIL_SENDER:-}
+      GMAIL_SEND_AS_ALIASES: ${GMAIL_SEND_AS_ALIASES:-}
+      GMAIL_OAUTH_CLIENT_ID: ${GMAIL_OAUTH_CLIENT_ID:-}
+      GMAIL_OAUTH_CLIENT_SECRET: ${GMAIL_OAUTH_CLIENT_SECRET:-}
+      GMAIL_OAUTH_REFRESH_TOKEN: ${GMAIL_OAUTH_REFRESH_TOKEN:-}
       SWAGGER_ENABLED: "false"
       MAIL_LOG_TOKENS: "false"
     networks: [internal]

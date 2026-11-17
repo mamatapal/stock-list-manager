@@ -5,10 +5,22 @@ name: Backend tests
 on:
   push:
     branches: [main]
-    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+    paths:
+      - "backend/**"
+      - "deploy/set-gmail-token.sh"
+      - "deploy/mail-test.sh"
+      - "deploy/tests/**"
+      - "tools/windows/**"
+      - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: [main]
-    paths: ["backend/**", ".github/workflows/backend-ci.yml"]
+    paths:
+      - "backend/**"
+      - "deploy/set-gmail-token.sh"
+      - "deploy/mail-test.sh"
+      - "deploy/tests/**"
+      - "tools/windows/**"
+      - ".github/workflows/backend-ci.yml"
   workflow_dispatch:
 
 concurrency:
@@ -78,3 +90,30 @@ jobs:
           path: backend/target/surefire-reports/
           if-no-files-found: ignore
           retention-days: 14
+
+  # The server token script (deploy/set-gmail-token.sh) and the Windows Gmail authorization helper
+  # (tools/windows/). Nothing here calls Google or a real server.
+  email-scripts:
+    name: Email scripts and Windows helper
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Server token script tests
+        run: bash deploy/tests/set-gmail-token-test.sh
+
+      - name: Windows helper tests (Pester 5)
+        shell: pwsh
+        run: |
+          $pester = Get-Module -ListAvailable Pester | Sort-Object Version -Descending | Select-Object -First 1
+          if (-not $pester -or $pester.Version.Major -lt 5) {
+            Install-Module Pester -MinimumVersion 5.5.0 -Force -Scope CurrentUser -SkipPublisherCheck
+          }
+          Import-Module Pester -MinimumVersion 5.0
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'tools/windows/tests'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config

@@ -17,7 +17,8 @@ the signed-in user (taken from the access token, never from the request).
 - A domain name for the API (for example `api.yourshop.in`) whose DNS **A record points at the server**.
 - Firewall: allow inbound **80** and **443** only (Caddy needs 80 for the certificate challenge). Do not expose
   3306 or 8080; in the provided compose file MySQL and the backend are on an internal network only.
-- Outbound: 443 (Let's Encrypt), and your SMTP port (587) if password-reset emails are used.
+- Outbound: 443 (Let's Encrypt, and Google when `MAIL_PROVIDER=gmail-api`), and your SMTP port (587) if email is
+  sent by SMTP.
 
 ## 2. Install
 
@@ -46,13 +47,21 @@ default account**: the first owner registers from the app ("Register your busine
 | `JWT_KEY_ID` | no | Label of the signing key (default `k1`). |
 | `APP_BUSINESS_ZONE` | no | Time zone for "today" in expiry lists (default `Asia/Kolkata`). |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` | recommended | Sends owners their password-reset code. **Without SMTP an owner who forgets the password cannot reset it** (staff passwords are reset by the owner in the app). |
+| `SUPPLIER_MAIL_FROM` | no | Sender of supplier emails, e.g. `Supplier Management <...>`. Empty: `MAIL_FROM` is used. |
+| `MAIL_PROVIDER` | no | How email is sent: `smtp` (default; the `SMTP_*` settings, unchanged) or `gmail-api` (Gmail API with OAuth 2.0, see [EMAIL_SETUP.md](EMAIL_SETUP.md)). An unknown value stops the backend at startup. |
+| `GMAIL_SENDER` | with `gmail-api` | The Gmail account that authorized sending, e.g. `suppliermanagement.mail@gmail.com`. With `gmail-api`, `MAIL_FROM` and `SUPPLIER_MAIL_FROM` must use this address or one in `GMAIL_SEND_AS_ALIASES`, or the backend does not start. |
+| `GMAIL_SEND_AS_ALIASES` | no | Comma-separated "Send mail as" aliases already set up in that Gmail account. |
+| `GMAIL_OAUTH_CLIENT_ID`, `GMAIL_OAUTH_CLIENT_SECRET`, `GMAIL_OAUTH_REFRESH_TOKEN` | with `gmail-api` | Written only by `tools/windows/gmail-authorize.ps1` over SSH (never typed or committed). The client secret of a Desktop OAuth client is not confidential; **the refresh token is the real secret**. |
 | `SUPPLIER_JWT_SIGNING_KEY` | yes | Signing key of the Supplier Management app's tokens, separate from `JWT_SIGNING_KEY` (`openssl rand -base64 48`). Created automatically on the server by the deploy workflow if missing. Changing it signs every supplier out. |
 | `ADMIN_TOTP_KEY` | yes | Encrypts the Supplier Administration administrators' authenticator keys (`openssl rand -base64 32`). Created automatically by the deploy workflow if missing. **Back it up with `.env`**: without it every administrator must be reset with `create-admin.sh reset`. |
 | `BACKUP_DIR`, `BACKUP_KEEP_DAYS` | no | Where `backup.sh` writes and how long backups are kept (default `/var/backups/stocklist`, 30 days). |
 
 Set by the compose file from `API_DOMAIN`: `PUBLIC_BASE_URL=https://<API_DOMAIN>` (the address used in emailed
-supplier links). Until SMTP is configured, supplier emails are not sent; the server only logs that a link was
-requested (never the link itself).
+supplier links). Until email is configured (SMTP, or the Gmail API with `MAIL_PROVIDER=gmail-api`), supplier emails
+are not sent; the server only logs that a link was requested (never the link itself).
+
+After changing `.env`, recreate the backend so it reads the new values:
+`docker compose -f docker-compose.prod.yml up -d backend` (a plain `docker restart` keeps the old values).
 
 Fixed in production by the compose file: `SWAGGER_ENABLED=false` (no public API explorer) and
 `MAIL_LOG_TOKENS=false` (reset codes are never written to logs).

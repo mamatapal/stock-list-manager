@@ -53,7 +53,7 @@ jobs:
         run: |
           mkdir -p bundle
           cp backend/target/stock-list-backend-*.jar bundle/app.jar
-          cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/create-admin.sh deploy/.env.example bundle/
+          cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/create-admin.sh deploy/set-gmail-token.sh deploy/mail-test.sh deploy/.env.example bundle/
           sed -i 's/\r$//' bundle/*.sh
           chmod +x bundle/*.sh
 
