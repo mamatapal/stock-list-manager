@@ -101,10 +101,10 @@ class LoginViewModel @Inject constructor(private val account: AccountRepository)
             // The password lives only in this screen's memory; it is sent once over HTTPS and never stored.
             val r = account.login(email, password)
             loading = false
+            password = "" // cleared after every attempt, successful or not
             if (r is ApiResult.Failure) {
                 error = r.error.message
                 needsVerification = r.error.code == "EMAIL_NOT_VERIFIED"
-                password = ""
             }
             // On success the session changes and the app moves to the home screen by itself.
         }
