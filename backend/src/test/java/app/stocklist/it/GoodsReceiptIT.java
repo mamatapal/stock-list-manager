@@ -112,7 +112,7 @@ class GoodsReceiptIT extends NetworkTestSupport {
 
         Resp after = get(NET + "/orders/" + id, w.shop().owner());
         assertEquals("2", text(after.body().get("lines").get(0).get("receivedQuantity")));
-        assertMoney("240", text(after.body().get("lines").get(0).get("receivedUnitPrice"))), "saved price kept on the order");
+        assertMoney("240", text(after.body().get("lines").get(0).get("receivedUnitPrice")), "saved price kept on the order");
         assertEquals("4", text(after.body().get("lines").get(1).get("receivedQuantity")));
         JsonNode history = after.body().get("history");
         assertEquals("RECEIVED", text(history.get(history.size() - 1).get("toStatus")));
@@ -301,7 +301,7 @@ class GoodsReceiptIT extends NetworkTestSupport {
         for (JsonNode l : get("/api/v1/purchases/" + rp, owner).body().get("lines")) {
             assertNull(text(l.get("purchasePrice")), l.toString());
         }
-        assertMoney("240", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedUnitPrice"))), "saved price kept on the order");
+        assertMoney("240", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedUnitPrice")), "saved price kept on the order");
 
         // The owner may change the price.
         Resp order2 = placeAndAccept(w, "1", "1");
