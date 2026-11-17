@@ -37,11 +37,22 @@ public enum Permission {
     }
 
     /**
-     * The codes every released Stock List Manager app understands: the first 25 (V1). A client that does not say
-     * which codes it knows is assumed to know only these. When a permission is added, keep it out of this set.
+     * The codes every released Stock List Manager app understands: exactly the 25 seeded by V1__access.sql. A client
+     * that does not say which codes it knows is assumed to know only these, so an older app never removes a code it
+     * cannot show. Listed one by one on purpose: this set must never grow when a permission is added to the enum.
      */
-    public static final Set<Permission> FIRST_RELEASE = Set.copyOf(EnumSet.complementOf(
-            EnumSet.of(SUPPLIER_NETWORK_MANAGE, PURCHASE_ORDER_MANAGE)));
+    public static final Set<Permission> FIRST_RELEASE = Set.copyOf(EnumSet.of(
+            SUPPLIER_VIEW, SUPPLIER_ADD, SUPPLIER_EDIT, SUPPLIER_DELETE,
+            ITEM_VIEW, ITEM_ADD, ITEM_EDIT, ITEM_DELETE,
+            LIST_CREATE, LIST_EDIT, LIST_DELETE,
+            PURCHASE_RECORD, PURCHASE_EDIT, PURCHASE_DELETE,
+            PURCHASE_PRICE_ENTER, SELLING_PRICE_ENTER, CATALOG_SELLING_PRICE_CHANGE,
+            PURCHASE_HISTORY_VIEW,
+            PDF_GENERATE, PDF_SHARE,
+            EXPIRY_VIEW,
+            EXPECTED_PROFIT_VIEW, PROFIT_REPORT_VIEW,
+            SETTINGS_MANAGE,
+            STAFF_MANAGE));
 
     public static Set<Permission> all() {
         return EnumSet.allOf(Permission.class);
