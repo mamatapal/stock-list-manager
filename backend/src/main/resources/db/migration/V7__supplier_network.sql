@@ -162,7 +162,9 @@ CREATE TABLE purchase_order (
     CONSTRAINT fk_purchase_order_purchase FOREIGN KEY (business_id, purchase_id) REFERENCES purchase (business_id, id) ON DELETE RESTRICT,
     CONSTRAINT chk_purchase_order_status CHECK (status IN ('SENT', 'ACCEPTED', 'REJECTED', 'DISPATCHED', 'RECEIVED', 'CANCELLED')),
     CONSTRAINT chk_purchase_order_total CHECK (total_amount >= 0),
-    CONSTRAINT chk_purchase_order_receipt CHECK ((status = 'RECEIVED' AND receipt_status IN ('FULL', 'SHORT'))
+    -- IS NOT NULL is explicit: with a NULL receipt_status the IN test is UNKNOWN, which a CHECK would let through.
+    CONSTRAINT chk_purchase_order_receipt CHECK (
+        (status = 'RECEIVED' AND receipt_status IS NOT NULL AND receipt_status IN ('FULL', 'SHORT'))
         OR (status <> 'RECEIVED' AND receipt_status IS NULL))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
@@ -219,6 +221,7 @@ CREATE TABLE purchase_order_event (
     KEY idx_po_event_order (order_id, id),
     CONSTRAINT fk_po_event_order FOREIGN KEY (business_id, supplier_org_id, order_id) REFERENCES purchase_order (business_id, supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT chk_po_event_actor CHECK (actor_type IN ('SHOP', 'SUPPLIER', 'SYSTEM')),
-    CONSTRAINT chk_po_event_receipt CHECK ((to_status = 'RECEIVED' AND receipt_status IN ('FULL', 'SHORT'))
+    CONSTRAINT chk_po_event_receipt CHECK (
+        (to_status = 'RECEIVED' AND receipt_status IS NOT NULL AND receipt_status IN ('FULL', 'SHORT'))
         OR (to_status <> 'RECEIVED' AND receipt_status IS NULL))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

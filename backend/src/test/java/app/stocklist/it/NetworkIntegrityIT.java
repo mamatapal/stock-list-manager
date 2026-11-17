@@ -288,4 +288,91 @@ class NetworkIntegrityIT extends NetworkTestSupport {
                 + "AND connection_id = UUID_TO_BIN(?) AND id = UUID_TO_BIN(?)", shopA, a.conn(), order));
         assertEquals(0, count("SELECT COUNT(*) FROM purchase_order WHERE business_id = UUID_TO_BIN(?)", shopB));
     }
+
+    // ================================================================== receipt status CHECK constraints
+
+    private void insertOrderWithStatus(String id, World w, String status, String receiptStatus) {
+        jdbc.update("""
+                INSERT INTO purchase_order (id, business_id, supplier_org_id, connection_id, status, total_amount,
+                    line_count, created_by, created_at, updated_at, receipt_purchase_id, version, receipt_status)
+                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), ?, 0, 1, UUID_TO_BIN(?),
+                    NOW(6), NOW(6), UUID_TO_BIN(?), 0, ?)""",
+                id, businessOf(w.conn()), w.sup().orgId(), w.conn(), status, newId(), newId(), receiptStatus);
+    }
+
+    private void insertOrderEventWithStatus(String orderId, World w, String toStatus, String receiptStatus) {
+        jdbc.update("""
+                INSERT INTO purchase_order_event (order_id, business_id, supplier_org_id, actor_type, to_status,
+                    receipt_status, created_at)
+                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), 'SHOP', ?, ?, NOW(6))""",
+                orderId, businessOf(w.conn()), w.sup().orgId(), toStatus, receiptStatus);
+    }
+
+    private static void violates(String constraint, Runnable insert) {
+        org.springframework.dao.DataAccessException e =
+                assertThrows(org.springframework.dao.DataAccessException.class, insert::run);
+        String message = String.valueOf(e.getMostSpecificCause().getMessage());
+        assertTrue(message.contains(constraint), message);
+    }
+
+    private String receiptStatusOf(String orderId) {
+        return jdbc.queryForObject("SELECT receipt_status FROM purchase_order WHERE id = UUID_TO_BIN(?)", String.class,
+                orderId);
+    }
+
+    @Test
+    void anOrderHasAReceiptStatusExactlyWhenItIsReceived() {
+        World w = world();
+        String check = "chk_purchase_order_receipt";
+
+        // RECEIVED needs FULL or SHORT: NULL (an UNKNOWN IN test) and other values are refused.
+        violates(check, () -> insertOrderWithStatus(newId(), w, "RECEIVED", null));
+        violates(check, () -> insertOrderWithStatus(newId(), w, "RECEIVED", "PARTIAL"));
+        String full = newId();
+        insertOrderWithStatus(full, w, "RECEIVED", "FULL");
+        assertEquals("FULL", receiptStatusOf(full));
+        String shortOrder = newId();
+        insertOrderWithStatus(shortOrder, w, "RECEIVED", "SHORT");
+        assertEquals("SHORT", receiptStatusOf(shortOrder));
+
+        // Every other status must have none.
+        for (String status : List.of("SENT", "ACCEPTED", "REJECTED", "DISPATCHED", "CANCELLED")) {
+            violates(check, () -> insertOrderWithStatus(newId(), w, status, "FULL"));
+            violates(check, () -> insertOrderWithStatus(newId(), w, status, "SHORT"));
+            String ok = newId();
+            insertOrderWithStatus(ok, w, status, null);
+            assertEquals(null, receiptStatusOf(ok), status);
+        }
+
+        // Nor can an existing row be changed into an inconsistent state.
+        violates(check, () -> jdbc.update("UPDATE purchase_order SET receipt_status = NULL WHERE id = UUID_TO_BIN(?)",
+                full));
+        violates(check, () -> jdbc.update("UPDATE purchase_order SET status = 'DISPATCHED' WHERE id = UUID_TO_BIN(?)",
+                shortOrder));
+        assertEquals("FULL", receiptStatusOf(full));
+        assertEquals("SHORT", receiptStatusOf(shortOrder));
+    }
+
+    @Test
+    void anOrderHistoryEntryHasAReceiptStatusExactlyWhenItRecordsTheReceipt() {
+        World w = world();
+        String check = "chk_po_event_receipt";
+        String order = newId();
+        insertOrderWithStatus(order, w, "SENT", null);
+        String events = "SELECT COUNT(*) FROM purchase_order_event WHERE order_id = UUID_TO_BIN(?)";
+
+        violates(check, () -> insertOrderEventWithStatus(order, w, "RECEIVED", null));
+        violates(check, () -> insertOrderEventWithStatus(order, w, "RECEIVED", "PARTIAL"));
+        insertOrderEventWithStatus(order, w, "RECEIVED", "FULL");
+        insertOrderEventWithStatus(order, w, "RECEIVED", "SHORT");
+        assertEquals(2, count(events, order));
+
+        for (String status : List.of("SENT", "ACCEPTED", "REJECTED", "DISPATCHED", "CANCELLED")) {
+            violates(check, () -> insertOrderEventWithStatus(order, w, status, "FULL"));
+            violates(check, () -> insertOrderEventWithStatus(order, w, status, "SHORT"));
+            insertOrderEventWithStatus(order, w, status, null);
+        }
+        assertEquals(7, count(events, order));
+        assertEquals(2, count(events + " AND receipt_status IS NOT NULL AND to_status = 'RECEIVED'", order));
+    }
 }
