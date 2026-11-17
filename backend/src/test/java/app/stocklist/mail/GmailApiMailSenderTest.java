@@ -244,7 +244,7 @@ class GmailApiMailSenderTest {
     }
 
     @Test
-    void a second401FailsWithoutAThirdAttempt() {
+    void aSecond401FailsWithoutAThirdAttempt() {
         google.sendStatus = n -> 401;
         assertThatThrownBy(() -> sender.send(message("x"))).isInstanceOf(MailAuthenticationException.class);
         assertThat(google.sendCalls.get()).isEqualTo(2);
