@@ -53,7 +53,7 @@ class MultiDeviceLoginIT extends IntegrationTestBase {
         assertEquals(meA.str("businessId"), meC.str("businessId"));
         assertEquals(s1, meB.str("username"));
         assertEquals(s2, meC.str("username"));
-        assertEquals(25, meA.body().get("permissions").size());
+        assertEquals(27, meA.body().get("permissions").size());
         assertTrue(codes(meB.body().get("permissions")).contains("PURCHASE_RECORD"));
         assertEquals(List.of("EXPIRY_VIEW", "ITEM_VIEW", "SUPPLIER_VIEW"), codes(meC.body().get("permissions")));
 

@@ -10,7 +10,8 @@ import org.junit.jupiter.api.Test;
 class PermissionCatalogueTest {
     @Test
     void hasOneCodePerSpecItem() {
-        assertEquals(25, Permission.values().length);
+        // 25 from V1 and the two supplier network permissions from V7.
+        assertEquals(27, Permission.values().length);
     }
 
     @Test
@@ -18,7 +19,8 @@ class PermissionCatalogueTest {
         Set<Permission> d = Permission.staffDefaults();
         for (Permission sensitive : Set.of(Permission.STAFF_MANAGE, Permission.SETTINGS_MANAGE,
                 Permission.PROFIT_REPORT_VIEW, Permission.EXPECTED_PROFIT_VIEW,
-                Permission.CATALOG_SELLING_PRICE_CHANGE, Permission.PURCHASE_DELETE)) {
+                Permission.CATALOG_SELLING_PRICE_CHANGE, Permission.PURCHASE_DELETE,
+                Permission.SUPPLIER_NETWORK_MANAGE, Permission.PURCHASE_ORDER_MANAGE)) {
             assertFalse(d.contains(sensitive), sensitive + " must be off by default");
         }
         for (Permission normal : Set.of(Permission.PURCHASE_RECORD, Permission.SUPPLIER_VIEW, Permission.ITEM_ADD,

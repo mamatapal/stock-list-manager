@@ -15,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import tools.jackson.databind.JsonNode;
 
 /** Helpers for the Supplier Management and Supplier Administration integration tests (Phase S1). */
-abstract class SupplierTestSupport extends IntegrationTestBase {
+abstract class SupplierTestSupport extends PurchaseTestSupport {
     static final String SUPPLIER_PW = "Blue-Kettle-77";
     static final String ADMIN_PW = "Admin-Long-Pass-2026";
     static final String PORTAL = "/api/v1/supplier-portal";

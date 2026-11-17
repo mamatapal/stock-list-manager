@@ -1,0 +1,330 @@
+package app.stocklist.it;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.sql.Statement;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Test;
+import org.springframework.jdbc.core.ConnectionCallback;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * Goods receipt for purchase orders: only the receipt changes stock, and it does so through the existing purchase
+ * workflow (PurchaseService: completed purchase, one delivery, batches), once, atomically.
+ */
+class GoodsReceiptIT extends NetworkTestSupport {
+
+    /** A shop connected to a supplier, contact linked, two linked products (box of 24 pcs; litre). */
+    record World(Shop shop, Sup sup, String conn, String contact, String biscuits, String oil, String boxProduct,
+                 String oilProduct) {}
+
+    private World world() {
+        Shop shop = shop();
+        Sup s = approvedSupplier(true);
+        String conn = connect(shop.owner(), s);
+        String contact = supplier(shop.owner(), "Agarwal (order supplier)");
+        linkContact(shop.owner(), conn, contact);
+        String biscuits = item(shop.owner(), "Glucose biscuits", PCS, "10", "12");
+        String oil = item(shop.owner(), "Mustard oil", LITRE, "150", "170");
+        String box = product(s, "Glucose biscuits", "box", "240");
+        String oilP = product(s, "Mustard oil", "litre", "140");
+        assertEquals(200, link(shop.owner(), conn, box, biscuits, PCS, "24").status());
+        assertEquals(200, link(shop.owner(), conn, oilP, oil, LITRE, "1").status());
+        return new World(shop, s, conn, contact, biscuits, oil, box, oilP);
+    }
+
+    private Resp placeAndAccept(World w, String boxes, String litres) {
+        Resp o = order(w.shop().owner(), w.conn(), orderLine(w.boxProduct(), boxes), orderLine(w.oilProduct(), litres));
+        assertEquals("ACCEPTED", supplierAct(w.sup(), o.str("id"), "accept", null).str("status"));
+        return get(NET + "/orders/" + o.str("id"), w.shop().owner());
+    }
+
+    private String receiptPurchaseId(String orderId) {
+        return jdbc.queryForObject("SELECT BIN_TO_UUID(receipt_purchase_id) FROM purchase_order WHERE id = UUID_TO_BIN(?)",
+                String.class, orderId);
+    }
+
+    private String fullReceipt(Resp order, World w, String boxes, String litres) {
+        return receiptJson("2026-11-16", "INV-77",
+                receiptLine(lineFor(order, w.boxProduct()), boxes, null, "B-7", "2027-03-31"),
+                receiptLine(lineFor(order, w.oilProduct()), litres, null, null, null));
+    }
+
+    @Test
+    void stockChangesOnlyOnReceiptThroughOneCompletedPurchaseWithOneDelivery() {
+        World w = world();
+        Resp order = placeAndAccept(w, "2", "5");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        assertEquals(200, supplierAct(w.sup(), id, "dispatch", null).status());
+        assertEquals(0, batchCount(w.biscuits()), "accepting and dispatching do not touch stock");
+        assertEquals(0, batchCount(w.oil()));
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+
+        // 2 boxes of 24 pcs; 4 of the 5 litres arrived.
+        Resp r = post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "2", "4"), w.shop().owner());
+        assertEquals(200, r.status(), r.raw());
+        assertEquals("RECEIVED", text(r.at("/order/status")));
+        assertEquals(rp, r.str("purchaseId"));
+        assertEquals(rp, text(r.at("/order/purchaseId")));
+        assertEquals("true", text(r.at("/pricesRecorded")));
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(rp), "one purchase, one delivery, one batch per line");
+
+        // It is an ordinary purchase of this shop, made by the existing purchase workflow.
+        Resp p = get("/api/v1/purchases/" + rp, w.shop().owner());
+        assertEquals(200, p.status(), p.raw());
+        assertEquals(w.contact(), p.str("supplierId"));
+        assertEquals("INV-77", p.str("invoiceNo"));
+        assertEquals("2026-11-16", p.str("purchaseDate"));
+        assertEquals("RECEIVED", p.str("status"), p.raw());
+        assertEquals(1, p.body().get("deliveries").size());
+        assertEquals(2, p.body().get("lines").size());
+        JsonNode biscuitsLine = null, oilLine = null;
+        for (JsonNode l : p.body().get("lines")) {
+            if (w.biscuits().equals(text(l.get("itemId")))) biscuitsLine = l;
+            if (w.oil().equals(text(l.get("itemId")))) oilLine = l;
+        }
+        assertEquals("48", text(biscuitsLine.get("quantity")), "converted with the link: 2 x 24 pcs");
+        assertEquals(PCS, text(biscuitsLine.get("unitId")));
+        assertEquals("480.00", text(biscuitsLine.get("purchasePrice")), "saved order price: 2 x 240");
+        assertEquals("4", text(oilLine.get("quantity")), "the actual quantity received");
+        assertEquals("560.00", text(oilLine.get("purchasePrice")));
+
+        Resp batches = get("/api/v1/batches?itemId=" + w.biscuits(), w.shop().owner());
+        assertEquals(1, batches.body().size(), batches.raw());
+        assertEquals("48", text(batches.body().get(0).get("quantity")));
+        assertEquals("2027-03-31", text(batches.body().get(0).get("expiryDate")));
+        assertEquals("B-7", text(batches.body().get(0).get("batchNo")));
+
+        Resp after = get(NET + "/orders/" + id, w.shop().owner());
+        assertEquals("2", text(after.body().get("lines").get(0).get("receivedQuantity")));
+        assertEquals("240.00", text(after.body().get("lines").get(0).get("receivedUnitPrice")));
+        assertEquals("4", text(after.body().get("lines").get(1).get("receivedQuantity")));
+        JsonNode history = after.body().get("history");
+        assertEquals("RECEIVED", text(history.get(history.size() - 1).get("toStatus")));
+        assertEquals("SHOP", text(history.get(history.size() - 1).get("actorType")));
+        assertEquals("RECEIVED", get(PORTAL + "/orders/" + id, w.sup().token()).str("status"));
+    }
+
+    @Test
+    void aSecondReceiptIsRefusedAndChangesNothing() {
+        World w = world();
+        Resp order = placeAndAccept(w, "1", "1");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        assertEquals(200, post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "1", "1"), w.shop().owner()).status());
+        Resp again = post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "1", "1"), w.shop().owner());
+        assertEquals(409, again.status(), again.raw());
+        assertEquals("ORDER_ALREADY_RECEIVED", again.str("code"));
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(rp));
+        assertEquals(1, batchCount(w.biscuits()));
+        assertEquals("ORDER_STATUS", post(NET + "/orders/" + id + "/cancel", null, w.shop().owner()).str("code"));
+    }
+
+    @Test
+    void concurrentReceiptsCreateTheStockOnce() throws Exception {
+        World w = world();
+        Resp order = placeAndAccept(w, "3", "2");
+        String id = order.str("id");
+        String body = fullReceipt(order, w, "3", "2");
+        int n = 4;
+        ExecutorService pool = Executors.newFixedThreadPool(n);
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<Resp>> results = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            results.add(pool.submit(() -> {
+                start.await();
+                return post(NET + "/orders/" + id + "/receive", body, w.shop().owner());
+            }));
+        }
+        start.countDown();
+        int ok = 0, refused = 0;
+        for (Future<Resp> f : results) {
+            Resp r = f.get(60, TimeUnit.SECONDS);
+            if (r.status() == 200) ok++;
+            else if (r.status() == 409) refused++;
+            else throw new AssertionError("unexpected answer " + r.raw());
+        }
+        pool.shutdown();
+        assertEquals(1, ok, "exactly one receipt succeeds");
+        assertEquals(n - 1, refused);
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(receiptPurchaseId(id)));
+        assertEquals(1, batchCount(w.biscuits()));
+        assertEquals(1, batchCount(w.oil()));
+    }
+
+    @Test
+    void aFailureAtTheLastStepRollsTheWholeReceiptBack() {
+        World w = world();
+        Resp first = placeAndAccept(w, "2", "2");
+        Resp second = placeAndAccept(w, "1", "1");
+        String id = first.str("id");
+        String rp = receiptPurchaseId(id);
+        // Force the final step to fail: another order already claims the purchase id this receipt will create, so
+        // linking it (unique purchase_order.purchase_id) fails after the purchase, delivery and batches were written.
+        claimPurchaseId(second.str("id"), rp);
+
+        Resp failed = post(NET + "/orders/" + id + "/receive", fullReceipt(first, w, "2", "2"), w.shop().owner());
+        assertEquals(409, failed.status(), failed.raw());
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp), "no purchase, delivery or batch is left");
+        assertEquals(0, batchCount(w.biscuits()));
+        assertEquals(0, batchCount(w.oil()));
+        Resp still = get(NET + "/orders/" + id, w.shop().owner());
+        assertEquals("ACCEPTED", still.str("status"), "the order stays receivable");
+        assertNull(text(still.at("/lines/0/receivedQuantity")));
+        assertEquals(2, still.body().get("history").size(), "no RECEIVED event");
+
+        claimPurchaseId(second.str("id"), null);
+        Resp ok = post(NET + "/orders/" + id + "/receive", fullReceipt(first, w, "2", "2"), w.shop().owner());
+        assertEquals(200, ok.status(), ok.raw());
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(rp));
+    }
+
+    /** Sets purchase_order.purchase_id directly (the purchase does not exist yet, so foreign keys are paused). */
+    private void claimPurchaseId(String orderId, String purchaseId) {
+        jdbc.execute((ConnectionCallback<Void>) con -> {
+            try (Statement st = con.createStatement()) {
+                st.execute("SET FOREIGN_KEY_CHECKS = 0");
+                try {
+                    st.executeUpdate("UPDATE purchase_order SET purchase_id = "
+                            + (purchaseId == null ? "NULL" : "UUID_TO_BIN('" + purchaseId + "')")
+                            + " WHERE id = UUID_TO_BIN('" + orderId + "')");
+                } finally {
+                    st.execute("SET FOREIGN_KEY_CHECKS = 1");
+                }
+            }
+            return null;
+        });
+    }
+
+    @Test
+    void receiptsAreCheckedAgainstTheOrderAndNothingIsWrittenWhenRefused() {
+        World w = world();
+        Resp order = placeAndAccept(w, "2", "5");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        String boxLine = lineFor(order, w.boxProduct());
+        String oilLine = lineFor(order, w.oilProduct());
+        String owner = w.shop().owner();
+
+        assertEquals("RECEIPT_LINES", post(NET + "/orders/" + id + "/receive",
+                receiptJson(null, null, receiptLine(boxLine, "2", null, null, null)), owner).str("code"), "a line missing");
+        assertEquals("RECEIPT_LINES", post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(boxLine, "2", null, null, null), receiptLine(boxLine, "1", null, null, null)), owner)
+                .str("code"), "a line twice");
+        assertEquals("RECEIVED_TOO_MUCH", post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(boxLine, "3", null, null, null), receiptLine(oilLine, "5", null, null, null)), owner)
+                .str("code"));
+        assertEquals("NOTHING_RECEIVED", post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(boxLine, "0", null, null, null), receiptLine(oilLine, "0", null, null, null)), owner)
+                .str("code"));
+        assertEquals("INVALID_NUMBER", post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(boxLine, "-1", null, null, null), receiptLine(oilLine, "1", null, null, null)), owner)
+                .str("code"));
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+
+        // An order that is not accepted cannot be received.
+        Resp sent = order(owner, w.conn(), orderLine(w.oilProduct(), "1"));
+        assertEquals("ORDER_STATUS", post(NET + "/orders/" + sent.str("id") + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(sent, w.oilProduct()), "1", null, null, null)), owner).str("code"));
+
+        // A line received as 0 is left out of the purchase.
+        Resp r = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(boxLine, "0", null, null, null), receiptLine(oilLine, "5", null, null, null)), owner);
+        assertEquals(200, r.status(), r.raw());
+        assertArrayEquals(new long[]{1, 1, 1}, receiptRows(rp));
+        assertEquals(0, batchCount(w.biscuits()));
+        assertEquals("0", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedQuantity")));
+    }
+
+    @Test
+    void goodsCannotBeReceivedUntilTheSupplierIsLinkedToAContact() {
+        Shop shop = shop();
+        Sup s = approvedSupplier(true);
+        String conn = connect(shop.owner(), s);
+        String item = item(shop.owner(), "Flour", KG, "30", "35");
+        String product = product(s, "Wheat flour", "kg", "28");
+        link(shop.owner(), conn, product, item, KG, "1");
+        Resp o = order(shop.owner(), conn, orderLine(product, "10"));
+        supplierAct(s, o.str("id"), "accept", null);
+        String body = receiptJson(null, null, receiptLine(lineFor(o, product), "10", null, null, null));
+        assertEquals("CONTACT_NOT_LINKED", post(NET + "/orders/" + o.str("id") + "/receive", body, shop.owner()).str("code"));
+        assertEquals(0, batchCount(item));
+
+        linkContact(shop.owner(), conn, supplier(shop.owner(), "Flour mill"));
+        assertEquals(200, post(NET + "/orders/" + o.str("id") + "/receive", body, shop.owner()).status());
+        assertEquals(1, batchCount(item));
+    }
+
+    @Test
+    void pricesFollowThePurchasePricePermissionAndReceivingFollowsThePurchasePermissions() {
+        World w = world();
+        String owner = w.shop().owner();
+
+        // Staff who may order and record purchases, but not enter prices.
+        String u = unique("rcv");
+        Resp c = createStaff(owner, stepUp(owner, PW), u, "[\"PURCHASE_ORDER_MANAGE\",\"PURCHASE_RECORD\"]");
+        assertEquals(201, c.status(), c.raw());
+        String staff = staffSession(u, c.str("temporaryPassword")).str("accessToken");
+
+        Resp order = placeAndAccept(w, "1", "2");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        Resp changed = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order, w.boxProduct()), "1", "200", null, null),
+                receiptLine(lineFor(order, w.oilProduct()), "2", null, null, null)), staff);
+        assertEquals(403, changed.status(), changed.raw());
+        assertEquals("PERMISSION_DENIED", changed.str("code"));
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+
+        // The saved prices are kept on the order; the purchase is recorded without prices, as for any purchase
+        // this user records.
+        Resp saved = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order, w.boxProduct()), "1", "240", null, null),
+                receiptLine(lineFor(order, w.oilProduct()), "2", null, null, null)), staff);
+        assertEquals(200, saved.status(), saved.raw());
+        assertEquals("false", text(saved.at("/pricesRecorded")));
+        for (JsonNode l : get("/api/v1/purchases/" + rp, owner).body().get("lines")) {
+            assertNull(text(l.get("purchasePrice")), l.toString());
+        }
+        assertEquals("240.00", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedUnitPrice")));
+
+        // The owner may change the price.
+        Resp order2 = placeAndAccept(w, "1", "1");
+        Resp ownerChanged = post(NET + "/orders/" + order2.str("id") + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order2, w.boxProduct()), "1", "230.50", null, null),
+                receiptLine(lineFor(order2, w.oilProduct()), "1", null, null, null)), owner);
+        assertEquals(200, ownerChanged.status(), ownerChanged.raw());
+        boolean found = false;
+        for (JsonNode l : get("/api/v1/purchases/" + receiptPurchaseId(order2.str("id")), owner).body().get("lines")) {
+            if (w.biscuits().equals(text(l.get("itemId")))) {
+                assertEquals("230.50", text(l.get("purchasePrice")));
+                found = true;
+            }
+        }
+        assertTrue(found);
+
+        // Ordering alone does not allow recording purchases: the existing purchase permission still applies.
+        String u2 = unique("ord");
+        Resp c2 = createStaff(owner, stepUp(owner, PW), u2, "[\"PURCHASE_ORDER_MANAGE\"]");
+        String orderOnly = staffSession(u2, c2.str("temporaryPassword")).str("accessToken");
+        Resp order3 = placeAndAccept(w, "1", "1");
+        Resp refused = post(NET + "/orders/" + order3.str("id") + "/receive", fullReceipt(order3, w, "1", "1"), orderOnly);
+        assertEquals(403, refused.status(), refused.raw());
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(receiptPurchaseId(order3.str("id"))));
+        assertEquals("ACCEPTED", get(NET + "/orders/" + order3.str("id"), owner).str("status"));
+
+        // Default staff cannot reach purchase orders at all.
+        assertEquals(403, post(NET + "/orders/" + order3.str("id") + "/receive", fullReceipt(order3, w, "1", "1"),
+                w.shop().staff()).status());
+    }
+}

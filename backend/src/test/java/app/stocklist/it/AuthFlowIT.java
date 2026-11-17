@@ -18,7 +18,7 @@ class AuthFlowIT extends IntegrationTestBase {
         assertNotNull(reg.str("accessToken"));
         assertNotNull(reg.str("refreshToken"));
         assertEquals("OWNER", text(reg.body().get("user").get("role")));
-        assertEquals(25, reg.body().get("user").get("permissions").size(), "owner holds every permission");
+        assertEquals(27, reg.body().get("user").get("permissions").size(), "owner holds every permission (25 + 2 from V7)");
 
         Resp login = login(u.toUpperCase(), PW);
         assertEquals(200, login.status(), "usernames are case-insensitive: " + login.raw());

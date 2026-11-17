@@ -36,6 +36,7 @@ that does not exist.
 | Purchases | `PURCHASE_RECORD`, `PURCHASE_EDIT`, `PURCHASE_DELETE`, `PURCHASE_PRICE_ENTER`, `SELLING_PRICE_ENTER`, `CATALOG_SELLING_PRICE_CHANGE`, `PURCHASE_HISTORY_VIEW` |
 | PDFs and expiry | `PDF_GENERATE`, `PDF_SHARE`, `EXPIRY_VIEW` |
 | Sensitive | `EXPECTED_PROFIT_VIEW`, `PROFIT_REPORT_VIEW`, `SETTINGS_MANAGE`, `STAFF_MANAGE` |
+| Supplier network (V7) | `SUPPLIER_NETWORK_MANAGE`, `PURCHASE_ORDER_MANAGE` (off for staff by default) |
 
 The owner has every permission. `GET /permissions` lists them with their labels. Profit figures are removed from
 responses (including sync) for users without `EXPECTED_PROFIT_VIEW`. A staff manager can never grant permissions
@@ -124,3 +125,37 @@ SameSite=Strict session cookie and the header `X-Requested-With: SupplierAdminis
 `GET /suppliers?status=`, `GET /suppliers/{id}`, `POST /suppliers/{id}/approve | reject | suspend | reinstate`
 (`If-Match: <version>`; reject and suspend need `{reason}`, which the supplier sees). Administrators are created only
 on the server: see `docs/SUPPLIER_ADMINISTRATION.md`.
+
+## Supplier network: discovery, connections, catalogue, purchase orders (V7)
+
+Shops and suppliers trade through these endpoints. Stock is never kept here: the goods receipt of an order creates an
+ordinary completed purchase with one delivery through the purchase rules above, and only that changes stock.
+
+**Shop side** - `/api/v1/supplier-network`, shop tokens. `SUPPLIER_NETWORK_MANAGE`: directory, connections, contact
+link, product links. `PURCHASE_ORDER_MANAGE`: orders and receipt. Connections and catalogues can be read with either.
+Records of other shops answer `404`.
+
+| Purpose | Request | Notes |
+| --- | --- | --- |
+| Find suppliers | `GET /directory?q=`, `GET /directory/{supplierOrgId}` | Only `APPROVED` suppliers that turned their listing on. Name, legal name, city and state only. |
+| Connect | `POST /connections` `{supplierOrgId, supplierId?}` | Only shops ask; the supplier accepts or declines. One connection per shop and supplier: a declined, cancelled or ended one can be asked again (it becomes `REQUESTED`, never `ACTIVE` directly). |
+| Connections | `GET /connections`, `GET /connections/{id}`, `POST /connections/{id}/cancel` (a request), `POST /connections/{id}/end` `{reason?}` | Ending cancels orders not yet dispatched; dispatched orders can still be received. |
+| Supplier contact | `PUT /connections/{id}/contact` `{supplierId}` or `{createContact: true}` | Links the supplier to one of the shop's own supplier contacts (purchases are recorded against it). Needed before receiving. |
+| Catalogue | `GET /connections/{id}/catalogue` | Active products of an `ACTIVE` connection, each with the shop's link or `null`. |
+| Product links | `PUT /connections/{id}/products/{productId}/link` `{itemId \| newItem{name, category?, defaultUnitId}, unitId?, unitsPerPack?}`, `DELETE` the same | Only by the shopkeeper; never automatic (no name or barcode matching). `unitsPerPack`: shop units in one supplier unit. |
+| Orders | `POST /orders` `{id?, connectionId, note?, lines[{productId, quantity}]}`, `GET /orders?status=`, `GET /orders/{id}`, `POST /orders/{id}/cancel` `{reason?}` | Every product must be linked. Lines keep the name, unit, price and link of the moment the order was placed. |
+| Goods receipt | `POST /orders/{id}/receive` `{receivedDate?, invoiceNo?, notes?, lines[{lineId, quantity, unitPrice?, batchNo?, expiryDate?}]}` | Once per order, every line once (quantity in the supplier's unit, 0 to the ordered quantity). Creates the purchase, delivery and batches in one transaction; also needs `PURCHASE_RECORD`, and a changed price needs `PURCHASE_PRICE_ENTER`. |
+
+Order statuses: `SENT` -> `ACCEPTED` or `REJECTED` (supplier; rejecting needs a reason); `ACCEPTED` -> `DISPATCHED`
+(supplier); `ACCEPTED` or `DISPATCHED` -> `RECEIVED` (shop); `SENT` or `ACCEPTED` -> `CANCELLED` (shop). `REJECTED`,
+`CANCELLED` and `RECEIVED` are final. Every change is kept in the order's history.
+
+**Supplier side** - `/api/v1/supplier-portal`, supplier tokens, `APPROVED` businesses only:
+`GET | PUT /directory-listing` `{listed}` (off until turned on), `GET /connections?status=`, `GET /connections/{id}`,
+`POST /connections/{id}/accept | decline | end` (`{reason?}`), `GET /products`, `POST /products`,
+`PUT /products/{id}` `{nameEn, nameHi?, unit, pack?, price}`, `POST /products/{id}/deactivate | activate`,
+`GET /orders?status=`, `GET /orders/{id}`, `POST /orders/{id}/accept`, `POST /orders/{id}/reject` `{reason}`,
+`POST /orders/{id}/dispatch` `{reason?}`. Suppliers see a shop's name, city and state only.
+
+Error codes of these endpoints are listed in `NetworkError` (for example `CONNECTION_EXISTS`, `PRODUCT_NOT_LINKED`,
+`ORDER_STATUS`, `ORDER_ALREADY_RECEIVED`, `CONTACT_NOT_LINKED`).
