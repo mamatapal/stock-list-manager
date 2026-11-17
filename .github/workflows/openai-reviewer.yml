@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      # Read only the trusted base revision. Never check out or execute PR code in this job.
+      # Read only the trusted base revision. Never check out or execute PR code.
       - name: Check out trusted base revision
         uses: actions/checkout@v4
         with:
@@ -33,7 +33,21 @@ jobs:
         with:
           python-version: "3.12"
 
+      # The bootstrap PR adds the review script itself; main will not contain it
+      # until that PR is merged. Skip that first run instead of failing.
+      - name: Check trusted reviewer script exists
+        id: reviewer
+        shell: bash
+        run: |
+          if [ -f .github/scripts/openai_review.py ] && [ -f AI_WORKFLOW.md ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "Trusted reviewer script is not present on the base branch yet; this is expected for the bootstrap PR."
+          fi
+
       - name: Review pull request diff using OpenAI API
+        if: steps.reviewer.outputs.available == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_REVIEW_MODEL: ${{ vars.OPENAI_REVIEW_MODEL }}
