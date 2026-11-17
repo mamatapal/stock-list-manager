@@ -251,7 +251,7 @@ class NetworkIntegrityIT extends NetworkTestSupport {
         String shopB = businessOf(b.conn());
         String sup1 = a.sup().orgId();
         String sup2 = b.sup().orgId();
-        String itemB = item(b.shop().owner(), "Tea", KG, "300", "340");
+        String itemB = b.item();
 
         // Control: rows that name one consistent connection are accepted.
         String order = newId();

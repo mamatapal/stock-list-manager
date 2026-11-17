@@ -3,7 +3,6 @@ package app.stocklist.it;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Statement;
 import java.util.ArrayList;
@@ -115,6 +114,10 @@ class GoodsReceiptIT extends NetworkTestSupport {
         assertEquals("4", text(after.body().get("lines").get(1).get("receivedQuantity")));
         JsonNode history = after.body().get("history");
         assertEquals("RECEIVED", text(history.get(history.size() - 1).get("toStatus")));
+        assertEquals("SHORT", text(history.get(history.size() - 1).get("receiptStatus")), "4 of 5 litres: short");
+        assertEquals("FULL", text(after.at("/lines/0/receiptStatus")));
+        assertEquals("SHORT", text(after.at("/lines/1/receiptStatus")));
+        assertEquals("1", text(after.at("/lines/1/shortageQuantity")));
         assertEquals("SHOP", text(history.get(history.size() - 1).get("actorType")));
         assertEquals("RECEIVED", get(PORTAL + "/orders/" + id, w.sup().token()).str("status"));
     }
@@ -247,7 +250,12 @@ class GoodsReceiptIT extends NetworkTestSupport {
         assertEquals(200, r.status(), r.raw());
         assertArrayEquals(new long[]{1, 1, 1}, receiptRows(rp));
         assertEquals(0, batchCount(w.biscuits()));
-        assertEquals("0", text(get(NET + "/orders/" + id, owner).at("/lines/0/receivedQuantity")));
+        Resp after = get(NET + "/orders/" + id, owner);
+        assertEquals("0", text(after.at("/lines/0/receivedQuantity")));
+        assertEquals("NOT_RECEIVED", text(after.at("/lines/0/receiptStatus")));
+        assertEquals("2", text(after.at("/lines/0/shortageQuantity")));
+        assertEquals("FULL", text(after.at("/lines/1/receiptStatus")));
+        assertEquals("SHORT", r.str("receiptStatus"));
     }
 
     @Test
@@ -371,5 +379,86 @@ class GoodsReceiptIT extends NetworkTestSupport {
         assertEquals(403, post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "1", "1"),
                 w.shop().staff()).status());
         assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+    }
+
+    @Test
+    void aFullReceiptIsRecordedAsFull() {
+        World w = world();
+        Resp order = placeAndAccept(w, "2", "5");
+        String id = order.str("id");
+        Resp r = post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "2", "5"), w.shop().owner());
+        assertEquals(200, r.status(), r.raw());
+        assertEquals("FULL", r.str("receiptStatus"));
+        assertEquals("FULL", text(r.at("/order/receiptStatus")));
+        for (JsonNode l : r.body().get("order").get("lines")) {
+            assertEquals("FULL", text(l.get("receiptStatus")), l.toString());
+            assertEquals("0", text(l.get("shortageQuantity")), l.toString());
+        }
+        JsonNode history = r.body().get("order").get("history");
+        assertEquals("FULL", text(history.get(history.size() - 1).get("receiptStatus")));
+        assertEquals("FULL", get(PORTAL + "/orders/" + id, w.sup().token()).str("receiptStatus"));
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(receiptPurchaseId(id)));
+    }
+
+    @Test
+    void aShortReceiptRecordsTheShortageClosesTheOrderAndAddsOnlyWhatArrived() {
+        World w = world();
+        Resp order = placeAndAccept(w, "2", "5");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        // One box of two arrived; no oil at all.
+        Resp r = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order, w.boxProduct()), "1", null, "B-1", "2027-01-31"),
+                receiptLine(lineFor(order, w.oilProduct()), "0", null, null, null)), w.shop().owner());
+        assertEquals(200, r.status(), r.raw());
+        assertEquals("SHORT", r.str("receiptStatus"));
+
+        Resp after = get(NET + "/orders/" + id, w.shop().owner());
+        assertEquals("RECEIVED", after.str("status"));
+        assertEquals("SHORT", after.str("receiptStatus"));
+        assertEquals("2", text(after.at("/lines/0/quantity")));
+        assertEquals("1", text(after.at("/lines/0/receivedQuantity")));
+        assertEquals("1", text(after.at("/lines/0/shortageQuantity")));
+        assertEquals("SHORT", text(after.at("/lines/0/receiptStatus")));
+        assertEquals("5", text(after.at("/lines/1/quantity")));
+        assertEquals("0", text(after.at("/lines/1/receivedQuantity")));
+        assertEquals("5", text(after.at("/lines/1/shortageQuantity")));
+        assertEquals("NOT_RECEIVED", text(after.at("/lines/1/receiptStatus")));
+
+        // History: one RECEIVED entry, marked SHORT; earlier entries carry no receipt status.
+        JsonNode history = after.body().get("history");
+        int received = 0;
+        for (JsonNode e : history) {
+            if ("RECEIVED".equals(text(e.get("toStatus")))) {
+                received++;
+                assertEquals("SHORT", text(e.get("receiptStatus")));
+            } else {
+                assertNull(text(e.get("receiptStatus")), e.toString());
+            }
+        }
+        assertEquals(1, received);
+        Resp supplierView = get(PORTAL + "/orders/" + id, w.sup().token());
+        assertEquals("SHORT", supplierView.str("receiptStatus"));
+        assertEquals("NOT_RECEIVED", text(supplierView.at("/lines/1/receiptStatus")));
+
+        // Only what arrived reaches stock: 1 box = 24 pcs, one batch; nothing for the oil.
+        assertArrayEquals(new long[]{1, 1, 1}, receiptRows(rp));
+        assertEquals(0, batchCount(w.oil()));
+        Resp batches = get("/api/v1/batches?itemId=" + w.biscuits(), w.shop().owner());
+        assertEquals(1, batches.body().size(), batches.raw());
+        assertEquals("24", text(batches.body().get(0).get("quantity")));
+        assertEquals("2027-01-31", text(batches.body().get(0).get("expiryDate")));
+        assertEquals(1, get("/api/v1/purchases/" + rp, w.shop().owner()).body().get("lines").size());
+
+        // The order is closed for good: the missing goods cannot be received against it, nor can it be cancelled.
+        Resp again = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(order, w.boxProduct()), "1", null, null, null),
+                receiptLine(lineFor(order, w.oilProduct()), "5", null, null, null)), w.shop().owner());
+        assertEquals(409, again.status(), again.raw());
+        assertEquals("ORDER_ALREADY_RECEIVED", again.str("code"));
+        assertEquals(409, post(NET + "/orders/" + id + "/cancel", null, w.shop().owner()).status());
+        assertArrayEquals(new long[]{1, 1, 1}, receiptRows(rp));
+        assertEquals("SHORT", jdbc.queryForObject("SELECT receipt_status FROM purchase_order WHERE id = UUID_TO_BIN(?)",
+                String.class, id));
     }
 }

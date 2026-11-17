@@ -56,6 +56,22 @@ public class PurchaseOrderLine {
         this.unitsPerPack = link.getUnitsPerPack();
     }
 
+    public static final String FULL = "FULL";
+    public static final String SHORT = "SHORT";
+    public static final String NOT_RECEIVED = "NOT_RECEIVED";
+
+    /** FULL, SHORT or NOT_RECEIVED once received (null before), from the received quantity written once. */
+    public String receiptStatus() {
+        if (receivedQuantity == null) return null;
+        if (receivedQuantity.signum() == 0) return NOT_RECEIVED;
+        return receivedQuantity.compareTo(quantity) < 0 ? SHORT : FULL;
+    }
+
+    /** Ordered minus received quantity once received (null before). */
+    public BigDecimal shortageQuantity() {
+        return receivedQuantity == null ? null : quantity.subtract(receivedQuantity);
+    }
+
     public void received(BigDecimal quantity, BigDecimal unitPrice) {
         this.receivedQuantity = quantity;
         this.receivedUnitPrice = unitPrice;

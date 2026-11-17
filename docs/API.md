@@ -150,11 +150,19 @@ Order statuses: `SENT` -> `ACCEPTED` or `REJECTED` (supplier; rejecting needs a 
 (supplier); `ACCEPTED` or `DISPATCHED` -> `RECEIVED` (shop); `SENT` or `ACCEPTED` -> `CANCELLED` (shop). `REJECTED`,
 `CANCELLED` and `RECEIVED` are final. Every change is kept in the order's history.
 
-The goods receipt is the single, final receipt of an order. A line may be received short (less than ordered, or 0
-if nothing of it arrived); its actual quantity is recorded, only that quantity reaches stock, and the order still
-becomes `RECEIVED` and is closed: no later receipt is possible for the missing goods (a new order is needed). At least
-one line must have a quantity above 0. Each line shows the ordered and the received quantity, so the shortage stays
-visible. *(Current behaviour, awaiting the product owner's confirmation; see PR #20.)*
+**Goods receipt: one final receipt per order, shortages allowed** (approved V1 rule). Every order line is sent exactly
+once with the quantity that actually arrived, from 0 up to the ordered quantity (missing, repeated, negative or too
+large quantities are refused, and at least one line must be above 0). Only the received quantities reach stock: one
+completed purchase, one delivery, and batches for lines above 0 only. The order then becomes `RECEIVED` for good: the
+missing goods cannot be received against it later (a new order is needed), and a repeated receipt gets
+`409 ORDER_ALREADY_RECEIVED` without writing anything.
+
+- Each order line: `quantity` (ordered), `receivedQuantity`, `shortageQuantity` (ordered - received) and
+  `receiptStatus`: `FULL` (all arrived), `SHORT` (some arrived) or `NOT_RECEIVED` (0).
+- The order (`receiptStatus` in the order and in the receipt response): `FULL` when every line is `FULL`, otherwise
+  `SHORT`. The `RECEIVED` entry of the order's history carries the same `receiptStatus`. Suppliers see the same values.
+- Apps must show the ordered, received and shortage quantities and, when anything is short, warn before the final
+  confirmation that the order will be closed permanently and the missing quantities cannot be received later.
 
 Changes to one connection and its orders happen one at a time (the server locks the connection, then the order).
 Ending a connection cancels its `SENT` and `ACCEPTED` orders in the same step, so no order is placed, accepted or

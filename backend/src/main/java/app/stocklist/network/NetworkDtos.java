@@ -67,8 +67,9 @@ public final class NetworkDtos {
     public record DirectoryEntry(SupplierSummary supplier, String connectionStatus) {}
 
     /** actorId is the shop user or supplier user who acted; left out in answers to the other side. */
+    /** receiptStatus: FULL or SHORT on an order's RECEIVED entry, otherwise null. */
     public record EventDto(String actorType, UUID actorId, String fromStatus, String toStatus, String reason,
-                           Instant at) {}
+                           String receiptStatus, Instant at) {}
 
     public record ShopConnectionDto(UUID id, String status, SupplierSummary supplier, UUID supplierContactId,
                                     Instant requestedAt, Instant respondedAt, Instant endedAt, String endedBy,
@@ -95,20 +96,21 @@ public final class NetworkDtos {
     public record OrderLineDto(UUID id, int lineNo, UUID productId, String productNameEn, String productNameHi,
                                String unit, String pack, String quantity, String unitPrice, String lineAmount,
                                UUID itemId, UUID itemUnitId, String unitsPerPack, String receivedQuantity,
-                               String receivedUnitPrice) {}
+                               String receivedUnitPrice, String shortageQuantity, String receiptStatus) {}
 
     public record ShopOrderDto(UUID id, String status, SupplierSummary supplier, UUID connectionId, String note,
                                String totalAmount, int lineCount, UUID createdBy, Instant createdAt,
                                Instant updatedAt, Instant acceptedAt, Instant rejectedAt, Instant dispatchedAt,
                                Instant receivedAt, Instant cancelledAt, String statusReason, UUID purchaseId,
-                               long version, List<OrderLineDto> lines, List<EventDto> history) {}
+                               String receiptStatus, long version, List<OrderLineDto> lines,
+                               List<EventDto> history) {}
 
     public record SupplierOrderDto(UUID id, String status, ShopSummary shop, String note, String totalAmount,
                                    int lineCount, Instant createdAt, Instant updatedAt, Instant acceptedAt,
                                    Instant rejectedAt, Instant dispatchedAt, Instant receivedAt, Instant cancelledAt,
-                                   String statusReason, long version, List<OrderLineDto> lines,
-                                   List<EventDto> history) {}
+                                   String statusReason, String receiptStatus, long version,
+                                   List<OrderLineDto> lines, List<EventDto> history) {}
 
     /** The received order and the purchase the receipt created (with the saved or changed order prices). */
-    public record ReceiptDto(ShopOrderDto order, UUID purchaseId) {}
+    public record ReceiptDto(ShopOrderDto order, UUID purchaseId, String receiptStatus) {}
 }

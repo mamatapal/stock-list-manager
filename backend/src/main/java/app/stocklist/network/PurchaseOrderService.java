@@ -307,12 +307,17 @@ public class PurchaseOrderService {
             line.received(r[0], r[1]);
         }
         lines.saveAll(ordered);
+        // FULL only when every line arrived in full; any short or missing line makes the receipt SHORT. Either way
+        // this is the order's one final receipt and the order is closed.
+        String receiptStatus = ordered.stream().allMatch(l -> PurchaseOrderLine.FULL.equals(l.receiptStatus()))
+                ? PurchaseOrderLine.FULL : PurchaseOrderLine.SHORT;
         String from = order.getStatus();
-        order.received(order.getReceiptPurchaseId(), caller.userId(), now);
+        order.received(order.getReceiptPurchaseId(), receiptStatus, caller.userId(), now);
         order = orders.saveAndFlush(order);
-        record(order, PurchaseOrderEvent.ACTOR_SHOP, caller.userId(), from, null, now);
+        events.save(new PurchaseOrderEvent(order.getId(), order.getBusinessId(), order.getSupplierOrgId(),
+                PurchaseOrderEvent.ACTOR_SHOP, caller.userId(), from, order.getStatus(), null, receiptStatus, now));
         orders.flush();
-        return new ReceiptDto(shopDto(order, true), order.getPurchaseId());
+        return new ReceiptDto(shopDto(order, true), order.getPurchaseId(), receiptStatus);
     }
 
     // ================================================================== supplier
@@ -429,7 +434,8 @@ public class PurchaseOrderService {
                         NetworkSupport.money(l.getUnitPrice()), NetworkSupport.money(l.getLineAmount()),
                         forShop ? l.getItemId() : null, forShop ? l.getItemUnitId() : null,
                         forShop ? NetworkSupport.qty(l.getUnitsPerPack()) : null,
-                        NetworkSupport.qty(l.getReceivedQuantity()), NetworkSupport.money(l.getReceivedUnitPrice())))
+                        NetworkSupport.qty(l.getReceivedQuantity()), NetworkSupport.money(l.getReceivedUnitPrice()),
+                        NetworkSupport.qty(l.shortageQuantity()), l.receiptStatus()))
                 .toList();
     }
 
@@ -438,7 +444,7 @@ public class PurchaseOrderService {
                 o.getConnectionId(), o.getNote(), NetworkSupport.money(o.getTotalAmount()), o.getLineCount(),
                 o.getCreatedBy(), o.getCreatedAt(), o.getUpdatedAt(), o.getAcceptedAt(), o.getRejectedAt(),
                 o.getDispatchedAt(), o.getReceivedAt(), o.getCancelledAt(), o.getStatusReason(), o.getPurchaseId(),
-                o.getVersion() == null ? 0 : o.getVersion(), full ? lineDtos(o, true) : List.of(),
+                o.getReceiptStatus(), o.getVersion() == null ? 0 : o.getVersion(), full ? lineDtos(o, true) : List.of(),
                 full ? events.findByOrderIdOrderByIdAsc(o.getId()).stream().map(e -> NetworkSupport.event(e, true))
                         .toList() : List.of());
     }
@@ -447,7 +453,7 @@ public class PurchaseOrderService {
         return new SupplierOrderDto(o.getId(), o.getStatus(), support.shopSummary(o.getBusinessId()), o.getNote(),
                 NetworkSupport.money(o.getTotalAmount()), o.getLineCount(), o.getCreatedAt(), o.getUpdatedAt(),
                 o.getAcceptedAt(), o.getRejectedAt(), o.getDispatchedAt(), o.getReceivedAt(), o.getCancelledAt(),
-                o.getStatusReason(), o.getVersion() == null ? 0 : o.getVersion(),
+                o.getStatusReason(), o.getReceiptStatus(), o.getVersion() == null ? 0 : o.getVersion(),
                 full ? lineDtos(o, false) : List.of(),
                 full ? events.findByOrderIdOrderByIdAsc(o.getId()).stream().map(e -> NetworkSupport.event(e, false))
                         .toList() : List.of());

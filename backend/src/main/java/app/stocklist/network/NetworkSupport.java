@@ -73,11 +73,11 @@ public class NetworkSupport {
 
     public static EventDto event(SupplierConnectionEvent e, boolean withActor) {
         return new EventDto(e.getActorType(), withActor ? e.getActorId() : null, e.getFromStatus(), e.getToStatus(),
-                e.getReason(), e.getCreatedAt());
+                e.getReason(), null, e.getCreatedAt());
     }
 
     public static EventDto event(PurchaseOrderEvent e, boolean withActor) {
         return new EventDto(e.getActorType(), withActor ? e.getActorId() : null, e.getFromStatus(), e.getToStatus(),
-                e.getReason(), e.getCreatedAt());
+                e.getReason(), e.getReceiptStatus(), e.getCreatedAt());
     }
 }

@@ -142,6 +142,9 @@ CREATE TABLE purchase_order (
     receipt_purchase_id BINARY(16)    NOT NULL,
     purchase_id         BINARY(16)    NULL,
     received_by         BINARY(16)    NULL,
+    -- The single final receipt: FULL when every line arrived in full, SHORT when any line arrived short or not at all.
+    -- Set exactly when the order becomes RECEIVED (the order is then closed for good).
+    receipt_status      VARCHAR(10)   NULL,
     version             BIGINT        NOT NULL,
     PRIMARY KEY (id),
     UNIQUE KEY uk_purchase_order_business_id (business_id, id),
@@ -158,7 +161,9 @@ CREATE TABLE purchase_order (
     CONSTRAINT fk_purchase_order_connection FOREIGN KEY (business_id, supplier_org_id, connection_id) REFERENCES supplier_connection (business_id, supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_purchase_order_purchase FOREIGN KEY (business_id, purchase_id) REFERENCES purchase (business_id, id) ON DELETE RESTRICT,
     CONSTRAINT chk_purchase_order_status CHECK (status IN ('SENT', 'ACCEPTED', 'REJECTED', 'DISPATCHED', 'RECEIVED', 'CANCELLED')),
-    CONSTRAINT chk_purchase_order_total CHECK (total_amount >= 0)
+    CONSTRAINT chk_purchase_order_total CHECK (total_amount >= 0),
+    CONSTRAINT chk_purchase_order_receipt CHECK ((status = 'RECEIVED' AND receipt_status IN ('FULL', 'SHORT'))
+        OR (status <> 'RECEIVED' AND receipt_status IS NULL))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
 -- What was ordered, frozen when the order is placed: the supplier's product name, unit, pack and price at that time,
@@ -207,9 +212,13 @@ CREATE TABLE purchase_order_event (
     from_status     VARCHAR(12)  NULL,
     to_status       VARCHAR(12)  NOT NULL,
     reason          VARCHAR(500) NULL,
+    -- FULL or SHORT on the RECEIVED entry, so the history itself shows how the order was received.
+    receipt_status  VARCHAR(10)  NULL,
     created_at      DATETIME(6)  NOT NULL,
     PRIMARY KEY (id),
     KEY idx_po_event_order (order_id, id),
     CONSTRAINT fk_po_event_order FOREIGN KEY (business_id, supplier_org_id, order_id) REFERENCES purchase_order (business_id, supplier_org_id, id) ON DELETE RESTRICT,
-    CONSTRAINT chk_po_event_actor CHECK (actor_type IN ('SHOP', 'SUPPLIER', 'SYSTEM'))
+    CONSTRAINT chk_po_event_actor CHECK (actor_type IN ('SHOP', 'SUPPLIER', 'SYSTEM')),
+    CONSTRAINT chk_po_event_receipt CHECK ((to_status = 'RECEIVED' AND receipt_status IN ('FULL', 'SHORT'))
+        OR (to_status <> 'RECEIVED' AND receipt_status IS NULL))
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;

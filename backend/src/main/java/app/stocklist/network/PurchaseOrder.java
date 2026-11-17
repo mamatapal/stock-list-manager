@@ -56,6 +56,7 @@ public class PurchaseOrder {
     private UUID receiptPurchaseId;
     private UUID purchaseId;
     private UUID receivedBy;
+    private String receiptStatus;
 
     protected PurchaseOrder() {}
 
@@ -105,10 +106,12 @@ public class PurchaseOrder {
         updatedAt = now;
     }
 
-    public void received(UUID purchaseId, UUID by, Instant now) {
+    /** The single final receipt; receiptStatus is FULL or SHORT. The order is closed for good afterwards. */
+    public void received(UUID purchaseId, String receiptStatus, UUID by, Instant now) {
         if (RECEIVED.equals(status)) throw NetworkError.ORDER_ALREADY_RECEIVED.ex();
         require(RECEIVABLE.contains(status));
         this.status = RECEIVED;
+        this.receiptStatus = receiptStatus;
         this.purchaseId = purchaseId;
         this.receivedBy = by;
         this.receivedAt = now;
@@ -139,5 +142,6 @@ public class PurchaseOrder {
     public String getStatusReason() { return statusReason; }
     public UUID getReceiptPurchaseId() { return receiptPurchaseId; }
     public UUID getPurchaseId() { return purchaseId; }
+    public String getReceiptStatus() { return receiptStatus; }
     public UUID getReceivedBy() { return receivedBy; }
 }
