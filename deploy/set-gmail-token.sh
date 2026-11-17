@@ -12,13 +12,20 @@
 # Anything else is refused. No elevated rights are used: .env and this folder belong to the user that runs the
 # script (deploy). Values are never printed. This script does not restart the backend.
 #
+# .env is shared with the deploy workflow and with manual edits. Two protections keep every change:
+#   1. Everything that edits .env takes the same lock, /opt/stocklist/.env.lock (flock): this script, the deploy
+#      workflow, and manual edits done as "flock /opt/stocklist/.env.lock nano /opt/stocklist/.env".
+#   2. This script also notes the exact content of .env before reading it and checks it again just before replacing
+#      it. If anything changed it in between (for example an editor that ignores the lock), nothing is written and
+#      it stops with exit code 3, so another program's change is never silently lost.
+#
 # Exit codes: 0 done, 2 operation refused, 3 server not ready, 4 bad input.
 set -euo pipefail
 umask 077
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$DIR/.env"
-LOCK_FILE="$DIR/.gmail-token.lock"
+LOCK_FILE="$DIR/.env.lock"
 KEYS_RE='^(GMAIL_OAUTH_CLIENT_ID|GMAIL_OAUTH_CLIENT_SECRET|GMAIL_OAUTH_REFRESH_TOKEN)='
 
 fail() {
@@ -50,8 +57,8 @@ if [ "$op" = "check" ]; then
   exit 0
 fi
 
-exec 9>"$LOCK_FILE"
-flock -w 30 9 || fail 3 "another token update is running"
+exec 9>>"$LOCK_FILE"
+flock -w 60 9 || fail 3 "$ENV_FILE is locked by another update or a deploy; try again in a minute"
 
 client_id=""
 client_secret=""
@@ -70,6 +77,9 @@ refresh_token="${refresh_token%$'\r'}"
 [[ "$client_secret" =~ ^[A-Za-z0-9_-]{10,200}$ ]] || fail 4 "the client secret has an unexpected format"
 [[ "$refresh_token" =~ ^[A-Za-z0-9._/~+-]{20,1024}$ ]] || fail 4 "the refresh token has an unexpected format"
 
+fingerprint() { stat -c '%i %s %Y' "$ENV_FILE" && sha256sum <"$ENV_FILE"; }
+before="$(fingerprint)" || fail 3 "could not read $ENV_FILE"
+
 tmp="$(mktemp "$DIR/.env.gmail.XXXXXX")"
 trap 'rm -f "$tmp"' EXIT
 status=0
@@ -79,6 +89,9 @@ printf 'GMAIL_OAUTH_CLIENT_ID=%s\nGMAIL_OAUTH_CLIENT_SECRET=%s\nGMAIL_OAUTH_REFR
   "$client_id" "$client_secret" "$refresh_token" >>"$tmp"
 chmod 600 "$tmp"
 sync "$tmp" 2>/dev/null || true
+if [ "$(fingerprint)" != "$before" ]; then
+  fail 3 "$ENV_FILE was changed by another program during the update; nothing was written. Run the update again."
+fi
 mv -f "$tmp" "$ENV_FILE"
 trap - EXIT
 unset client_id client_secret refresh_token

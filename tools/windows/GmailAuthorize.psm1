@@ -16,6 +16,14 @@
 
   The client secret of a Desktop OAuth client is not confidential (public client); PKCE protects the authorization
   code. The refresh token is the real secret.
+
+  With -CheckOnly it does step 1 only, with the owner's real restricted key (for example after a deployment):
+  nothing is asked from Google and nothing is sent.
+
+  Memory: the client secret and the tokens exist only in this PowerShell process. .NET strings cannot be wiped, so
+  setting the variables to $null when the helper ends only drops the references; the text can stay in the process
+  memory until Windows reuses it, and could appear in a crash dump or the page file. Close the PowerShell window
+  after the helper ends, and do not run it under Start-Transcript or with debugging tools attached.
 #>
 
 Set-StrictMode -Version 2.0
@@ -474,7 +482,8 @@ function Invoke-GmailAuthorization {
         [Parameter(Mandatory)][string]$SshKey,
         [Parameter(Mandatory)][string]$ExpectedHostKey,
         [string]$Sender = 'suppliermanagement.mail@gmail.com',
-        [string]$KnownHostsFile = (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.ssh\stocklist_known_hosts')
+        [string]$KnownHostsFile = (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.ssh\stocklist_known_hosts'),
+        [switch]$CheckOnly
     )
     $ErrorActionPreference = 'Stop'
     try {
@@ -493,6 +502,10 @@ function Invoke-GmailAuthorization {
         throw "The server is not ready for the token update (ssh exit code $($check.ExitCode)). Fix SSH access first; see docs/EMAIL_SETUP.md."
     }
     Write-Host 'SSH preflight passed: the server answered READY.'
+    if ($CheckOnly) {
+        Write-Host 'Check only: the restricted key works. Nothing was asked from Google and nothing was sent.'
+        return
+    }
 
     $credentials = $null
     $listener = $null
@@ -547,10 +560,11 @@ function Invoke-GmailAuthorization {
         throw
     } finally {
         if ($null -ne $listener) { $listener.Stop() }
+        # Drops the references only. .NET strings are immutable and cannot be securely erased, so copies may stay in
+        # process memory until it is reused (see the note at the top). Close the PowerShell window afterwards.
         $credentials = $null
         $tokens = $null
         $refresh = $null
-        [GC]::Collect()
     }
 }
 

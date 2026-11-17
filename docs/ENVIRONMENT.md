@@ -60,8 +60,10 @@ Set by the compose file from `API_DOMAIN`: `PUBLIC_BASE_URL=https://<API_DOMAIN>
 supplier links). Until email is configured (SMTP, or the Gmail API with `MAIL_PROVIDER=gmail-api`), supplier emails
 are not sent; the server only logs that a link was requested (never the link itself).
 
-After changing `.env`, recreate the backend so it reads the new values:
-`docker compose -f docker-compose.prod.yml up -d backend` (a plain `docker restart` keeps the old values).
+Edit `.env` as `flock .env.lock nano .env` (the deploy workflow and the Gmail token update use the same lock). After
+changing it, recreate the backend so it reads the new values:
+`docker compose -f docker-compose.prod.yml up -d --force-recreate --no-deps backend` (a plain `docker restart`
+keeps the old values).
 
 Fixed in production by the compose file: `SWAGGER_ENABLED=false` (no public API explorer) and
 `MAIL_LOG_TOKENS=false` (reset codes are never written to logs).

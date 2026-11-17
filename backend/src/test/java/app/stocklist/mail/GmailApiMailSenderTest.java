@@ -14,7 +14,12 @@ import app.stocklist.user.AppUser;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import jakarta.mail.Address;
+import jakarta.mail.Message;
+import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
+import jakarta.mail.Transport;
+import jakarta.mail.URLName;
 import jakarta.mail.internet.MimeMessage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -36,6 +41,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -367,6 +373,167 @@ class GmailApiMailSenderTest {
         List<String> all = new ArrayList<>(a);
         all.addAll(b);
         return all;
+    }
+
+    // ------------------------------------------------------------------ safe diagnostics
+
+    private List<String> warnings() {
+        return logs.list.stream().filter(e -> e.getLevel() == Level.WARN).map(ILoggingEvent::getFormattedMessage).toList();
+    }
+
+    private String allLogText() {
+        StringBuilder all = new StringBuilder();
+        for (ILoggingEvent e : logs.list) {
+            all.append(e.getFormattedMessage()).append('\n');
+            if (e.getThrowableProxy() != null) all.append(e.getThrowableProxy().getMessage()).append('\n');
+        }
+        return all.toString();
+    }
+
+    @Test
+    void gmailErrorsKeepGooglesErrorCodesButNoFreeText() {
+        google.sendStatus = n -> 403;
+        google.sendBody = n -> "{\"error\":{\"code\":403,\"message\":\"Delegation denied for supplier@example.com"
+                + " https://test.example/#t=abc\",\"errors\":[{\"message\":\"secret-body-text\",\"domain\":\"global\","
+                + "\"reason\":\"insufficientPermissions\"}],\"status\":\"PERMISSION_DENIED\"}}";
+        String expected = "Gmail API send failed: HTTP 403, status=PERMISSION_DENIED, reason=insufficientPermissions";
+
+        assertThatThrownBy(() -> sender.send(message(SECRET_BODY_TEXT))).isInstanceOf(MailSendException.class)
+                .hasMessage(expected);
+        assertThat(warnings()).containsExactly(expected);
+        assertThat(allLogText()).doesNotContain("supplier@example.com").doesNotContain("#t=abc")
+                .doesNotContain("secret-body-text").doesNotContain("Delegation").doesNotContain("AT-1")
+                .doesNotContain(REFRESH_TOKEN).doesNotContain(CLIENT_SECRET);
+    }
+
+    @Test
+    void rateLimitsKeepTheRetryAfterHint() {
+        google.sendStatus = n -> 429;
+        google.retryAfter = "30";
+        google.sendBody = n -> "{\"error\":{\"code\":429,\"errors\":[{\"reason\":\"rateLimitExceeded\"}],"
+                + "\"status\":\"RESOURCE_EXHAUSTED\"}}";
+        assertThatThrownBy(() -> sender.send(message("x"))).isInstanceOf(MailSendException.class).hasMessage(
+                "Gmail API send failed: HTTP 429, status=RESOURCE_EXHAUSTED, reason=rateLimitExceeded, retry-after=30s");
+    }
+
+    @Test
+    void valuesThatAreNotPlainCodesAreDropped() {
+        google.sendStatus = n -> 400;
+        google.retryAfter = "Wed, 21 Oct 2026 07:28:00 GMT";
+        google.sendBody = n -> "{\"error\":{\"status\":\"supplier@example.com\",\"errors\":[{\"reason\":\"has spaces\"}]}}";
+        assertThatThrownBy(() -> sender.send(message("x"))).hasMessage("Gmail API send failed: HTTP 400");
+        google.sendBody = n -> "not json at all: supplier@example.com";
+        assertThatThrownBy(() -> sender.send(message("x"))).hasMessage("Gmail API send failed: HTTP 400");
+        assertThat(allLogText()).doesNotContain("supplier@example.com").doesNotContain("has spaces");
+    }
+
+    @Test
+    void aSecond401KeepsTheDiagnostics() {
+        google.sendStatus = n -> 401;
+        google.sendBody = n -> "{\"error\":{\"code\":401,\"status\":\"UNAUTHENTICATED\"}}";
+        assertThatThrownBy(() -> sender.send(message("x"))).isInstanceOf(MailAuthenticationException.class)
+                .hasMessage("Gmail API refused a renewed access token: HTTP 401, status=UNAUTHENTICATED");
+    }
+
+    @Test
+    void tokenEndpointErrorsKeepTheirCodeOnly() {
+        google.tokenReply = n -> new StubGoogle.Reply(401,
+                "{\"error\":\"invalid_client\",\"error_description\":\"The OAuth client was not found: " + CLIENT_ID + "\"}");
+        String expected = "Gmail API token renewal failed: HTTP 401, error=invalid_client";
+        assertThatThrownBy(() -> sender.send(message("x"))).isInstanceOf(MailSendException.class).hasMessage(expected);
+        assertThat(warnings()).containsExactly(expected);
+        assertThat(allLogText()).doesNotContain("was not found").doesNotContain(CLIENT_ID);
+        assertThat(tokens.authorizationLost()).isFalse();
+    }
+
+    @Test
+    void networkErrorsNameOnlyTheErrorType() throws Exception {
+        int closedPort;
+        try (ServerSocket s = new ServerSocket(0)) {
+            closedPort = s.getLocalPort();
+        }
+        HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(2)).build();
+        GmailApiMailSender offlineGmail = new GmailApiMailSender(http, URI.create("http://127.0.0.1:" + closedPort + "/"),
+                tokens);
+        assertThatThrownBy(() -> offlineGmail.send(message("x"))).isInstanceOf(MailSendException.class)
+                .hasMessageMatching("Gmail API send failed: network error \\(\\w+\\)");
+        assertThat(warnings()).singleElement().asString().matches("Gmail API send failed: network error \\(\\w+\\)");
+    }
+
+    // ------------------------------------------------------------------ batches, compared with Spring's SMTP sender
+
+    /** Stands in for the SMTP transport of a real JavaMailSenderImpl: refuses messages whose text is "b". */
+    public static final class FailingTransport extends Transport {
+        static final AtomicInteger attempts = new AtomicInteger();
+
+        public FailingTransport(Session session, URLName url) {
+            super(session, url);
+        }
+
+        @Override
+        protected boolean protocolConnect(String host, int port, String user, String password) {
+            return true;
+        }
+
+        @Override
+        public void sendMessage(Message message, Address[] addresses) throws MessagingException {
+            attempts.incrementAndGet();
+            try {
+                if ("b".equals(message.getContent())) throw new MessagingException("refused");
+            } catch (java.io.IOException e) {
+                throw new MessagingException("unreadable", e);
+            }
+        }
+    }
+
+    @Test
+    void aBatchContinuesAfterAFailedMessageExactlyLikeSpringsSmtpSender() {
+        // Spring's own JavaMailSenderImpl with a transport that refuses the second message.
+        FailingTransport.attempts.set(0);
+        Session session = Session.getInstance(new Properties());
+        try {
+            session.setProvider(new jakarta.mail.Provider(jakarta.mail.Provider.Type.TRANSPORT, "smtp",
+                    FailingTransport.class.getName(), "test", "1"));
+        } catch (jakarta.mail.NoSuchProviderException e) {
+            throw new IllegalStateException(e);
+        }
+        JavaMailSenderImpl smtp = new JavaMailSenderImpl();
+        smtp.setSession(session);
+        smtp.setHost("localhost");
+        SimpleMailMessage a = message("a"), b = message("b"), c = message("c");
+        MailSendException viaSmtp = org.junit.jupiter.api.Assertions.assertThrows(MailSendException.class,
+                () -> smtp.send(a, b, c));
+        assertThat(FailingTransport.attempts.get()).isEqualTo(3);
+
+        // The Gmail API sender with Gmail refusing the second message.
+        google.sendStatus = n -> n == 2 ? 500 : 200;
+        MailSendException viaGmail = org.junit.jupiter.api.Assertions.assertThrows(MailSendException.class,
+                () -> sender.send(a, b, c));
+        assertThat(google.sendCalls.get()).isEqualTo(3);
+        assertThat(google.raws).hasSize(3);
+
+        assertThat(viaSmtp.getFailedMessages()).containsOnlyKeys(b);
+        assertThat(viaGmail.getFailedMessages()).containsOnlyKeys(b);
+        assertThat(viaGmail.getFailedMessages().get(b)).isInstanceOf(MailSendException.class)
+                .hasMessage("Gmail API send failed: HTTP 500");
+    }
+
+    @Test
+    void lostAuthorizationFailsTheWholeBatchWithoutFurtherCalls() {
+        google.tokenReply = n -> new StubGoogle.Reply(400, "{\"error\":\"invalid_grant\"}");
+        SimpleMailMessage a = message("a"), b = message("b"), c = message("c");
+        MailSendException e = org.junit.jupiter.api.Assertions.assertThrows(MailSendException.class,
+                () -> sender.send(a, b, c));
+        assertThat(e.getFailedMessages()).containsOnlyKeys(a, b, c);
+        assertThat(e.getFailedMessages().values()).allSatisfy(x -> assertThat(x).isInstanceOf(MailAuthenticationException.class));
+        assertThat(google.tokenCalls.get()).isEqualTo(1);
+        assertThat(google.sendCalls.get()).isZero();
+    }
+
+    @Test
+    void aSingleMessageKeepsItsOwnExceptionType() {
+        google.tokenReply = n -> new StubGoogle.Reply(400, "{\"error\":\"invalid_grant\"}");
+        assertThatThrownBy(() -> sender.send(message("a"))).isExactlyInstanceOf(MailAuthenticationException.class);
     }
 
     @Test

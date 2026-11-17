@@ -386,6 +386,24 @@ Describe 'The whole flow' {
         Should -Invoke -ModuleName GmailAuthorize Invoke-Ssh -Times 1 -Exactly -ParameterFilter { $Arguments[-1] -eq 'update' }
     }
 
+    It 'with -CheckOnly tests the restricted key and stops before Google' {
+        { Invoke-GmailAuthorization -SshTarget 'deploy@3.104.239.4' -SshKey 'owner-key' -ExpectedHostKey 'SHA256:abc' `
+                -Sender $script:Sender -KnownHostsFile 'kh' -CheckOnly } | Should -Not -Throw
+        Should -Invoke -ModuleName GmailAuthorize Assert-AgentHasKey -Times 1 -Exactly
+        Should -Invoke -ModuleName GmailAuthorize Assert-HostKeyPinned -Times 1 -Exactly
+        Should -Invoke -ModuleName GmailAuthorize Invoke-Ssh -Times 1 -Exactly -ParameterFilter { $Arguments[-1] -eq 'check' }
+        Should -Invoke -ModuleName GmailAuthorize Invoke-Ssh -Times 0 -Exactly -ParameterFilter { $Arguments[-1] -eq 'update' }
+        Should -Invoke -ModuleName GmailAuthorize Read-ClientCredentials -Times 0 -Exactly
+        Should -Invoke -ModuleName GmailAuthorize Open-Browser -Times 0 -Exactly
+        Should -Invoke -ModuleName GmailAuthorize Invoke-TokenExchange -Times 0 -Exactly
+    }
+
+    It 'with -CheckOnly still fails when the server does not answer READY' {
+        Mock -ModuleName GmailAuthorize Invoke-Ssh { [pscustomobject]@{ ExitCode = 255; StdOut = ''; StdErr = 'x' } } -ParameterFilter { $Arguments[-1] -eq 'check' }
+        { Invoke-GmailAuthorization -SshTarget 'deploy@3.104.239.4' -SshKey 'owner-key' -ExpectedHostKey 'SHA256:abc' `
+                -Sender $script:Sender -KnownHostsFile 'kh' -CheckOnly } | Should -Throw '*not ready*'
+    }
+
     It 'never opens the browser when the server does not answer READY' -TestCases @(
         @{ exit = 255; out = '' }
         @{ exit = 2; out = '' }
@@ -454,6 +472,12 @@ Describe 'The whole flow' {
 }
 
 Describe 'No clipboard, no elevated commands' {
+    It 'the helper documents that clearing variables does not wipe memory' {
+        $text = Get-Content (Join-Path $PSScriptRoot '..' 'GmailAuthorize.psm1') -Raw
+        $text | Should -Match 'cannot be wiped'
+        $text | Should -Not -Match '\[GC\]::Collect'
+    }
+
     It 'the helper never uses the clipboard or sudo' {
         foreach ($f in @('GmailAuthorize.psm1', 'gmail-authorize.ps1')) {
             $text = Get-Content (Join-Path $PSScriptRoot '..' $f) -Raw

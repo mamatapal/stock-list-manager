@@ -31,6 +31,10 @@ final class StubGoogle implements AutoCloseable {
             "{\"access_token\":\"AT-" + n + "\",\"expires_in\":3600,\"token_type\":\"Bearer\"}");
     /** HTTP status for the n-th send request (1-based). Default: 200. */
     volatile IntUnaryOperator sendStatus = n -> 200;
+    /** Body of the answer to the n-th send request. Default: a Gmail message id. */
+    volatile IntFunction<String> sendBody = n -> "{\"id\":\"m" + n + "\"}";
+    /** Retry-After header for send answers, or null for none. */
+    volatile String retryAfter = null;
     /** Delay before answering a token request, to make concurrent callers overlap. */
     volatile long tokenDelayMillis = 0;
 
@@ -53,7 +57,8 @@ final class StubGoogle implements AutoCloseable {
             String body = read(ex);
             int start = body.indexOf("\"raw\":\"") + 7;
             raws.add(body.substring(start, body.lastIndexOf('"')));
-            reply(ex, sendStatus.applyAsInt(n), "{\"id\":\"m" + n + "\"}");
+            if (retryAfter != null) ex.getResponseHeaders().add("Retry-After", retryAfter);
+            reply(ex, sendStatus.applyAsInt(n), sendBody.apply(n));
         });
         server.start();
     }

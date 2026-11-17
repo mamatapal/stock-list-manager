@@ -1,6 +1,8 @@
 package app.stocklist.mail;
 
 import java.util.List;
+import java.util.function.IntConsumer;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
@@ -15,8 +17,11 @@ import org.springframework.stereotype.Component;
  *   --mail-test=you@example.com
  * </pre>
  * Sends one Hindi + English test email through the configured provider from MAIL_FROM, and a second one from
- * SUPPLIER_MAIL_FROM when that address is different. Prints only success or the error type. Without --mail-test this
- * does nothing.
+ * SUPPLIER_MAIL_FROM when that address is different. Prints only success, or the error type (with the Gmail API also
+ * Google's safe error codes, see {@link GoogleErrors}).
+ *
+ * <p>Without the --mail-test option this returns immediately and the backend starts normally: the process is ended
+ * (closing the Spring context first) only in the one-shot mail-test run.
  */
 @Component
 public class MailTestCommandLine implements ApplicationRunner {
@@ -37,19 +42,32 @@ public class MailTestCommandLine implements ApplicationRunner {
             """;
 
     private final OutgoingMail mail;
-    private final ApplicationContext context;
+    private final IntConsumer exit;
 
+    @Autowired
     public MailTestCommandLine(OutgoingMail mail, ApplicationContext context) {
+        this(mail, code -> System.exit(SpringApplication.exit(context, () -> code)));
+    }
+
+    /** For tests: what to do with the exit code of a mail-test run. */
+    MailTestCommandLine(OutgoingMail mail, IntConsumer exit) {
         this.mail = mail;
-        this.context = context;
+        this.exit = exit;
     }
 
     @Override
     public void run(ApplicationArguments args) {
-        List<String> values = args.getOptionValues("mail-test");
-        if (values == null || values.isEmpty()) return;
+        if (!args.containsOption("mail-test")) return;
+        exit.accept(test(args.getOptionValues("mail-test")));
+    }
+
+    /** Sends the test email(s); returns the process exit code (0 sent, 1 not sent). */
+    int test(List<String> values) {
         int code = 0;
         try {
+            if (values == null || values.size() != 1 || values.get(0).isBlank()) {
+                throw new IllegalStateException("give exactly one address: --mail-test=you@example.com");
+            }
             if (!mail.ready()) {
                 throw new IllegalStateException("email is not configured (check MAIL_PROVIDER, MAIL_FROM and the"
                         + " settings of the provider)");
@@ -66,12 +84,13 @@ public class MailTestCommandLine implements ApplicationRunner {
             System.err.println("ERROR: " + e.getMessage());
             code = 1;
         } catch (MailException e) {
-            System.err.println("ERROR: the email could not be sent (" + e.getClass().getSimpleName()
-                    + "). The backend log has no more detail than this; see docs/EMAIL_SETUP.md.");
+            // Gmail API messages hold only safe codes (GoogleErrors); SMTP messages may echo the server, so not shown.
+            String detail = mail.provider() == MailProviderProperties.Provider.GMAIL_API ? ": " + e.getMessage() : "";
+            System.err.println("ERROR: the email could not be sent (" + e.getClass().getSimpleName() + detail
+                    + "). See docs/EMAIL_SETUP.md.");
             code = 1;
         }
-        int exit = code;
-        System.exit(SpringApplication.exit(context, () -> exit));
+        return code;
     }
 
     private void send(String to, String from) {

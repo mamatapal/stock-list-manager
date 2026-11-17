@@ -15,7 +15,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailSendException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Short-lived Gmail API access tokens, obtained from the stored refresh token only when an email is about to be sent.
@@ -28,7 +27,12 @@ import tools.jackson.databind.json.JsonMapper;
  *       one ERROR line at most once an hour.</li>
  *   <li>Other failures (network, 5xx, 429) fail only that email; the next email tries again.</li>
  * </ul>
- * Tokens, the client secret and response bodies are never logged or put in exception messages.
+ * Failures are logged once each as a WARN line with safe diagnostics only ({@link GoogleErrors}): HTTP status and
+ * Google's error code. Tokens, the client secret and free-text error descriptions are never logged or put in
+ * exception messages.
+ *
+ * <p>All state is per instance and in memory: a new backend process (container recreated with a new refresh token)
+ * starts with no access token and without the "authorization lost" state.
  */
 public class GoogleAccessTokens {
     static final URI DEFAULT_TOKEN_URI = URI.create("https://oauth2.googleapis.com/token");
@@ -38,7 +42,6 @@ public class GoogleAccessTokens {
     private static final Duration RENEW_BEFORE_EXPIRY = Duration.ofSeconds(60);
     private static final Duration LOG_INTERVAL = Duration.ofHours(1);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
-    private static final JsonMapper JSON = JsonMapper.builder().build();
 
     private final HttpClient http;
     private final URI tokenUri;
@@ -101,17 +104,17 @@ public class GoogleAccessTokens {
         try {
             response = http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new MailSendException("Gmail API token renewal failed: network error (" + e.getClass().getSimpleName() + ")");
+            throw failure("network error (" + e.getClass().getSimpleName() + ")");
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new MailSendException("Gmail API token renewal was interrupted");
         }
         int status = response.statusCode();
-        Map<?, ?> json = parse(response.body());
+        Map<?, ?> json = GoogleErrors.parse(response.body());
         if (status == 200) {
             Object accessToken = json.get("access_token");
             if (!(accessToken instanceof String value) || value.isBlank()) {
-                throw new MailSendException("Gmail API token renewal returned no access token");
+                throw failure("HTTP 200 without an access token");
             }
             long seconds = json.get("expires_in") instanceof Number n ? n.longValue() : 3600;
             return new Token(value, clock.instant().plusSeconds(seconds));
@@ -122,7 +125,13 @@ public class GoogleAccessTokens {
             reportLost();
             throw new MailAuthenticationException("Gmail API authorization lost (invalid_grant)");
         }
-        throw new MailSendException("Gmail API token renewal failed: HTTP " + status);
+        throw failure(GoogleErrors.token(status, json));
+    }
+
+    private static MailSendException failure(String diagnostics) {
+        String message = "Gmail API token renewal failed: " + diagnostics;
+        log.warn(message);
+        return new MailSendException(message);
     }
 
     private void reportLost() {
@@ -130,16 +139,6 @@ public class GoogleAccessTokens {
         if (lastLostLog == null || !now.isBefore(lastLostLog.plus(LOG_INTERVAL))) {
             log.error(LOST_LOG);
             lastLostLog = now;
-        }
-    }
-
-    private static Map<?, ?> parse(String body) {
-        if (body == null || body.isBlank()) return Map.of();
-        try {
-            Object value = JSON.readValue(body, Map.class);
-            return value instanceof Map<?, ?> m ? m : Map.of();
-        } catch (RuntimeException e) {
-            return Map.of();
         }
     }
 

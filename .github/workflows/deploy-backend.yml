@@ -53,9 +53,12 @@ jobs:
         run: |
           mkdir -p bundle
           cp backend/target/stock-list-backend-*.jar bundle/app.jar
-          cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/create-admin.sh deploy/set-gmail-token.sh deploy/mail-test.sh deploy/.env.example bundle/
-          sed -i 's/\r$//' bundle/*.sh
-          chmod +x bundle/*.sh
+          cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/create-admin.sh deploy/mail-test.sh deploy/check-gmail-token-access.sh deploy/install-gmail-token-script.sh deploy/.env.example bundle/
+          # The forced command of the owner's restricted key: copied under a new name and put in place on the server
+          # with one atomic rename (install-gmail-token-script.sh), so it is never half-written or non-executable.
+          cp deploy/set-gmail-token.sh bundle/set-gmail-token.sh.new
+          sed -i 's/\r$//' bundle/*.sh bundle/set-gmail-token.sh.new
+          chmod 755 bundle/*.sh bundle/set-gmail-token.sh.new
 
       - name: Connect to the server
         env:
@@ -96,6 +99,11 @@ jobs:
           scp -i ~/.ssh/deploy_key -o BatchMode=yes bundle/* bundle/.env.example "$DEPLOY_USER@$DEPLOY_HOST:/opt/stocklist/"
           $SSH 'set -e
             cd /opt/stocklist
+            chmod 755 *.sh
+            ./install-gmail-token-script.sh
+            # .env is also changed by the Gmail token update (set-gmail-token.sh): every edit holds the same lock.
+            exec 9>>.env.lock
+            flock -w 120 9 || { echo "::error::.env is locked by a Gmail token update; run the deploy again in a few minutes"; exit 1; }
             # A free <ip>.sslip.io name follows the server if its public IP changed (e.g. an Elastic IP added later).
             if grep -q "^API_DOMAIN=.*\.sslip\.io$" .env; then
               IP=$(curl -fsS --max-time 10 https://api.ipify.org)
@@ -104,6 +112,8 @@ jobs:
             # Keys added in later versions are created on the server the first time they are needed (never in GitHub).
             grep -q "^SUPPLIER_JWT_SIGNING_KEY=." .env || { sed -i "/^SUPPLIER_JWT_SIGNING_KEY=/d" .env; echo "SUPPLIER_JWT_SIGNING_KEY=$(openssl rand -base64 48 | tr -d "\n")" >> .env; }
             grep -q "^ADMIN_TOTP_KEY=." .env || { sed -i "/^ADMIN_TOTP_KEY=/d" .env; echo "ADMIN_TOTP_KEY=$(openssl rand -base64 32 | tr -d "\n")" >> .env; }
+            flock -u 9
+            exec 9>&-
             # Back up the database before every update (skipped on the very first deploy).
             if [ -n "$(docker compose -f docker-compose.prod.yml ps -q mysql 2>/dev/null)" ]; then ./backup.sh; else echo "First deploy: nothing to back up yet"; fi
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
@@ -121,6 +131,11 @@ jobs:
           echo "::error::$URL did not answer. Logs:"
           $SSH 'cd /opt/stocklist && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail 80 backend caddy'
           exit 1
+
+      # The owner's restricted SSH key for Gmail token updates must still work with the scripts just installed. Runs
+      # the forced command exactly as sshd does, with "check" only: no credentials are transferred, nothing changes.
+      - name: Check the Gmail token update access
+        run: $SSH '/opt/stocklist/check-gmail-token-access.sh'
 
       - name: Summary
         if: always()

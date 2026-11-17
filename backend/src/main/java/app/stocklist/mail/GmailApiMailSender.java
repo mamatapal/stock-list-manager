@@ -14,6 +14,8 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailPreparationException;
@@ -27,9 +29,19 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
  *
  * <p>A 401 from Gmail discards the access token, renews it once and retries once. Every failure is a
  * {@link MailException}, the type the existing mailers already catch, so callers behave exactly as with SMTP.
+ *
+ * <p>Batches follow {@link JavaMailSenderImpl}: every message is attempted, failures are collected, and one
+ * {@link MailSendException} listing the failed messages (keyed by the original message) is thrown at the end. When
+ * the authorization is lost, the remaining messages fail without calling Google, just as an SMTP authentication
+ * failure fails the whole batch. A single message rethrows its own exception, so an authorization problem stays a
+ * {@link MailAuthenticationException}. The application itself sends one message per call.
+ *
+ * <p>Each failure is logged once as a WARN line with safe diagnostics only (HTTP status and Google's error codes,
+ * {@link GoogleErrors}); never the token, the recipients, the subject, the body or links.
  */
 public class GmailApiMailSender extends JavaMailSenderImpl {
     static final URI DEFAULT_API_BASE = URI.create("https://gmail.googleapis.com/");
+    private static final Logger log = LoggerFactory.getLogger(GmailApiMailSender.class);
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(30);
 
     private final HttpClient http;
@@ -84,18 +96,20 @@ public class GmailApiMailSender extends JavaMailSenderImpl {
         String body = "{\"raw\":\"" + raw + "\"}";
         for (int attempt = 1; ; attempt++) {
             String token = tokens.accessToken();
-            int status = send(token, body);
+            HttpResponse<String> response = send(token, body);
+            int status = response.statusCode();
             if (status >= 200 && status < 300) return;
+            String diagnostics = GoogleErrors.gmail(status, response.body(), response.headers());
             if (status == 401) {
                 tokens.discard(token);
                 if (attempt == 1) continue;
-                throw new MailAuthenticationException("Gmail API refused a renewed access token (HTTP 401)");
+                throw logged(new MailAuthenticationException("Gmail API refused a renewed access token: " + diagnostics));
             }
-            throw new MailSendException("Gmail API send failed: HTTP " + status);
+            throw logged(new MailSendException("Gmail API send failed: " + diagnostics));
         }
     }
 
-    private int send(String token, String body) {
+    private HttpResponse<String> send(String token, String body) {
         HttpRequest request = HttpRequest.newBuilder(sendUri)
                 .timeout(REQUEST_TIMEOUT)
                 .header("Authorization", "Bearer " + token)
@@ -103,12 +117,17 @@ public class GmailApiMailSender extends JavaMailSenderImpl {
                 .POST(HttpRequest.BodyPublishers.ofString(body, StandardCharsets.UTF_8))
                 .build();
         try {
-            return http.send(request, HttpResponse.BodyHandlers.discarding()).statusCode();
+            return http.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
         } catch (IOException e) {
-            throw new MailSendException("Gmail API send failed: network error (" + e.getClass().getSimpleName() + ")");
+            throw logged(new MailSendException("Gmail API send failed: network error (" + e.getClass().getSimpleName() + ")"));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new MailSendException("Gmail API send was interrupted");
         }
+    }
+
+    private static <E extends MailException> E logged(E e) {
+        log.warn(e.getMessage());
+        return e;
     }
 }

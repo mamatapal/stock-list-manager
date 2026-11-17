@@ -138,8 +138,8 @@ On Windows, in PowerShell, from the project folder:
    `UPDATED GMAIL_OAUTH_CLIENT_ID GMAIL_OAUTH_CLIENT_SECRET GMAIL_OAUTH_REFRESH_TOKEN`.
 
 If anything fails after Google issued the token, the helper revokes it. There is no other way to send the token: if
-SSH does not work, fix SSH access first. Do not run it while the "Deploy backend" workflow is running (that workflow
-also edits `.env`), and do not run it inside `Start-Transcript`.
+SSH does not work, fix SSH access first. If the "Deploy backend" workflow is editing `.env` at the same moment, the
+server waits for it (shared lock) and then updates; do not run the helper inside `Start-Transcript`.
 
 ## 4. Switch the server to the Gmail API (once)
 
@@ -147,8 +147,12 @@ In the AWS console session, as the deploy user:
 
 ```bash
 cd /opt/stocklist
-nano .env    # set the lines below, save
+flock .env.lock nano .env    # set the lines below, save
 ```
+
+Always edit `.env` through `flock .env.lock ...`: the deploy workflow and the token update hold the same lock, so no
+one's change can overwrite another's. (The token update also stops, writing nothing, if it notices that `.env`
+changed while it was running.)
 
 ```text
 MAIL_PROVIDER=gmail-api
@@ -162,10 +166,11 @@ already set up in Gmail (Settings > Accounts > "Send mail as"). Otherwise the ba
 setting is wrong. The backend cannot read Gmail's alias list (the send permission does not allow it), so list only
 aliases that really exist; Gmail would otherwise replace the From address.
 
-Recreate the backend so it reads `.env` (a plain `docker restart` keeps the old values):
+Recreate the backend so it reads `.env`. This starts a new backend process: nothing from the old one (access token,
+"authorization lost" state) is kept. A plain `docker restart` would keep the old values from `.env`.
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d backend
+docker compose -f docker-compose.prod.yml up -d --force-recreate --no-deps backend
 ```
 
 ## 5. Test
@@ -178,6 +183,22 @@ docker compose -f docker-compose.prod.yml up -d backend
 Check in both inboxes: the email arrived (also look in spam), the Hindi text is readable, the From name is right.
 Then test one real supplier registration with email verification, and one shop owner password reset.
 
+## After every deployment
+
+The "Deploy backend" workflow puts the new `set-gmail-token.sh` in place with one atomic rename (owner `deploy`,
+mode 755), then runs `check-gmail-token-access.sh` on the server. That check runs the forced command exactly as sshd
+does, with `check` only, and confirms the file, its permissions and your restricted key line. It transfers no
+credentials and changes nothing. If your key is not installed yet, it reports that part as skipped.
+
+The workflow does not have your private key, so to test the real key itself, run from Windows:
+
+```powershell
+.\tools\windows\gmail-authorize.ps1 -SshTarget deploy@3.104.239.4 `
+    -SshKey $HOME\.ssh\stocklist_owner -ExpectedHostKey SHA256:the-value-from-step-2.2 -CheckOnly
+```
+
+It stops after the server answers `READY`: nothing is asked from Google and nothing is sent.
+
 ## When it stops working
 
 If Google withdraws the authorization (you removed the app's access, the Gmail password changed, it was unused for
@@ -187,8 +208,31 @@ six months, or Google restricted the app), the backend log shows once an hour:
 Gmail API authorization lost (invalid_grant). Emails are not being sent. Re-run tools/windows/gmail-authorize.ps1, then recreate the backend container (docs/EMAIL_SETUP.md).
 ```
 
-Fix: run step 3 again, then recreate the backend (step 4, last command) and test (step 5). Network errors and
-temporary Google errors do not need this: they fail only that email, and the next email tries again.
+Fix: run step 3 again, then recreate the backend (step 4, last command) and test (step 5). Only the recreated
+backend uses the new token; the old process stays stopped until it is replaced. Network errors and temporary Google
+errors do not need this: they fail only that email, and the next email tries again.
+
+### Reading the backend log
+
+Every failed Gmail API call is logged once as a WARN line with Google's error codes only (never tokens, addresses,
+email text or links), for example:
+
+```text
+Gmail API send failed: HTTP 403, status=PERMISSION_DENIED, reason=insufficientPermissions
+Gmail API send failed: HTTP 429, status=RESOURCE_EXHAUSTED, reason=rateLimitExceeded, retry-after=30s
+Gmail API token renewal failed: HTTP 401, error=invalid_client
+Gmail API send failed: network error (HttpConnectTimeoutException)
+```
+
+| Log shows | Usual cause | What to do |
+| --- | --- | --- |
+| `reason=insufficientPermissions` | The send permission was not granted | Run step 3 again and allow "Send email on your behalf" |
+| `reason=rateLimitExceeded`, `dailyLimitExceeded` or `userRateLimitExceeded` | Too many emails (personal Gmail: about 500 a day) | Wait; for more volume, move to an own domain (last section) |
+| `error=invalid_client` or `unauthorized_client` | The OAuth client was deleted or changed in Google Cloud | Check the client, then run step 3 again |
+| `authorization lost (invalid_grant)` (ERROR, hourly) | Access withdrawn, password changed, or unused for 6 months | Run step 3 again, then recreate the backend |
+| `network error (...)` | No connection to Google from the server | Check the server's outbound HTTPS (port 443) |
+
+`./mail-test.sh` prints the same codes when a test email fails.
 
 To go back to SMTP: set `MAIL_PROVIDER=smtp` (with the `SMTP_*` settings) and recreate the backend.
 
@@ -196,7 +240,12 @@ To go back to SMTP: set `MAIL_PROVIDER=smtp` (with the `SMTP_*` settings) and re
 
 - The refresh token exists only in `/opt/stocklist/.env` (mode 600, owner `deploy`) and in the backend's memory. It is
   never logged, never in GitHub, never in an APK.
-- The backend logs only the error type when sending fails, never tokens, links or email text.
+- The backend logs only the error type and Google's error codes when sending fails, never tokens, addresses, links or
+  email text.
+- On Windows the client secret and the tokens exist only in the helper's PowerShell process. .NET strings cannot be
+  securely wiped: clearing the variables when the helper ends only drops the references, and copies can stay in that
+  process's memory (and, in rare cases, in a crash dump or the page file) until it is reused. Close the PowerShell
+  window when the helper is done, and do not run it under `Start-Transcript` or with debugging tools attached.
 - To withdraw access completely: myaccount.google.com > Security > Third-party connections > remove the app, and
   delete the three `GMAIL_OAUTH_*` lines from `.env`.
 - To remove the owner's SSH access: delete the `owner-gmail-token` line from `/home/deploy/.ssh/authorized_keys`.
