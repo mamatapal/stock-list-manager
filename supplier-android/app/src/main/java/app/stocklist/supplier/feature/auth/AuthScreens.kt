@@ -99,9 +99,13 @@ class LoginViewModel @Inject constructor(private val account: AccountRepository)
         error = null
         viewModelScope.launch {
             // The password lives only in this screen's memory; it is sent once over HTTPS and never stored.
-            val r = account.login(email, password)
-            loading = false
-            password = "" // cleared after every attempt, successful or not
+            val r = try {
+                account.login(email, password)
+            } finally {
+                // Cleared after every attempt: success, failure, or an unexpected error.
+                password = ""
+                loading = false
+            }
             if (r is ApiResult.Failure) {
                 error = r.error.message
                 needsVerification = r.error.code == "EMAIL_NOT_VERIFIED"
