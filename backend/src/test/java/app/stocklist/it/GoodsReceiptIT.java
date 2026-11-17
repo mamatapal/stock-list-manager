@@ -461,4 +461,104 @@ class GoodsReceiptIT extends NetworkTestSupport {
         assertEquals("SHORT", jdbc.queryForObject("SELECT receipt_status FROM purchase_order WHERE id = UUID_TO_BIN(?)",
                 String.class, id));
     }
+
+    // ================================================================== the receipt's purchase is locked
+
+    private static String syncPurchaseOp(String id, String action, Long base, String purchase, String reason) {
+        return """
+                {"opId":"%s","entityType":"PURCHASE","entityId":"%s","action":"%s","baseVersion":%s,"purchase":%s,
+                 "reason":%s}
+                """.formatted(newId(), id, action, base, purchase == null ? "null" : purchase, q(reason));
+    }
+
+    private static String syncDeliveryOp(String deliveryId, String delivery) {
+        return """
+                {"opId":"%s","entityType":"DELIVERY","entityId":"%s","action":"UPSERT","baseVersion":null,"delivery":%s}
+                """.formatted(newId(), deliveryId, delivery);
+    }
+
+    private void assertLockedBySync(Resp r) {
+        assertEquals(200, r.status(), r.raw());
+        JsonNode result = r.body().get("results").get(0);
+        assertEquals("REJECTED", text(result.get("status")), r.raw());
+        assertEquals("PURCHASE_FROM_ORDER", text(result.get("code")), r.raw());
+    }
+
+    @Test
+    void thePurchaseOfAReceiptCannotBeChangedWhileOrdinaryPurchasesStillCan() {
+        World w = world();
+        String owner = w.shop().owner();
+        Resp order = placeAndAccept(w, "2", "5");
+        String id = order.str("id");
+        String rp = receiptPurchaseId(id);
+        Resp received = post(NET + "/orders/" + id + "/receive", fullReceipt(order, w, "2", "4"), owner);
+        assertEquals(200, received.status(), received.raw());
+
+        Resp purchase = get("/api/v1/purchases/" + rp, owner);
+        long version = version(purchase);
+        List<String> lines = new ArrayList<>();
+        String oilLine = null;
+        for (JsonNode l : purchase.body().get("lines")) {
+            lines.add(pline(text(l.get("id")), text(l.get("itemId")), "99", text(l.get("unitId")), "TOTAL", "1", null));
+            if (w.oil().equals(text(l.get("itemId")))) oilLine = text(l.get("id"));
+        }
+        String changedBody = purchaseJson(w.contact(), "INV-77", "2026-11-16", true, null, lines.toArray(String[]::new));
+        String deliveryId = newId();
+        String extraDelivery = delivery(deliveryId, rp, "2026-11-17", receipt(newId(), oilLine, "1", null, null));
+        String correction = delivery(newId(), null, "2026-11-17", correction(newId(), oilLine, "-1",
+                text(purchase.at("/deliveries/0/lines/0/id")), "Counted wrong"));
+
+        // Through the purchase API: edit, more goods, a correction, cancel and delete are all refused.
+        Resp edit = putIfMatch("/api/v1/purchases/" + rp, changedBody, owner, version);
+        assertEquals(409, edit.status(), edit.raw());
+        assertEquals("PURCHASE_FROM_ORDER", edit.str("code"));
+        Resp more = post("/api/v1/purchases/" + rp + "/deliveries", extraDelivery, owner);
+        assertEquals(409, more.status(), more.raw());
+        assertEquals("PURCHASE_FROM_ORDER", more.str("code"));
+        assertEquals("PURCHASE_FROM_ORDER", post("/api/v1/purchases/" + rp + "/deliveries", correction, owner)
+                .str("code"));
+        Resp cancel = callWithHeader("POST", "/api/v1/purchases/" + rp + "/cancel", "{\"reason\":\"Returned\"}", owner,
+                "If-Match", Long.toString(version));
+        assertEquals(409, cancel.status(), cancel.raw());
+        assertEquals("PURCHASE_FROM_ORDER", cancel.str("code"));
+        Resp delete = callWithHeader("DELETE", "/api/v1/purchases/" + rp, null, owner, "If-Match",
+                Long.toString(version));
+        assertEquals(409, delete.status(), delete.raw());
+        assertEquals("PURCHASE_FROM_ORDER", delete.str("code"));
+
+        // Through offline sync: the same rules.
+        assertLockedBySync(post("/api/v1/sync/push", "{\"ops\":[" + syncPurchaseOp(rp, "UPSERT", version, changedBody,
+                null) + "]}", owner));
+        assertLockedBySync(post("/api/v1/sync/push", "{\"ops\":[" + syncPurchaseOp(rp, "DELETE", version, null,
+                "Returned") + "]}", owner));
+        assertLockedBySync(post("/api/v1/sync/push", "{\"ops\":[" + syncDeliveryOp(deliveryId, extraDelivery) + "]}",
+                owner));
+
+        // Nothing changed: the purchase, its one delivery and its batches are as the receipt left them.
+        Resp after = get("/api/v1/purchases/" + rp, owner);
+        assertEquals(version, version(after));
+        assertEquals("RECEIVED", after.str("status"), after.raw());
+        assertEquals(1, after.body().get("deliveries").size());
+        assertArrayEquals(new long[]{1, 1, 2}, receiptRows(rp));
+        Resp oilBatches = get("/api/v1/batches?itemId=" + w.oil(), owner);
+        assertEquals("4", text(oilBatches.body().get(0).get("quantity")), "still only what arrived");
+        assertEquals("RECEIVED", get(NET + "/orders/" + id, owner).str("status"));
+
+        // An ordinary purchase of the same shop, supplier and items: edit, delivery and cancel still work.
+        String line = newId();
+        Resp ordinary = post("/api/v1/purchases", purchaseJson(w.contact(), "ORD-1", "2026-11-16", true,
+                delivery(newId(), null, "2026-11-16", receipt(newId(), line, "2", null, null)),
+                pline(line, w.oil(), "5", LITRE, "PER_UNIT", "140", null)), owner);
+        assertEquals(201, ordinary.status(), ordinary.raw());
+        String op = ordinary.str("id");
+        Resp delivered = post("/api/v1/purchases/" + op + "/deliveries",
+                delivery(newId(), op, "2026-11-17", receipt(newId(), line, "3", null, null)), owner);
+        assertEquals(201, delivered.status(), delivered.raw());
+        Resp edited = putIfMatch("/api/v1/purchases/" + op, purchaseJson(w.contact(), "ORD-1B", "2026-11-16", true, null,
+                pline(line, w.oil(), "6", LITRE, "PER_UNIT", "140", null)), owner, version(delivered));
+        assertEquals(200, edited.status(), edited.raw());
+        Resp cancelled = callWithHeader("POST", "/api/v1/purchases/" + op + "/cancel", "{\"reason\":\"Returned\"}",
+                owner, "If-Match", Long.toString(version(edited)));
+        assertEquals(200, cancelled.status(), cancelled.raw());
+    }
 }

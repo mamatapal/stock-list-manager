@@ -32,7 +32,7 @@ docker compose -f docker-compose.prod.yml logs -f backend   # wait for "Started 
 curl https://api.yourshop.in/actuator/health                 # {"status":"UP"}
 ```
 
-On first start the backend creates all tables itself (Flyway migrations V1–V5, see `db/migration`). There is **no
+On first start the backend creates all tables itself (Flyway migrations V1–V7, see `db/migration`). There is **no
 default account**: the first owner registers from the app ("Register your business").
 
 ## 3. Configuration (`.env`)
@@ -79,6 +79,23 @@ The release APK has the server address built in (see [RELEASE.md](RELEASE.md)):
 4. New database migrations run automatically on start-up. Migrations only ever add; they never edit an applied one
    (Flyway refuses to start if an applied migration file was changed).
 5. Check `/actuator/health` and sign in from a phone.
+
+**Migrations and recovery.** Flyway has no automatic undo: a migration that has run cannot be rolled back by the
+backend. If a migration fails or the upgrade has to be reversed, stop the backend and restore the database from the
+backup taken in step 1, following [BACKUP_RESTORE.md](BACKUP_RESTORE.md) ("Restore after data loss"), then start the
+previous `app.jar`. So step 1 is not optional: check that the backup file was written (and copied off the server)
+before step 3.
+
+**Next backend deployment (Supplier Management and Supplier Network).** Phase S1 (V6) has not been
+deployed yet, so the next backend deployment runs both of these migrations on start-up, in order:
+
+| Migration | Contents |
+| --- | --- |
+| `V6__supplier_accounts_admin.sql` | Supplier Management accounts and Supplier Administration (Phase S1) |
+| `V7__supplier_network.sql` | Supplier Network: directory listing, connections, supplier catalogue, product links, purchase orders, two new permissions (off for staff) |
+
+Both only add tables, columns and permission rows; nothing existing is changed or removed. Take and check the backup
+first (step 1). Supplier onboarding still needs working email before it is opened to suppliers.
 
 Phones keep working offline during the restart and send their changes afterwards.
 

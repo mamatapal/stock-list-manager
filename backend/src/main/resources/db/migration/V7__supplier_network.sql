@@ -117,7 +117,8 @@ CREATE TABLE supplier_product_link (
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_0900_ai_ci;
 
 -- A purchase order from one shop to one connected supplier. SENT -> ACCEPTED / REJECTED (supplier);
--- ACCEPTED -> DISPATCHED (supplier); ACCEPTED or DISPATCHED -> RECEIVED (shop); SENT or ACCEPTED -> CANCELLED (shop).
+-- ACCEPTED -> DISPATCHED (supplier); ACCEPTED or DISPATCHED -> RECEIVED (shop); SENT or ACCEPTED -> CANCELLED (shop);
+-- DISPATCHED -> DELIVERY_FAILED (shop, with a reason: the goods never arrived; nothing is received).
 -- receipt_purchase_id is fixed when the order is placed and becomes the id of the purchase created on receipt, so a
 -- repeated or concurrent receipt can never create a second purchase (primary key of purchase), and purchase_id is
 -- unique, so a purchase can belong to only one order.
@@ -126,7 +127,7 @@ CREATE TABLE purchase_order (
     business_id         BINARY(16)    NOT NULL,
     supplier_org_id     BINARY(16)    NOT NULL,
     connection_id       BINARY(16)    NOT NULL,
-    status              VARCHAR(12)   NOT NULL,
+    status              VARCHAR(20)   NOT NULL,
     note                VARCHAR(1000) NULL,
     total_amount        DECIMAL(15,2) NOT NULL,
     line_count          INT           NOT NULL,
@@ -138,6 +139,7 @@ CREATE TABLE purchase_order (
     dispatched_at       DATETIME(6)   NULL,
     received_at         DATETIME(6)   NULL,
     cancelled_at        DATETIME(6)   NULL,
+    delivery_failed_at  DATETIME(6)   NULL,
     status_reason       VARCHAR(500)  NULL,
     receipt_purchase_id BINARY(16)    NOT NULL,
     purchase_id         BINARY(16)    NULL,
@@ -160,7 +162,11 @@ CREATE TABLE purchase_order (
     -- Shop, supplier and connection together must be one existing connection.
     CONSTRAINT fk_purchase_order_connection FOREIGN KEY (business_id, supplier_org_id, connection_id) REFERENCES supplier_connection (business_id, supplier_org_id, id) ON DELETE RESTRICT,
     CONSTRAINT fk_purchase_order_purchase FOREIGN KEY (business_id, purchase_id) REFERENCES purchase (business_id, id) ON DELETE RESTRICT,
-    CONSTRAINT chk_purchase_order_status CHECK (status IN ('SENT', 'ACCEPTED', 'REJECTED', 'DISPATCHED', 'RECEIVED', 'CANCELLED')),
+    CONSTRAINT chk_purchase_order_status CHECK (status IN ('SENT', 'ACCEPTED', 'REJECTED', 'DISPATCHED', 'RECEIVED', 'CANCELLED', 'DELIVERY_FAILED')),
+    -- A failed delivery always records when and why (the shopkeeper's reason); no other status has that time.
+    CONSTRAINT chk_purchase_order_delivery_failed CHECK (
+        (status = 'DELIVERY_FAILED' AND delivery_failed_at IS NOT NULL AND status_reason IS NOT NULL)
+        OR (status <> 'DELIVERY_FAILED' AND delivery_failed_at IS NULL)),
     CONSTRAINT chk_purchase_order_total CHECK (total_amount >= 0),
     -- IS NOT NULL is explicit: with a NULL receipt_status the IN test is UNKNOWN, which a CHECK would let through.
     CONSTRAINT chk_purchase_order_receipt CHECK (
@@ -211,8 +217,8 @@ CREATE TABLE purchase_order_event (
     supplier_org_id BINARY(16)   NOT NULL,
     actor_type      VARCHAR(10)  NOT NULL,
     actor_id        BINARY(16)   NULL,
-    from_status     VARCHAR(12)  NULL,
-    to_status       VARCHAR(12)  NOT NULL,
+    from_status     VARCHAR(20)  NULL,
+    to_status       VARCHAR(20)  NOT NULL,
     reason          VARCHAR(500) NULL,
     -- FULL or SHORT on the RECEIVED entry, so the history itself shows how the order was received.
     receipt_status  VARCHAR(10)  NULL,

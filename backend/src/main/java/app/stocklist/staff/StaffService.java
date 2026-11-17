@@ -152,12 +152,33 @@ public class StaffService {
 
     @Transactional
     public PermissionsResponse setPermissions(AuthUser caller, UUID id, List<String> requestedCodes, String ip) {
+        return setPermissions(caller, id, requestedCodes, null, ip);
+    }
+
+    /**
+     * Replaces the staff member's permissions among the codes the client understands. A client only replaces what it
+     * can show: codes it understands are the first 25 (or the knownPermissions it sends) plus any code it asks for.
+     * Already-assigned codes outside that set are kept unchanged, so an older app editing a staff member never
+     * silently removes a newer permission. Nothing is granted that the request does not ask for, and the usual
+     * rules apply to every real change (only permissions the caller holds, never the caller themselves).
+     */
+    @Transactional
+    public PermissionsResponse setPermissions(AuthUser caller, UUID id, List<String> requestedCodes,
+                                              List<String> knownCodes, String ip) {
         AppUser staff = loadStaff(caller, id);
         requireNotSelf(caller, staff);
-        Set<Permission> requested = parse(requestedCodes);
+        Set<Permission> asked = parse(requestedCodes);
         List<UserPermission> rows = permissions.findByBusinessIdAndUserId(caller.businessId(), staff.getId());
         Set<Permission> before = EnumSet.noneOf(Permission.class);
         rows.forEach(row -> before.add(row.permission()));
+
+        Set<Permission> understood = EnumSet.copyOf(Permission.FIRST_RELEASE);
+        understood.addAll(asked);
+        if (knownCodes != null) understood.addAll(known(knownCodes));
+        Set<Permission> requested = EnumSet.copyOf(asked);
+        for (Permission p : before) {
+            if (!understood.contains(p)) requested.add(p); // kept: the client cannot show it
+        }
 
         Set<Permission> added = EnumSet.copyOf(requested);
         added.removeAll(before);
@@ -227,6 +248,20 @@ public class StaffService {
             throw ApiException.forbidden("CANNOT_GRANT",
                     "You can only grant or remove permissions that you have yourself");
         }
+    }
+
+    /** Codes a client says it understands; codes this server does not have (a newer app) are ignored. */
+    static Set<Permission> known(List<String> codes) {
+        Set<Permission> set = EnumSet.noneOf(Permission.class);
+        for (String code : codes) {
+            if (code == null) continue;
+            try {
+                set.add(Permission.valueOf(code.trim()));
+            } catch (IllegalArgumentException ignored) {
+                // a permission this server does not know
+            }
+        }
+        return set;
     }
 
     static Set<Permission> parse(List<String> codes) {

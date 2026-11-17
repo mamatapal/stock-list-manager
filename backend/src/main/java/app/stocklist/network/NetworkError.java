@@ -39,7 +39,9 @@ public enum NetworkError {
     RECEIPT_LINES(HttpStatus.BAD_REQUEST, "Enter the received quantity for every line of the order, once"),
     RECEIVED_TOO_MUCH(HttpStatus.BAD_REQUEST, "A received quantity is more than the quantity ordered"),
     NOTHING_RECEIVED(HttpStatus.BAD_REQUEST, "Enter at least one received quantity"),
-    QUANTITY_PRECISION(HttpStatus.BAD_REQUEST, "A received quantity gives more than 3 decimal places in your unit");
+    QUANTITY_PRECISION(HttpStatus.BAD_REQUEST, "A quantity gives more than 3 decimal places in your unit"),
+    PURCHASE_FROM_ORDER(HttpStatus.CONFLICT,
+            "This purchase was recorded by the goods receipt of a supplier order and cannot be changed");
 
     private final HttpStatus status;
     private final String message;

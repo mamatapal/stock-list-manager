@@ -19,6 +19,13 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
     @Query("select p from Purchase p where p.businessId = :businessId and p.id = :id")
     Optional<Purchase> lock(UUID businessId, UUID id);
 
+    /**
+     * Whether a purchase was created by the goods receipt of a Supplier Network purchase order
+     * (purchase_order.purchase_id). Such a purchase is the order's one final receipt and is never changed afterwards.
+     */
+    @Query("select count(o) from PurchaseOrder o where o.businessId = :businessId and o.purchaseId = :purchaseId")
+    long countOrdersReceivedAs(UUID businessId, UUID purchaseId);
+
     @Query("select p from Purchase p where p.businessId = :businessId and p.deletedAt is null "
             + "and (:supplierId is null or p.supplierId = :supplierId) "
             + "and (:status is null or p.status = :status) "

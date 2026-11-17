@@ -37,7 +37,12 @@ public final class StaffDtos {
 
     public record PermissionsResponse(UUID userId, List<String> permissions) {}
 
-    public record SetPermissionsRequest(@NotNull List<@NotBlank String> permissions) {}
+    /**
+     * permissions: the full set the client wants for the codes it understands. knownPermissions (optional): the codes
+     * the client can show; when it is left out (every app released so far), the client is taken to understand the
+     * first 25 codes. Assigned codes the client does not understand are kept, never removed by its request.
+     */
+    public record SetPermissionsRequest(@NotNull List<@NotBlank String> permissions, List<String> knownPermissions) {}
 
     public record TemporaryPasswordResponse(String temporaryPassword) {}
 

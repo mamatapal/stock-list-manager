@@ -36,6 +36,13 @@ public enum Permission {
         return staffDefault;
     }
 
+    /**
+     * The codes every released Stock List Manager app understands: the first 25 (V1). A client that does not say
+     * which codes it knows is assumed to know only these. When a permission is added, keep it out of this set.
+     */
+    public static final Set<Permission> FIRST_RELEASE = Set.copyOf(EnumSet.complementOf(
+            EnumSet.of(SUPPLIER_NETWORK_MANAGE, PURCHASE_ORDER_MANAGE)));
+
     public static Set<Permission> all() {
         return EnumSet.allOf(Permission.class);
     }

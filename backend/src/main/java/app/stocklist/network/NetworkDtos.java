@@ -101,14 +101,15 @@ public final class NetworkDtos {
     public record ShopOrderDto(UUID id, String status, SupplierSummary supplier, UUID connectionId, String note,
                                String totalAmount, int lineCount, UUID createdBy, Instant createdAt,
                                Instant updatedAt, Instant acceptedAt, Instant rejectedAt, Instant dispatchedAt,
-                               Instant receivedAt, Instant cancelledAt, String statusReason, UUID purchaseId,
-                               String receiptStatus, long version, List<OrderLineDto> lines,
+                               Instant receivedAt, Instant cancelledAt, Instant deliveryFailedAt,
+                               String statusReason, UUID purchaseId, String receiptStatus, long version,
+                               List<OrderLineDto> lines,
                                List<EventDto> history) {}
 
     public record SupplierOrderDto(UUID id, String status, ShopSummary shop, String note, String totalAmount,
                                    int lineCount, Instant createdAt, Instant updatedAt, Instant acceptedAt,
                                    Instant rejectedAt, Instant dispatchedAt, Instant receivedAt, Instant cancelledAt,
-                                   String statusReason, String receiptStatus, long version,
+                                   Instant deliveryFailedAt, String statusReason, String receiptStatus, long version,
                                    List<OrderLineDto> lines, List<EventDto> history) {}
 
     /** The received order and the purchase the receipt created (with the saved or changed order prices). */

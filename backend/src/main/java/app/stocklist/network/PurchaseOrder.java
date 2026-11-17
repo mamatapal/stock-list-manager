@@ -16,8 +16,9 @@ import java.util.UUID;
  *   ACCEPTED -> DISPATCHED                (supplier)
  *   ACCEPTED | DISPATCHED -> RECEIVED     (shop; creates the purchase, delivery and batches)
  *   SENT | ACCEPTED -> CANCELLED          (shop)
+ *   DISPATCHED -> DELIVERY_FAILED         (shop, with a reason: the goods never arrived)
  * </pre>
- * REJECTED, CANCELLED and RECEIVED are final. Nothing here touches stock.
+ * REJECTED, CANCELLED, RECEIVED and DELIVERY_FAILED are final. Nothing here touches stock.
  */
 @Entity
 @Table(name = "purchase_order")
@@ -28,8 +29,11 @@ public class PurchaseOrder {
     public static final String DISPATCHED = "DISPATCHED";
     public static final String RECEIVED = "RECEIVED";
     public static final String CANCELLED = "CANCELLED";
-    public static final Set<String> STATUSES = Set.of(SENT, ACCEPTED, REJECTED, DISPATCHED, RECEIVED, CANCELLED);
-    public static final Set<String> FINAL = Set.of(REJECTED, CANCELLED, RECEIVED);
+    /** Dispatched goods that never arrived; closed by the shop with a reason. Nothing is received. */
+    public static final String DELIVERY_FAILED = "DELIVERY_FAILED";
+    public static final Set<String> STATUSES = Set.of(SENT, ACCEPTED, REJECTED, DISPATCHED, RECEIVED, CANCELLED,
+            DELIVERY_FAILED);
+    public static final Set<String> FINAL = Set.of(REJECTED, CANCELLED, RECEIVED, DELIVERY_FAILED);
     public static final Set<String> RECEIVABLE = Set.of(ACCEPTED, DISPATCHED);
     public static final Set<String> CANCELLABLE = Set.of(SENT, ACCEPTED);
 
@@ -52,6 +56,7 @@ public class PurchaseOrder {
     private Instant dispatchedAt;
     private Instant receivedAt;
     private Instant cancelledAt;
+    private Instant deliveryFailedAt;
     private String statusReason;
     private UUID receiptPurchaseId;
     private UUID purchaseId;
@@ -106,6 +111,15 @@ public class PurchaseOrder {
         updatedAt = now;
     }
 
+    /** The shop closes a dispatched order whose goods never arrived (reason required). Final; no stock change. */
+    public void deliveryFailed(String reason, Instant now) {
+        require(DISPATCHED.equals(status));
+        status = DELIVERY_FAILED;
+        deliveryFailedAt = now;
+        statusReason = reason;
+        updatedAt = now;
+    }
+
     /** The single final receipt; receiptStatus is FULL or SHORT. The order is closed for good afterwards. */
     public void received(UUID purchaseId, String receiptStatus, UUID by, Instant now) {
         if (RECEIVED.equals(status)) throw NetworkError.ORDER_ALREADY_RECEIVED.ex();
@@ -143,5 +157,6 @@ public class PurchaseOrder {
     public UUID getReceiptPurchaseId() { return receiptPurchaseId; }
     public UUID getPurchaseId() { return purchaseId; }
     public String getReceiptStatus() { return receiptStatus; }
+    public Instant getDeliveryFailedAt() { return deliveryFailedAt; }
     public UUID getReceivedBy() { return receivedBy; }
 }

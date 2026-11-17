@@ -101,7 +101,8 @@ public class StaffController {
     public PermissionsResponse setPermissions(@PathVariable UUID id, @Valid @RequestBody SetPermissionsRequest body,
                                               HttpServletRequest req) {
         stepUp.require();
-        return service.setPermissions(CurrentUser.get(), id, body.permissions(), ClientIp.of(req));
+        return service.setPermissions(CurrentUser.get(), id, body.permissions(), body.knownPermissions(),
+                ClientIp.of(req));
     }
 
     @GetMapping("/{id}/sessions")

@@ -1,5 +1,6 @@
 package app.stocklist.it;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -616,5 +617,186 @@ class SupplierNetworkIT extends NetworkTestSupport {
         assertEquals("SENT", get(NET + "/orders/" + placed, owner).str("status"));
         assertEquals(201, post(NET + "/connections", "{\"supplierOrgId\":\"" + other.orgId() + "\"}", network)
                 .status());
+    }
+
+    // ================================================================== dispatched goods that never arrive
+
+    private record Dispatch(Shop shop, Sup sup, String conn, String item, String product) {}
+
+    private Dispatch dispatchSetup() {
+        Shop shop = shop();
+        Sup s = approvedSupplier(true);
+        String conn = connect(shop.owner(), s);
+        linkContact(shop.owner(), conn, supplier(shop.owner(), "Lost lorry contact"));
+        String item = item(shop.owner(), "Ghee", KG, "500", "560");
+        String product = product(s, "Ghee", "kg", "480");
+        assertEquals(200, link(shop.owner(), conn, product, item, KG, "1").status());
+        return new Dispatch(shop, s, conn, item, product);
+    }
+
+    private String receiptPurchaseOf(String orderId) {
+        return jdbc.queryForObject("SELECT BIN_TO_UUID(receipt_purchase_id) FROM purchase_order WHERE id = UUID_TO_BIN(?)",
+                String.class, orderId);
+    }
+
+    private Resp failDelivery(String orderId, String reason, String token) {
+        return post(NET + "/orders/" + orderId + "/delivery-failed",
+                reason == null ? null : "{\"reason\":\"" + reason + "\"}", token);
+    }
+
+    @Test
+    void theShopClosesADispatchedOrderWhoseGoodsNeverArrived() {
+        Dispatch d = dispatchSetup();
+        String owner = d.shop().owner();
+        Resp placed = order(owner, d.conn(), orderLine(d.product(), "4"));
+        String id = placed.str("id");
+        String rp = receiptPurchaseOf(id);
+
+        // Only a dispatched order.
+        assertEquals("ORDER_STATUS", failDelivery(id, "Never came", owner).str("code"), "SENT");
+        assertEquals(200, supplierAct(d.sup(), id, "accept", null).status());
+        assertEquals("ORDER_STATUS", failDelivery(id, "Never came", owner).str("code"), "ACCEPTED");
+        assertEquals(200, supplierAct(d.sup(), id, "dispatch", null).status());
+
+        // A reason is required; only the shop, with PURCHASE_ORDER_MANAGE, and only its own order.
+        Resp noReason = failDelivery(id, null, owner);
+        assertEquals(400, noReason.status(), noReason.raw());
+        assertEquals("REASON_REQUIRED", noReason.str("code"));
+        assertEquals("REASON_REQUIRED", failDelivery(id, "   ", owner).str("code"));
+        assertEquals(403, failDelivery(id, "Never came", d.shop().staff()).status());
+        assertEquals(403, failDelivery(id, "Never came", staffWith(owner, "[\"SUPPLIER_NETWORK_MANAGE\"]")).status());
+        assertEquals(404, failDelivery(id, "Never came", shop().owner()).status());
+        assertEquals(401, failDelivery(id, "Never came", d.sup().token()).status(), "a supplier token is refused");
+        Resp api = get("/v3/api-docs", null);
+        assertTrue(api.raw().contains("/api/v1/supplier-network/orders/{orderId}/delivery-failed"));
+        assertFalse(api.raw().contains("/api/v1/supplier-portal/orders/{orderId}/delivery-failed"),
+                "suppliers have no way to close an order this way");
+        assertEquals("DISPATCHED", get(NET + "/orders/" + id, owner).str("status"));
+
+        Resp closed = failDelivery(id, "Lorry never arrived", owner);
+        assertEquals(200, closed.status(), closed.raw());
+        assertEquals("DELIVERY_FAILED", closed.str("status"));
+        assertEquals("Lorry never arrived", closed.str("statusReason"));
+        assertTrue(closed.str("deliveryFailedAt") != null, closed.raw());
+        assertNull(closed.str("receiptStatus"), "not a receipt: no FULL or SHORT");
+        assertNull(closed.str("purchaseId"));
+        assertNull(text(closed.at("/lines/0/receivedQuantity")));
+        assertNull(text(closed.at("/lines/0/receiptStatus")));
+        JsonNode history = closed.body().get("history");
+        JsonNode last = history.get(history.size() - 1);
+        assertEquals("DISPATCHED", text(last.get("fromStatus")));
+        assertEquals("DELIVERY_FAILED", text(last.get("toStatus")));
+        assertEquals("SHOP", text(last.get("actorType")));
+        assertTrue(text(last.get("actorId")) != null, last.toString());
+        assertEquals("Lorry never arrived", text(last.get("reason")));
+        assertNull(text(last.get("receiptStatus")));
+
+        // No purchase, delivery or batch; stock unchanged.
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+        assertEquals(0, batchCount(d.item()));
+
+        // The supplier sees the outcome and the reason.
+        Resp seen = get(PORTAL + "/orders/" + id, d.sup().token());
+        assertEquals("DELIVERY_FAILED", seen.str("status"));
+        assertEquals("Lorry never arrived", seen.str("statusReason"));
+        assertEquals(1, get(PORTAL + "/orders?status=DELIVERY_FAILED", d.sup().token()).body().size());
+        assertEquals(1, get(NET + "/orders?status=DELIVERY_FAILED", owner).body().size());
+
+        // Final: nothing else can happen to it.
+        Resp receive = post(NET + "/orders/" + id + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(placed, d.product()), "4", null, null, null)), owner);
+        assertEquals(409, receive.status(), receive.raw());
+        assertEquals("ORDER_STATUS", receive.str("code"));
+        assertEquals("ORDER_STATUS", failDelivery(id, "Again", owner).str("code"));
+        assertEquals("ORDER_STATUS", post(NET + "/orders/" + id + "/cancel", null, owner).str("code"));
+        for (String action : List.of("accept", "dispatch")) {
+            assertEquals("ORDER_STATUS", supplierAct(d.sup(), id, action, null).str("code"), action);
+        }
+        assertEquals("ORDER_STATUS", supplierAct(d.sup(), id, "reject", "{\"reason\":\"x\"}").str("code"));
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp));
+        assertEquals("DELIVERY_FAILED", get(NET + "/orders/" + id, owner).str("status"));
+    }
+
+    @Test
+    void aDispatchedOrderCanStillBeClosedAfterTheConnectionEnded() {
+        Dispatch d = dispatchSetup();
+        String owner = d.shop().owner();
+        String lost = order(owner, d.conn(), orderLine(d.product(), "2")).str("id");
+        String received = order(owner, d.conn(), orderLine(d.product(), "1")).str("id");
+        for (String id : List.of(lost, received)) {
+            assertEquals(200, supplierAct(d.sup(), id, "accept", null).status());
+            assertEquals(200, supplierAct(d.sup(), id, "dispatch", null).status());
+        }
+        Resp receivedOrder = get(NET + "/orders/" + received, owner);
+        assertEquals(200, post(NET + "/orders/" + received + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(receivedOrder, d.product()), "1", null, null, null)), owner).status());
+
+        assertEquals(200, post(PORTAL + "/connections/" + d.conn() + "/end", "{\"reason\":\"Closing\"}",
+                d.sup().token()).status());
+        assertEquals("DISPATCHED", get(NET + "/orders/" + lost, owner).str("status"), "ending keeps dispatched orders");
+        Resp closed = failDelivery(lost, "Goods never arrived", owner);
+        assertEquals(200, closed.status(), closed.raw());
+        assertEquals("DELIVERY_FAILED", closed.str("status"));
+        assertArrayEquals(new long[]{0, 0, 0}, receiptRows(receiptPurchaseOf(lost)));
+
+        // A received order cannot be turned into a failed delivery.
+        Resp late = failDelivery(received, "Too late", owner);
+        assertEquals(409, late.status(), late.raw());
+        assertEquals("ORDER_ALREADY_RECEIVED", late.str("code"));
+        assertEquals(1, batchCount(d.item()), "only the received order's goods");
+    }
+
+    // ================================================================== quantity precision when ordering
+
+    @Test
+    void anOrderThatCouldNotBeReceivedInFullIsRefusedBeforeItIsSaved() {
+        Shop shop = shop();
+        String owner = shop.owner();
+        Sup s = approvedSupplier(true);
+        String conn = connect(owner, s);
+        linkContact(owner, conn, supplier(owner, "Spice packs"));
+        String item = item(owner, "Pepper", KG, "800", "900");
+        String other = item(owner, "Clove", KG, "1200", "1400");
+        String pack = product(s, "Pepper 125 g", "pack", "95");
+        String loose = product(s, "Clove", "kg", "1100");
+        assertEquals(200, link(owner, conn, pack, item, KG, "0.125").status());
+        assertEquals(200, link(owner, conn, loose, other, KG, "1").status());
+        String orders = "SELECT COUNT(*) FROM purchase_order WHERE connection_id = UUID_TO_BIN(?)";
+
+        // 1.5 packs x 0.125 kg = 0.1875 kg: four decimals, refused.
+        Resp refused = post(NET + "/orders", orderJson(null, conn, orderLine(pack, "1.5")), owner);
+        assertEquals(400, refused.status(), refused.raw());
+        assertEquals("QUANTITY_PRECISION", refused.str("code"));
+        assertEquals("QUANTITY_PRECISION", post(NET + "/orders", orderJson(null, conn, orderLine(pack, "0.004")), owner)
+                .str("code"), "0.0005 kg");
+        // One bad line refuses the whole order: nothing is saved.
+        assertEquals("QUANTITY_PRECISION", post(NET + "/orders", orderJson(null, conn, orderLine(loose, "2"),
+                orderLine(pack, "1.5")), owner).str("code"));
+        assertEquals(0L, jdbc.queryForObject(orders, Long.class, conn));
+
+        // Valid combinations: 2 x 0.125 = 0.25, 1.6 x 0.125 = 0.2, 0.008 x 0.125 = 0.001, 1.234 x 1.
+        for (String qty : List.of("2", "1.6", "0.008")) {
+            Resp ok = post(NET + "/orders", orderJson(null, conn, orderLine(pack, qty)), owner);
+            assertEquals(201, ok.status(), qty + ": " + ok.raw());
+        }
+        assertEquals(201, post(NET + "/orders", orderJson(null, conn, orderLine(loose, "1.234")), owner).status());
+
+        // A link of 0.333: 3 x 0.333 = 0.999 is fine, 1.5 x 0.333 = 0.4995 is not.
+        assertEquals(200, link(owner, conn, pack, item, KG, "0.333").status());
+        assertEquals(201, post(NET + "/orders", orderJson(null, conn, orderLine(pack, "3")), owner).status());
+        assertEquals("QUANTITY_PRECISION", post(NET + "/orders", orderJson(null, conn, orderLine(pack, "1.5")), owner)
+                .str("code"));
+        assertEquals(5L, jdbc.queryForObject(orders, Long.class, conn));
+
+        // Every order that could be placed can be received in full: 1.6 packs of 0.125 kg = 0.2 kg in stock.
+        assertEquals(200, link(owner, conn, pack, item, KG, "0.125").status());
+        Resp placed = order(owner, conn, orderLine(pack, "1.6"));
+        assertEquals(200, supplierAct(s, placed.str("id"), "accept", null).status());
+        Resp received = post(NET + "/orders/" + placed.str("id") + "/receive", receiptJson(null, null,
+                receiptLine(lineFor(placed, pack), "1.6", null, null, null)), owner);
+        assertEquals(200, received.status(), received.raw());
+        assertEquals("FULL", received.str("receiptStatus"));
+        Resp batches = get("/api/v1/batches?itemId=" + item, owner);
+        assertEquals("0.2", text(batches.body().get(0).get("quantity")), batches.raw());
     }
 }

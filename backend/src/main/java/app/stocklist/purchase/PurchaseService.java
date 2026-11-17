@@ -174,6 +174,7 @@ public class PurchaseService {
     @Transactional
     public PurchaseDto update(AuthUser caller, UUID id, Long baseVersion, PurchaseInput in) {
         Purchase purchase = lock(caller, id);
+        requireNotFromOrder(caller, id);
         VersionConflictException.check(purchase, baseVersion, dto(caller, purchase));
         if (purchase.isCancelled()) {
             throw ApiException.badRequest("PURCHASE_CANCELLED", "A cancelled purchase cannot be changed");
@@ -217,6 +218,7 @@ public class PurchaseService {
     @Transactional
     public PurchaseDto deleteOrCancel(AuthUser caller, UUID id, Long baseVersion, String reason) {
         Purchase purchase = lock(caller, id);
+        requireNotFromOrder(caller, id);
         VersionConflictException.check(purchase, baseVersion, dto(caller, purchase));
         Instant now = Instant.now(clock);
         if (purchase.isDraft()) {
@@ -261,6 +263,7 @@ public class PurchaseService {
             throw ApiException.badRequest("WRONG_PURCHASE", "The delivery belongs to another purchase");
         }
         Purchase purchase = lock(caller, purchaseId);
+        requireNotFromOrder(caller, purchaseId);
         var existing = deliveries.findById(in.id());
         if (existing.isPresent()) {
             Delivery d = existing.get();
@@ -492,6 +495,18 @@ public class PurchaseService {
 
     private Purchase lock(AuthUser caller, UUID id) {
         return purchases.lock(caller.businessId(), id).orElseThrow(() -> ApiException.notFound("Purchase"));
+    }
+
+    /**
+     * A purchase recorded by the goods receipt of a Supplier Network order is that order's one final receipt: no edit,
+     * delivery, correction, deletion or cancellation (from the API or offline sync), so stock and the order's
+     * recorded quantities never diverge. Called after the purchase row is locked; the receipt links the purchase in
+     * the same transaction that creates it, so no change can slip in before the link exists.
+     */
+    private void requireNotFromOrder(AuthUser caller, UUID purchaseId) {
+        if (purchases.countOrdersReceivedAs(caller.businessId(), purchaseId) > 0) {
+            throw app.stocklist.network.NetworkError.PURCHASE_FROM_ORDER.ex();
+        }
     }
 
     // ================================================================== dto

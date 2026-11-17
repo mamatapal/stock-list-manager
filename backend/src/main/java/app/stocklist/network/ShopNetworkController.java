@@ -160,6 +160,13 @@ public class ShopNetworkController {
         return orders.cancel(CurrentUser.get(), orderId, body);
     }
 
+    @Operation(summary = "Close a dispatched order whose goods never arrived (reason required). Final: nothing is "
+            + "received and stock does not change; possible after the supplier connection has ended")
+    @PostMapping("/orders/{orderId}/delivery-failed")
+    public ShopOrderDto deliveryFailed(@PathVariable UUID orderId, @RequestBody(required = false) ReasonInput body) {
+        return orders.deliveryFailed(CurrentUser.get(), orderId, body);
+    }
+
     @Operation(summary = "Receive the goods (once per order): actual quantities, batches and expiry dates. Creates a "
             + "completed purchase with one delivery through the normal purchase rules; only this changes stock")
     @PostMapping("/orders/{orderId}/receive")

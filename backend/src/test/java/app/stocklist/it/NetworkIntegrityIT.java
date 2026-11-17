@@ -375,4 +375,36 @@ class NetworkIntegrityIT extends NetworkTestSupport {
         assertEquals(7, count(events, order));
         assertEquals(2, count(events + " AND receipt_status IS NOT NULL AND to_status = 'RECEIVED'", order));
     }
+
+    private void insertOrderFailed(String id, World w, String status, boolean failedAt, String reason) {
+        jdbc.update("""
+                INSERT INTO purchase_order (id, business_id, supplier_org_id, connection_id, status, total_amount,
+                    line_count, created_by, created_at, updated_at, receipt_purchase_id, version, delivery_failed_at,
+                    status_reason)
+                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), ?, 0, 1, UUID_TO_BIN(?),
+                    NOW(6), NOW(6), UUID_TO_BIN(?), 0, %s, ?)""".formatted(failedAt ? "NOW(6)" : "NULL"),
+                id, businessOf(w.conn()), w.sup().orgId(), w.conn(), status, newId(), newId(), reason);
+    }
+
+    @Test
+    void aFailedDeliveryAlwaysRecordsWhenAndWhy() {
+        World w = world();
+        String check = "chk_purchase_order_delivery_failed";
+        violates(check, () -> insertOrderFailed(newId(), w, "DELIVERY_FAILED", false, "Lost"));    // no time
+        violates(check, () -> insertOrderFailed(newId(), w, "DELIVERY_FAILED", true, null));       // no reason
+        violates(check, () -> insertOrderFailed(newId(), w, "DISPATCHED", true, null));            // time, wrong status
+        violates("chk_purchase_order_receipt", () -> jdbc.update("""
+                INSERT INTO purchase_order (id, business_id, supplier_org_id, connection_id, status, total_amount,
+                    line_count, created_by, created_at, updated_at, receipt_purchase_id, version, delivery_failed_at,
+                    status_reason, receipt_status)
+                VALUES (UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), UUID_TO_BIN(?), 'DELIVERY_FAILED', 0, 1,
+                    UUID_TO_BIN(?), NOW(6), NOW(6), UUID_TO_BIN(?), 0, NOW(6), 'Lost', 'SHORT')""",
+                newId(), businessOf(w.conn()), w.sup().orgId(), w.conn(), newId(), newId()));
+        String ok = newId();
+        insertOrderFailed(ok, w, "DELIVERY_FAILED", true, "Lost in transit");
+        assertEquals(1, count("SELECT COUNT(*) FROM purchase_order WHERE id = UUID_TO_BIN(?) AND status = "
+                + "'DELIVERY_FAILED' AND receipt_status IS NULL", ok));
+        insertOrderEventWithStatus(ok, w, "DELIVERY_FAILED", null);
+        violates("chk_po_event_receipt", () -> insertOrderEventWithStatus(ok, w, "DELIVERY_FAILED", "SHORT"));
+    }
 }

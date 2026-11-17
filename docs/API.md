@@ -42,6 +42,12 @@ The owner has every permission. `GET /permissions` lists them with their labels.
 responses (including sync) for users without `EXPECTED_PROFIT_VIEW`. A staff manager can never grant permissions
 they do not have themselves.
 
+`PUT /staff/{id}/permissions` `{permissions, knownPermissions?}` replaces the staff member's permissions among the
+codes the client understands: the first 25 codes, plus `knownPermissions` if sent, plus any code it asks for.
+Assigned codes outside that set (for example `SUPPLIER_NETWORK_MANAGE` when an older app saves) are kept, so an older
+app never removes a permission it cannot show. Apps that show the newer codes send `knownPermissions` (for example
+the full `GET /permissions` list) so they can also remove them.
+
 Endpoints any signed-in user may call: `GET /auth/me`, `GET /business` (for PDF headers), `GET /permissions`,
 `GET /units`, `GET /people`, `GET /sync/pull` (returns only what the user may see), `POST /sync/push` (each change is
 checked like the matching API call). Everything else needs the permissions above; the automated test
@@ -143,12 +149,15 @@ Records of other shops answer `404`.
 | Supplier contact | `PUT /connections/{id}/contact` `{supplierId}` or `{createContact: true}` | Links the supplier to one of the shop's own supplier contacts (purchases are recorded against it). Needed before receiving. |
 | Catalogue | `GET /connections/{id}/catalogue` | Active products of an `ACTIVE` connection, each with the shop's link or `null`. |
 | Product links | `PUT /connections/{id}/products/{productId}/link` `{itemId \| newItem{name, category?, defaultUnitId}, unitId?, unitsPerPack?}`, `DELETE` the same | Only by the shopkeeper; never automatic (no name or barcode matching). `unitsPerPack`: shop units in one supplier unit. |
-| Orders | `POST /orders` `{id?, connectionId, note?, lines[{productId, quantity}]}`, `GET /orders?status=`, `GET /orders/{id}`, `POST /orders/{id}/cancel` `{reason?}` | Every product must be linked. Lines keep the name, unit, price and link of the moment the order was placed. `id` is an idempotency key: the same request again returns the original order; the same `id` with a different connection, note, products or quantities gets `409 ORDER_ID_REUSED`. |
+| Orders | `POST /orders` `{id?, connectionId, note?, lines[{productId, quantity}]}`, `GET /orders?status=`, `GET /orders/{id}`, `POST /orders/{id}/cancel` `{reason?}` | Every product must be linked. Lines keep the name, unit, price and link of the moment the order was placed. Each quantity times the link's units per pack must fit 3 decimal places (e.g. 1.5 x 0.125 kg = 0.1875 is refused with `QUANTITY_PRECISION`), so every order can be received in full. `id` is an idempotency key: the same request again returns the original order; the same `id` with a different connection, note, products or quantities gets `409 ORDER_ID_REUSED`. |
 | Goods receipt | `POST /orders/{id}/receive` `{receivedDate?, invoiceNo?, notes?, lines[{lineId, quantity, unitPrice?, batchNo?, expiryDate?}]}` | Once per order, every line once (quantity in the supplier's unit, 0 to the ordered quantity). Creates the purchase, delivery and batches in one transaction; also needs `PURCHASE_RECORD`. The purchase gets the price saved in the order; only a user with `PURCHASE_PRICE_ENTER` may send a different `unitPrice` (anyone else gets `403` and nothing is written). |
+| Delivery failed | `POST /orders/{id}/delivery-failed` `{reason}` | Only for a `DISPATCHED` order whose goods never arrived; the reason is required (`REASON_REQUIRED`). The order becomes `DELIVERY_FAILED` (final): nothing is received, no purchase, delivery or batch is created and stock does not change. Also possible after the connection has ended. |
 
 Order statuses: `SENT` -> `ACCEPTED` or `REJECTED` (supplier; rejecting needs a reason); `ACCEPTED` -> `DISPATCHED`
-(supplier); `ACCEPTED` or `DISPATCHED` -> `RECEIVED` (shop); `SENT` or `ACCEPTED` -> `CANCELLED` (shop). `REJECTED`,
-`CANCELLED` and `RECEIVED` are final. Every change is kept in the order's history.
+(supplier); `ACCEPTED` or `DISPATCHED` -> `RECEIVED` (shop); `SENT` or `ACCEPTED` -> `CANCELLED` (shop);
+`DISPATCHED` -> `DELIVERY_FAILED` (shop, reason required). `REJECTED`, `CANCELLED`, `RECEIVED` and `DELIVERY_FAILED`
+are final: any later action gets `409 ORDER_STATUS` (or `ORDER_ALREADY_RECEIVED`). Every change is kept in the order's
+history with its actor and reason; `deliveryFailedAt` and `statusReason` are shown on the order.
 
 **Goods receipt: one final receipt per order, shortages allowed** (approved V1 rule). Every order line is sent exactly
 once with the quantity that actually arrived, from 0 up to the ordered quantity (missing, repeated, negative or too
@@ -163,10 +172,14 @@ missing goods cannot be received against it later (a new order is needed), and a
   `SHORT`. The `RECEIVED` entry of the order's history carries the same `receiptStatus`. Suppliers see the same values.
 - Apps must show the ordered, received and shortage quantities and, when anything is short, warn before the final
   confirmation that the order will be closed permanently and the missing quantities cannot be received later.
+- The purchase the receipt creates is locked: editing it, adding a delivery or correction, deleting or cancelling it
+  (through `/purchases` or offline sync) gets `409 PURCHASE_FROM_ORDER`. Corrections of such a purchase are not
+  available in V1. Ordinary purchases are unaffected.
 
 Changes to one connection and its orders happen one at a time (the server locks the connection, then the order).
 Ending a connection cancels its `SENT` and `ACCEPTED` orders in the same step, so no order is placed, accepted or
-dispatched under an ended connection; `DISPATCHED` orders are never cancelled and stay receivable.
+dispatched under an ended connection; `DISPATCHED` orders are never cancelled and stay receivable (or can be closed
+as `DELIVERY_FAILED`).
 
 **Supplier side** - `/api/v1/supplier-portal`, supplier tokens, `APPROVED` businesses only:
 `GET | PUT /directory-listing` `{listed}` (off until turned on), `GET /connections?status=`, `GET /connections/{id}`,
@@ -176,4 +189,5 @@ dispatched under an ended connection; `DISPATCHED` orders are never cancelled an
 `POST /orders/{id}/dispatch` `{reason?}`. Suppliers see a shop's name, city and state only.
 
 Error codes of these endpoints are listed in `NetworkError` (for example `CONNECTION_EXISTS`, `PRODUCT_NOT_LINKED`,
-`ORDER_STATUS`, `ORDER_ALREADY_RECEIVED`, `ORDER_ID_REUSED`, `CONTACT_NOT_LINKED`).
+`ORDER_STATUS`, `ORDER_ALREADY_RECEIVED`, `ORDER_ID_REUSED`, `CONTACT_NOT_LINKED`, `QUANTITY_PRECISION`,
+`PURCHASE_FROM_ORDER`).

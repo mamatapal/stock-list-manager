@@ -222,4 +222,61 @@ class NetworkConcurrencyIT extends NetworkTestSupport {
         assertEquals(received, batches, "one batch per received order, none for cancelled ones");
         assertTrue(received >= ROUNDS / 2, "every dispatched order was received");
     }
+
+    private String dispatchedOrder(World w) {
+        String id = placeSent(w).str("id");
+        assertEquals(200, supplierAct(w.sup(), id, "accept", null).status());
+        assertEquals(200, supplierAct(w.sup(), id, "dispatch", null).status());
+        return id;
+    }
+
+    private Resp failDelivery(World w, String id) {
+        return post(NET + "/orders/" + id + "/delivery-failed", "{\"reason\":\"never arrived\"}", w.shop().owner());
+    }
+
+    @Test
+    void closingAFailedDeliveryWhileTheGoodsAreReceived() throws Exception {
+        World w = world();
+        for (int round = 0; round < ROUNDS; round++) {
+            Resp order = get(NET + "/orders/" + dispatchedOrder(w), w.shop().owner());
+            String id = order.str("id");
+            String rp = jdbc.queryForObject("SELECT BIN_TO_UUID(receipt_purchase_id) FROM purchase_order "
+                    + "WHERE id = UUID_TO_BIN(?)", String.class, id);
+            String body = receiptJson(null, null, receiptLine(lineFor(order, w.product()), "3", null, null, null));
+            Resp[] out = race(() -> post(NET + "/orders/" + id + "/receive", body, w.shop().owner()),
+                    () -> failDelivery(w, id));
+            assertEquals(1, (out[0].status() == 200 ? 1 : 0) + (out[1].status() == 200 ? 1 : 0),
+                    "exactly one wins: " + out[0].raw() + " / " + out[1].raw());
+            if (out[0].status() == 200) {
+                refusedNotFailed(out[1]);
+                assertEquals("RECEIVED", status(w, id));
+                assertArrayEquals(new long[]{1, 1, 1}, receiptRows(rp), "round " + round);
+            } else {
+                refusedNotFailed(out[0]);
+                assertEquals("ORDER_STATUS", out[0].str("code"));
+                assertEquals("DELIVERY_FAILED", status(w, id));
+                assertArrayEquals(new long[]{0, 0, 0}, receiptRows(rp), "nothing received, round " + round);
+            }
+        }
+        long received = jdbc.queryForObject("SELECT COUNT(*) FROM purchase_order WHERE connection_id = UUID_TO_BIN(?) "
+                + "AND status = 'RECEIVED'", Long.class, w.conn());
+        assertEquals(received, batchCount(w.item()), "batches only for received orders");
+    }
+
+    @Test
+    void closingAFailedDeliveryWhileTheConnectionEnds() throws Exception {
+        World w = world();
+        for (int round = 0; round < ROUNDS; round++) {
+            if (round > 0) reopen(w);
+            String id = dispatchedOrder(w);
+            int r = round;
+            Resp[] out = race(() -> end(w, r), () -> failDelivery(w, id));
+            ended(out[0]);
+            assertEquals(200, out[1].status(), "a dispatched order can be closed either way: " + out[1].raw());
+            assertEquals("DELIVERY_FAILED", status(w, id), "round " + round);
+            assertEquals(0, openOrders(w), "round " + round);
+        }
+        assertEquals(0, batchCount(w.item()));
+        assertEquals(0, dispatchedThenCancelled(w));
+    }
 }

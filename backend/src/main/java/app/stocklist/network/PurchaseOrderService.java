@@ -162,6 +162,8 @@ public class PurchaseOrderService {
             items.requireUsable(bid, link.getItemId());
             BigDecimal qty = Decimals.parse(li.quantity(), "Quantity of " + product.getNameEn(), 3, false);
             if (qty == null) throw NetworkError.INVALID_REQUEST.ex();
+            // The whole order must be receivable: the quantity in the shop's unit must fit 3 decimal places.
+            shopQuantity(qty, link.getUnitsPerPack());
             BigDecimal amount = qty.multiply(product.getPrice()).setScale(2, RoundingMode.HALF_UP);
             total = total.add(amount);
             rows.add(new PurchaseOrderLine(UUID.randomUUID(), bid, orderId, ++lineNo, product, link, qty, amount));
@@ -209,6 +211,26 @@ public class PurchaseOrderService {
         String from = o.getStatus();
         Instant now = Instant.now(clock);
         o.cancel(reason, now);
+        o = orders.saveAndFlush(o);
+        record(o, PurchaseOrderEvent.ACTOR_SHOP, caller.userId(), from, reason, now);
+        return shopDto(o, true);
+    }
+
+    /**
+     * The shop closes a DISPATCHED order whose goods never arrived (DELIVERY_FAILED, reason required). Nothing is
+     * received: no purchase, delivery or batch, and stock is unchanged. The order is final afterwards. Allowed after
+     * the connection has ended, like the receipt of a dispatched order. Same lock order as every order change.
+     */
+    @Transactional
+    public ShopOrderDto deliveryFailed(AuthUser caller, UUID id, ReasonInput in) {
+        NetworkSupport.requireAny(caller, Permission.PURCHASE_ORDER_MANAGE);
+        PurchaseOrder o = lockShopRow(caller, id).order();
+        String reason = NetworkSupport.reason(in);
+        if (reason == null) throw NetworkError.REASON_REQUIRED.ex();
+        if (PurchaseOrder.RECEIVED.equals(o.getStatus())) throw NetworkError.ORDER_ALREADY_RECEIVED.ex();
+        String from = o.getStatus();
+        Instant now = Instant.now(clock);
+        o.deliveryFailed(reason, now);
         o = orders.saveAndFlush(o);
         record(o, PurchaseOrderEvent.ACTOR_SHOP, caller.userId(), from, reason, now);
         return shopDto(o, true);
@@ -273,14 +295,7 @@ public class PurchaseOrderService {
             outcome.put(line.getId(), new BigDecimal[]{qty, price});
             if (qty.signum() == 0) continue;
 
-            BigDecimal shopQty;
-            try {
-                shopQty = qty.multiply(line.getUnitsPerPack()).stripTrailingZeros();
-                if (shopQty.scale() > 3) throw NetworkError.QUANTITY_PRECISION.ex();
-                shopQty = shopQty.setScale(Math.max(shopQty.scale(), 0), RoundingMode.UNNECESSARY);
-            } catch (ArithmeticException e) {
-                throw NetworkError.QUANTITY_PRECISION.ex();
-            }
+            BigDecimal shopQty = shopQuantity(qty, line.getUnitsPerPack());
             UUID purchaseLineId = UUID.randomUUID();
             if (saved) savedPriceLines.add(purchaseLineId);
             // TOTAL basis: the line amount in the supplier's unit, so no per-unit rounding happens on conversion.
@@ -318,6 +333,17 @@ public class PurchaseOrderService {
                 PurchaseOrderEvent.ACTOR_SHOP, caller.userId(), from, order.getStatus(), null, receiptStatus, now));
         orders.flush();
         return new ReceiptDto(shopDto(order, true), order.getPurchaseId(), receiptStatus);
+    }
+
+    /**
+     * A quantity in the supplier's unit converted to the shop's unit (quantity x units per pack). Used when an order
+     * is placed and when it is received, so an order that can be placed can always be received in full: the result
+     * must fit the 3 decimal places of purchase and stock quantities (e.g. 1.5 x 0.125 = 0.1875 is refused).
+     */
+    static BigDecimal shopQuantity(BigDecimal quantity, BigDecimal unitsPerPack) {
+        BigDecimal q = quantity.multiply(unitsPerPack).stripTrailingZeros();
+        if (q.scale() > 3) throw NetworkError.QUANTITY_PRECISION.ex();
+        return q.scale() < 0 ? q.setScale(0, RoundingMode.UNNECESSARY) : q;
     }
 
     // ================================================================== supplier
@@ -394,7 +420,7 @@ public class PurchaseOrderService {
     // ================================================================== shared
 
     private static String status(String status) {
-        String s = NetworkSupport.text(status, 12);
+        String s = NetworkSupport.text(status, 20);
         if (s != null && !PurchaseOrder.STATUSES.contains(s)) throw NetworkError.INVALID_REQUEST.ex();
         return s;
     }
@@ -443,8 +469,8 @@ public class PurchaseOrderService {
         return new ShopOrderDto(o.getId(), o.getStatus(), support.supplierSummary(o.getSupplierOrgId()),
                 o.getConnectionId(), o.getNote(), NetworkSupport.money(o.getTotalAmount()), o.getLineCount(),
                 o.getCreatedBy(), o.getCreatedAt(), o.getUpdatedAt(), o.getAcceptedAt(), o.getRejectedAt(),
-                o.getDispatchedAt(), o.getReceivedAt(), o.getCancelledAt(), o.getStatusReason(), o.getPurchaseId(),
-                o.getReceiptStatus(), o.getVersion() == null ? 0 : o.getVersion(), full ? lineDtos(o, true) : List.of(),
+                o.getDispatchedAt(), o.getReceivedAt(), o.getCancelledAt(), o.getDeliveryFailedAt(),
+                o.getStatusReason(), o.getPurchaseId(), o.getReceiptStatus(), o.getVersion() == null ? 0 : o.getVersion(), full ? lineDtos(o, true) : List.of(),
                 full ? events.findByOrderIdOrderByIdAsc(o.getId()).stream().map(e -> NetworkSupport.event(e, true))
                         .toList() : List.of());
     }
@@ -453,7 +479,8 @@ public class PurchaseOrderService {
         return new SupplierOrderDto(o.getId(), o.getStatus(), support.shopSummary(o.getBusinessId()), o.getNote(),
                 NetworkSupport.money(o.getTotalAmount()), o.getLineCount(), o.getCreatedAt(), o.getUpdatedAt(),
                 o.getAcceptedAt(), o.getRejectedAt(), o.getDispatchedAt(), o.getReceivedAt(), o.getCancelledAt(),
-                o.getStatusReason(), o.getReceiptStatus(), o.getVersion() == null ? 0 : o.getVersion(),
+                o.getDeliveryFailedAt(), o.getStatusReason(), o.getReceiptStatus(),
+                o.getVersion() == null ? 0 : o.getVersion(),
                 full ? lineDtos(o, false) : List.of(),
                 full ? events.findByOrderIdOrderByIdAsc(o.getId()).stream().map(e -> NetworkSupport.event(e, false))
                         .toList() : List.of());
