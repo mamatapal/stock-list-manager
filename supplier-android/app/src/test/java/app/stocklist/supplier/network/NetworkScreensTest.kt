@@ -18,7 +18,9 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -60,7 +62,7 @@ import org.robolectric.annotation.Config
  * languages. Screens are tested through their stateless *Content composables, with the server answers as data.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], application = Application::class)
+@Config(sdk = [34], application = Application::class, qualifiers = "w411dp-h914dp")
 class NetworkScreensTest {
     @get:Rule
     val rule = createComposeRule()
@@ -88,6 +90,9 @@ class NetworkScreensTest {
         "0f3a9c1d-1111-2222-3333-444455556666", status, shop, note = "Before Monday", totalAmount = "1200.00",
         lineCount = 1, createdAt = at, lines = listOf(line), history = listOf(EventDto("SHOP", toStatus = "SENT", at = at)),
     )
+
+    /** Scrolls a node of a scrolling screen into view and checks it is shown (screens are longer than the phone). */
+    private fun SemanticsNodeInteraction.shown(): SemanticsNodeInteraction = performScrollTo().assertIsDisplayed()
 
     private fun confirmInDialog(label: String) =
         rule.onNode(hasText(label) and hasAnyAncestor(isDialog())).performClick()
@@ -203,11 +208,11 @@ class NetworkScreensTest {
         rule.setContent { SupplierTheme { OrderContent(Load.Ready(order("SENT")), false, null, null, {}, {}, { accepted++ }, {}, {}) } }
         rule.onNodeWithText("Order #0F3A9C1D").assertIsDisplayed()
         rule.onNodeWithTag("status").assertTextEquals("New order")
-        rule.onNodeWithText("Toor dal").assertIsDisplayed()
-        rule.onNodeWithText("10 kg × ₹120.00 = ₹1,200.00").assertIsDisplayed()
-        rule.onNodeWithTag("total").assertIsDisplayed()
+        rule.onNodeWithText("Toor dal").shown()
+        rule.onNodeWithText("10 kg × ₹120.00 = ₹1,200.00").shown()
+        rule.onNodeWithTag("total").shown().assertTextEquals("₹1,200.00")
         rule.onNodeWithTag("dispatch").assertDoesNotExist()
-        rule.onNodeWithTag("accept").performClick()
+        rule.onNodeWithTag("accept").performScrollTo().performClick()
         confirmInDialog("Accept order")
         assertEquals(1, accepted)
     }
@@ -243,8 +248,8 @@ class NetworkScreensTest {
         )
         rule.setContent { SupplierTheme { OrderContent(Load.Ready(received), false, null, null, {}, {}, {}, {}, {}) } }
         rule.onNodeWithTag("status").assertTextEquals("Received by the shop")
-        rule.onNodeWithText("Received: 8 kg").assertIsDisplayed()
-        rule.onNodeWithText("Short: 2 kg").assertIsDisplayed()
+        rule.onNodeWithText("Received: 8 kg").shown()
+        rule.onNodeWithText("Short: 2 kg").shown()
         rule.onNodeWithTag("accept").assertDoesNotExist()
         rule.onNodeWithTag("dispatch").assertDoesNotExist()
     }
@@ -288,8 +293,8 @@ class NetworkScreensTest {
                     null, {}, {}, {}, {}, {})
             }
         }
-        rule.onNodeWithText("This order has already changed. Refresh to see its current status").assertIsDisplayed()
-        rule.onNodeWithText("Toor dal").assertIsDisplayed()
+        rule.onNodeWithText("This order has already changed. Refresh to see its current status").shown()
+        rule.onNodeWithText("Toor dal").shown()
     }
 
     // ------------------------------------------------------------------ catalogue form
@@ -315,17 +320,17 @@ class NetworkScreensTest {
         }
         rule.onNodeWithText("Add product").assertIsDisplayed()
         rule.onNodeWithTag("toggle-active").assertDoesNotExist()
-        rule.onNodeWithTag("save").performClick()
-        rule.onNodeWithText("Enter the price").assertIsDisplayed()
+        rule.onNodeWithTag("save").performScrollTo().performClick()
+        rule.onNodeWithText("Enter the price").shown()
         assertEquals(0, saved)
         rule.onNodeWithTag("nameEn").performTextInput("Toor dal")
         rule.onNodeWithTag("unit").performTextInput("kg")
         rule.onNodeWithTag("price").performTextInput("12.345")
-        rule.onNodeWithTag("save").performClick()
-        rule.onNodeWithText("Enter the price as a number, for example 240 or 240.50").assertIsDisplayed()
+        rule.onNodeWithTag("save").performScrollTo().performClick()
+        rule.onNodeWithText("Enter the price as a number, for example 240 or 240.50").shown()
         assertEquals(0, saved)
         rule.onNodeWithTag("price").performTextReplacement("120.50")
-        rule.onNodeWithTag("save").performClick()
+        rule.onNodeWithTag("save").performScrollTo().performClick()
         assertEquals(1, saved)
     }
 

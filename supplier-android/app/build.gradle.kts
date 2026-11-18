@@ -142,3 +142,11 @@ dependencies {
     testImplementation(libs.androidx.test.core)
     debugImplementation(libs.compose.ui.test.manifest)
 }
+
+// Failed tests show their full message and stack trace in the build log (the CI log is often all there is).
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
