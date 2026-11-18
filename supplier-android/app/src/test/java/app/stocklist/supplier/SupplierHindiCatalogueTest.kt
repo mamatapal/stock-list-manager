@@ -70,6 +70,23 @@ class SupplierHindiCatalogueTest {
         ServerErrors.texts.values.forEach { assertTrue("No Hindi for \"$it\"", it in HindiStrings.map) }
     }
 
+    /**
+     * Every Supplier Network error code (NetworkError on the server) has the app's own English and Hindi text, so a
+     * refused accept, dispatch or catalogue change is always explained in the app's languages.
+     */
+    @Test
+    fun everySupplierNetworkErrorCodeHasHindi() {
+        val enumFile = listOf(
+            "../../backend/src/main/java/app/stocklist/network/NetworkError.java",
+            "../backend/src/main/java/app/stocklist/network/NetworkError.java",
+        ).map(::File).firstOrNull { it.isFile } ?: error("backend NetworkError.java not found")
+        val codes = Regex("""^\s{4}([A-Z][A-Z_]+)\(HttpStatus\.""", RegexOption.MULTILINE)
+            .findAll(enumFile.readText()).map { it.groupValues[1] }.toList()
+        assertTrue("found only ${codes.size} codes", codes.size >= 25)
+        val missing = codes.filter { it !in ServerErrors.texts }
+        assertTrue("No app text for Supplier Network codes: $missing", missing.isEmpty())
+    }
+
     @Test
     fun switchingLanguageTranslatesAndKeepsWhatWasTyped() {
         assertEquals("Waiting for approval", tr("Waiting for approval"))

@@ -87,6 +87,8 @@ android {
     }
     testOptions {
         unitTests.isReturnDefaultValues = true
+        // Robolectric screen tests need the app's resources and the test activity of ui-test-manifest.
+        unitTests.isIncludeAndroidResources = true
     }
 }
 
@@ -133,4 +135,10 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.okhttp.mockwebserver)
+    // Screen tests run on the JVM with Robolectric (test only; nothing of this is in the app).
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    debugImplementation(libs.compose.ui.test.manifest)
 }
