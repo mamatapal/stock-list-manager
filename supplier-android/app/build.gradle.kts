@@ -145,6 +145,8 @@ dependencies {
 
 // Failed tests show their full message and stack trace in the build log (the CI log is often all there is).
 tasks.withType<Test>().configureEach {
+    // Robolectric screen tests need more than the default 512 MB.
+    maxHeapSize = "2g"
     testLogging {
         events("failed")
         exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
