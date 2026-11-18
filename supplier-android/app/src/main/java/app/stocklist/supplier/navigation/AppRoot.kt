@@ -20,6 +20,13 @@ import app.stocklist.supplier.feature.auth.CheckEmailScreen
 import app.stocklist.supplier.feature.auth.ForgotPasswordScreen
 import app.stocklist.supplier.feature.auth.LoginScreen
 import app.stocklist.supplier.feature.auth.RegisterScreen
+import app.stocklist.supplier.feature.network.CatalogueScreen
+import app.stocklist.supplier.feature.network.ConnectionScreen
+import app.stocklist.supplier.feature.network.ConnectionsScreen
+import app.stocklist.supplier.feature.network.ListingScreen
+import app.stocklist.supplier.feature.network.OrderScreen
+import app.stocklist.supplier.feature.network.OrdersScreen
+import app.stocklist.supplier.feature.network.ProductFormScreen
 import app.stocklist.supplier.feature.welcome.WelcomeScreen
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -73,6 +80,7 @@ private fun SignedInNav() {
                 onDetails = { nav.navigate("details?edit=false") },
                 onCorrect = { nav.navigate("details?edit=true") },
                 onSettings = { nav.navigate("settings") },
+                onNetwork = { route -> nav.navigate(route) },
             )
         }
         composable("details?edit={edit}", arguments = listOf(navArgument("edit") {
@@ -84,5 +92,41 @@ private fun SignedInNav() {
         composable("settings") {
             SettingsScreen(onBack = { nav.popBackStack() })
         }
+        // Supplier Network (approved businesses; the server refuses everyone else).
+        composable(NetworkRoutes.LISTING) { ListingScreen(onBack = { nav.popBackStack() }) }
+        composable(NetworkRoutes.CONNECTIONS) {
+            ConnectionsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("connection/$it") })
+        }
+        composable("connection/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+            ConnectionScreen(onBack = { nav.popBackStack() })
+        }
+        composable(NetworkRoutes.CATALOGUE) {
+            CatalogueScreen(
+                onBack = { nav.popBackStack() },
+                onAdd = { nav.navigate("product") },
+                onOpen = { nav.navigate("product?id=$it") },
+            )
+        }
+        composable("product?id={id}", arguments = listOf(navArgument("id") {
+            type = NavType.StringType
+            nullable = true
+            defaultValue = null
+        })) {
+            ProductFormScreen(onDone = { nav.popBackStack() })
+        }
+        composable(NetworkRoutes.ORDERS) {
+            OrdersScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("order/$it") })
+        }
+        composable("order/{id}", arguments = listOf(navArgument("id") { type = NavType.StringType })) {
+            OrderScreen(onBack = { nav.popBackStack() })
+        }
     }
+}
+
+/** Start screens of the Supplier Network section. */
+object NetworkRoutes {
+    const val LISTING = "listing"
+    const val CONNECTIONS = "connections"
+    const val CATALOGUE = "catalogue"
+    const val ORDERS = "orders"
 }
