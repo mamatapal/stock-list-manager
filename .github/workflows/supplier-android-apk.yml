@@ -8,11 +8,13 @@ on:
     paths:
       - "supplier-android/**"
       - "backend/src/main/java/app/stocklist/supplieraccount/SupplierPortalError.java"
+      - "backend/src/main/java/app/stocklist/network/NetworkError.java"
       - ".github/workflows/supplier-android-apk.yml"
   pull_request:
     paths:
       - "supplier-android/**"
       - "backend/src/main/java/app/stocklist/supplieraccount/SupplierPortalError.java"
+      - "backend/src/main/java/app/stocklist/network/NetworkError.java"
       - ".github/workflows/supplier-android-apk.yml"
   workflow_dispatch:
     inputs:
@@ -150,6 +152,120 @@ jobs:
         with:
           name: supplier-android-reports
           path: |
+            supplier-android/app/build/reports/
+            supplier-android/app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # The app's network layer against the real backend: a throwaway MySQL 8.4 and a backend built from this commit,
+  # both on the CI machine and deleted with it. Never production. The test supplier is registered and its email
+  # verified through the real API; only the administrator's approval is written directly into this test database.
+  end-to-end:
+    name: End-to-end tests against a test backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: e2e-root
+          MYSQL_DATABASE: stocklist
+          MYSQL_USER: stocklist
+          MYSQL_PASSWORD: e2e-password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pe2e-root"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      E2E_BASE_URL: http://127.0.0.1:8080/
+      E2E_SUPPLIER_EMAIL: approved.supplier@example.com
+      E2E_SUPPLIER_PASSWORD: Supplier-Pass-2026
+      E2E_PENDING_EMAIL: pending.supplier@example.com
+      E2E_PENDING_PASSWORD: Supplier-Pass-2026
+    steps:
+      - name: Check out
+        uses: actions/checkout@v5
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Build the backend (tests run in the backend workflow)
+        working-directory: backend
+        run: |
+          chmod +x mvnw
+          ./mvnw -B -ntp -DskipTests package
+          cp target/*.jar ../backend-e2e.jar
+
+      - name: Start the test backend
+        run: |
+          export DB_URL="jdbc:mysql://127.0.0.1:3306/stocklist?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+          export DB_USER=stocklist DB_PASSWORD=e2e-password
+          export JWT_SIGNING_KEY="$(openssl rand -base64 48)" SUPPLIER_JWT_SIGNING_KEY="$(openssl rand -base64 48)"
+          export ADMIN_TOTP_KEY="$(openssl rand -base64 32)" MAIL_LOG_TOKENS=true PUBLIC_BASE_URL=http://127.0.0.1:8080
+          nohup java -jar backend-e2e.jar > backend-e2e.log 2>&1 &
+          for i in $(seq 1 90); do
+            if curl -sf http://127.0.0.1:8080/actuator/health > /dev/null; then echo "backend up"; exit 0; fi
+            sleep 2
+          done
+          echo "::error::The test backend did not start"; tail -100 backend-e2e.log; exit 1
+
+      - name: Create the test suppliers (register and verify through the API; approve one in the test database)
+        run: |
+          set -e
+          register() {
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/api/v1/supplier-portal/auth/register \
+              -H 'Content-Type: application/json' -d "{\"legalName\":\"$2\",\"tradeName\":null,\"contactPerson\":\"Ravi Sharma\",
+                \"mobile\":\"9876543210\",\"email\":\"$1\",\"password\":\"Supplier-Pass-2026\",\"address\":\"MG Road\",
+                \"city\":\"Indore\",\"state\":\"Madhya Pradesh\",\"pinCode\":\"452001\",\"gstin\":null}")
+            [ "$code" = "202" ] || { echo "::error::register $1 answered $code"; exit 1; }
+            sleep 1
+            token=$(grep -o 'verify-email.html#t=[^ ]*' backend-e2e.log | tail -1 | sed 's/.*#t=//')
+            [ -n "$token" ] || { echo "::error::no verification link logged"; exit 1; }
+            code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:8080/api/v1/supplier-portal/auth/verify-email \
+              -H 'Content-Type: application/json' -d "{\"token\":\"$token\"}")
+            [ "$code" = "200" ] || { echo "::error::verify $1 answered $code"; exit 1; }
+          }
+          register "$E2E_SUPPLIER_EMAIL" "Sharma Wholesale Traders"
+          register "$E2E_PENDING_EMAIL" "Pending Supply Company"
+          docker exec ${{ job.services.mysql.id }} mysql -ustocklist -pe2e-password stocklist -e \
+            "UPDATE supplier_org SET status='APPROVED', reviewed_at=NOW(6) WHERE email='$E2E_SUPPLIER_EMAIL';
+             SELECT email, status FROM supplier_org;"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
+
+      - name: Accept Android SDK licences and install SDK 35
+        run: |
+          yes | sdkmanager --licenses > /dev/null
+          sdkmanager --install "platforms;android-35" "build-tools;35.0.0" > /dev/null
+
+      - name: Set up Gradle (with caching)
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Run the end-to-end tests
+        working-directory: supplier-android
+        run: |
+          chmod +x gradlew
+          ./gradlew --stacktrace testDebugUnitTest --tests '*SupplierNetworkEndToEndTest*'
+          for f in app/build/test-results/testDebugUnitTest/*EndToEnd*.xml; do
+            grep -q 'skipped="0"' "$f" || { echo "::error::end-to-end tests were skipped"; exit 1; }
+            grep -o 'tests="[0-9]*" skipped="[0-9]*" failures="[0-9]*" errors="[0-9]*"' "$f"
+          done
+
+      - name: Upload backend log and test reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: supplier-android-e2e-reports
+          path: |
+            backend-e2e.log
             supplier-android/app/build/reports/
             supplier-android/app/build/test-results/
           if-no-files-found: ignore
