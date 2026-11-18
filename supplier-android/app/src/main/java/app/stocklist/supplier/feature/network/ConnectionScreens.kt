@@ -226,24 +226,6 @@ fun ConnectionContent(
             onConfirm = { dialog = null; onAccept() },
             onDismiss = { dialog = null },
         )
-        "decline" -> ReasonDialog(
-            title = tr("Decline this request?"),
-            message = tr("The shop will see that you declined. It can send a new request later."),
-            fieldLabel = tr("Reason (optional)"),
-            confirmLabel = tr("Decline"),
-            required = false,
-            onConfirm = { dialog = null; onDecline(it) },
-            onDismiss = { dialog = null },
-        )
-        "end" -> ReasonDialog(
-            title = tr("End this connection?"),
-            message = tr("Orders the shop sent that you have not dispatched yet will be cancelled. Dispatched orders stay open until the shop receives them."),
-            fieldLabel = tr("Reason (optional)"),
-            confirmLabel = tr("End connection"),
-            required = false,
-            onConfirm = { dialog = null; onEnd(it) },
-            onDismiss = { dialog = null },
-        )
     }
     NetworkScaffold(title = tr("Shop connection"), onBack = onBack, busy = busy, onRefresh = onRefresh) {
         LoadContent(load, onRetry = onRefresh) { c ->
@@ -253,6 +235,28 @@ fun ConnectionContent(
             ) {
                 ErrorText(error)
                 done?.let { Text(it, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.testTag("done")) }
+                when (dialog) {
+                    "decline" -> ReasonPanel(
+                        title = tr("Decline this request?"),
+                        message = tr("The shop will see that you declined. It can send a new request later."),
+                        fieldLabel = tr("Reason (optional)"),
+                        confirmLabel = tr("Decline"),
+                        required = false,
+                        busy = busy,
+                        onConfirm = { dialog = null; onDecline(it) },
+                        onCancel = { dialog = null },
+                    )
+                    "end" -> ReasonPanel(
+                        title = tr("End this connection?"),
+                        message = tr("Orders the shop sent that you have not dispatched yet will be cancelled. Dispatched orders stay open until the shop receives them."),
+                        fieldLabel = tr("Reason (optional)"),
+                        confirmLabel = tr("End connection"),
+                        required = false,
+                        busy = busy,
+                        onConfirm = { dialog = null; onEnd(it) },
+                        onCancel = { dialog = null },
+                    )
+                }
                 SectionCard(c.shop.name) {
                     StatusChip(NetworkText.connectionStatus(c.status), connectionColor(c.status))
                     LabelValue(tr("City"), c.shop.city)
@@ -266,7 +270,7 @@ fun ConnectionContent(
                     c.statusReason?.takeIf { it.isNotBlank() }?.let { LabelValue(tr("Reason"), it) }
                     Text(tr("Shops share only their name, city and state."), style = MaterialTheme.typography.bodySmall)
                 }
-                when (c.status) {
+                if (dialog == null) when (c.status) {
                     ConnectionStatus.REQUESTED -> {
                         Button(onClick = { dialog = "accept" }, enabled = !busy, modifier = Modifier.fillMaxWidth().testTag("accept")) {
                             Text(tr("Accept"))

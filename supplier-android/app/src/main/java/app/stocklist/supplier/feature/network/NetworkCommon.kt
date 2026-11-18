@@ -13,14 +13,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -127,49 +125,53 @@ fun orderColor(status: String): Color = when (status) {
 }
 
 /**
- * Confirmation that also asks for a reason or note. With required = true the button stays off until something is
- * typed; the text is checked like on the server (at most 500 characters).
+ * The confirmation step of an action that takes a reason or note (decline, end, reject, dispatch), shown on the
+ * screen itself rather than in a pop-up so the keyboard has room. Nothing is sent until the confirm button is
+ * pressed; with required = true it stays off until something is typed. Checked like on the server (at most 500).
  */
 @Composable
-fun ReasonDialog(
+fun ReasonPanel(
     title: String,
     message: String,
     fieldLabel: String,
     confirmLabel: String,
     required: Boolean,
+    busy: Boolean,
     onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
+    onCancel: () -> Unit,
 ) {
     var text by rememberSaveable { mutableStateOf("") }
     var error by rememberSaveable { mutableStateOf<String?>(null) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(message)
-                FormField(
-                    value = text,
-                    onValueChange = { text = it; error = null },
-                    label = fieldLabel,
-                    error = error,
-                    singleLine = false,
-                    modifier = Modifier.testTag("reason"),
-                )
+    androidx.compose.material3.Card(
+        colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+        modifier = Modifier.fillMaxWidth().testTag("reason-panel"),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(message, style = MaterialTheme.typography.bodyMedium)
+            FormField(
+                value = text,
+                onValueChange = { text = it; error = null },
+                label = fieldLabel,
+                error = error,
+                singleLine = false,
+                modifier = Modifier.testTag("reason"),
+            )
+            androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.OutlinedButton(onClick = onCancel, modifier = Modifier.weight(1f)) {
+                    Text(tr("Cancel"))
+                }
+                androidx.compose.material3.Button(
+                    onClick = {
+                        error = ProductRules.reason(text, required)
+                        if (error == null) onConfirm(text.trim())
+                    },
+                    enabled = !busy && (!required || text.isNotBlank()),
+                    modifier = Modifier.weight(1f).testTag("confirm"),
+                ) { Text(confirmLabel) }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    error = ProductRules.reason(text, required)
-                    if (error == null) onConfirm(text.trim())
-                },
-                enabled = !required || text.isNotBlank(),
-                modifier = Modifier.testTag("confirm"),
-            ) { Text(confirmLabel) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
-    )
+        }
+    }
 }
 
 /** The history of a connection or order, oldest first: when, who, the new status and any reason. */

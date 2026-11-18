@@ -236,24 +236,6 @@ fun OrderContent(
             onConfirm = { dialog = null; onAccept() },
             onDismiss = { dialog = null },
         )
-        "reject" -> ReasonDialog(
-            title = tr("Reject this order?"),
-            message = tr("The shop will see your reason. A rejected order cannot be accepted later."),
-            fieldLabel = tr("Reason"),
-            confirmLabel = tr("Reject order"),
-            required = true,
-            onConfirm = { dialog = null; onReject(it) },
-            onDismiss = { dialog = null },
-        )
-        "dispatch" -> ReasonDialog(
-            title = tr("Mark as dispatched?"),
-            message = tr("Do this when the goods have left. The shop then confirms what it actually received; only that changes its stock."),
-            fieldLabel = tr("Note for the shop (optional), e.g. vehicle or bill number"),
-            confirmLabel = tr("Mark as dispatched"),
-            required = false,
-            onConfirm = { dialog = null; onDispatch(it.ifBlank { null }) },
-            onDismiss = { dialog = null },
-        )
     }
     NetworkScaffold(
         title = order?.let { tr("Order %1\$s", NetworkText.orderNumber(it.id)) } ?: tr("Order"),
@@ -275,7 +257,29 @@ fun OrderContent(
                         o.statusReason?.takeIf { it.isNotBlank() }?.let { Text(tr("Reason: %1\$s", it)) }
                     }
                 }
-                when (o.status) {
+                when (dialog) {
+                    "reject" -> ReasonPanel(
+                        title = tr("Reject this order?"),
+                        message = tr("The shop will see your reason. A rejected order cannot be accepted later."),
+                        fieldLabel = tr("Reason"),
+                        confirmLabel = tr("Reject order"),
+                        required = true,
+                        busy = busy,
+                        onConfirm = { dialog = null; onReject(it) },
+                        onCancel = { dialog = null },
+                    )
+                    "dispatch" -> ReasonPanel(
+                        title = tr("Mark as dispatched?"),
+                        message = tr("Do this when the goods have left. The shop then confirms what it actually received; only that changes its stock."),
+                        fieldLabel = tr("Note for the shop (optional), e.g. vehicle or bill number"),
+                        confirmLabel = tr("Mark as dispatched"),
+                        required = false,
+                        busy = busy,
+                        onConfirm = { dialog = null; onDispatch(it.ifBlank { null }) },
+                        onCancel = { dialog = null },
+                    )
+                }
+                if (dialog == null) when (o.status) {
                     OrderStatus.SENT -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { dialog = "accept" }, enabled = !busy, modifier = Modifier.weight(1f).testTag("accept")) {
                             Text(tr("Accept order"))
