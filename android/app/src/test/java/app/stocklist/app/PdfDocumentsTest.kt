@@ -88,7 +88,47 @@ class PdfDocumentsTest {
         val without = PdfDocuments.purchase(ctx(profit = false), p, lines, listOf(d), dl, PdfFixtures.supplier())
         assertFalse(without.allText().contains("profit", ignoreCase = true))
         assertFalse(without.allText().contains("550"))
-        assertFalse(without.allText().contains("Selling price"))
+        // the selling price is on every purchase screen and is not profit, so it stays; only profit is held back
+        assertTrue(without.tables().first().columns.any { it.title == "Selling price" })
+        assertEquals(listOf("2", "Oil", "12.5 L", "10", "₹100.00", "₹1,250.00", "₹124.00"), without.tables().first().rows[1].cells)
+    }
+
+    @Test
+    fun sellingPriceListHasNoCostProfitOrSupplier() {
+        val p = purchase("p1", "K-1", "2026-11-10", cost = "2450.00", profit = "550.00", items = 3)
+        val lines = listOf(line("a", "p1", "Rice", "25", "kg", "48", "1200.00", "58", "250.00"),
+            line("b", "p1", "Oil", "12.5", "L", "100", "1250.00", "124", "300.00", order = 1),
+            line("c", "p1", "Salt", "10", "kg", "20", "200.00", null, null, order = 2))
+        val doc = PdfDocuments.purchaseSellingPrices(ctx(profit = true), p, lines)
+        val t = doc.tables().single()
+        assertEquals(listOf("#", "Item", "Quantity", "Selling price"), t.columns.map { it.title })
+        assertEquals(listOf("1", "Rice", "25 kg", "₹58.00 / kg"), t.rows[0].cells)
+        assertEquals(listOf("3", "Salt", "10 kg", "-"), t.rows[2].cells)
+        assertTrue(doc.allText().contains("have no selling price yet"))
+        val text = doc.allText()
+        for (secret in listOf("2,450", "1,200", "1,250", "100.00", "48", "550", "250", "300", "profit", "cost", "K-1", "Kumar", "Supplier", "Invoice")) {
+            assertFalse("leaks $secret", text.contains(secret, ignoreCase = true))
+        }
+        assertFalse(doc.fileName.contains("K-1"))
+        assertTrue(doc.fileName.endsWith(".pdf"))
+    }
+
+    @Test
+    fun sellingPriceListOfCancelledPurchaseIsMarked() {
+        val cancelled = purchase("p1", "K-9", "2026-11-10", status = "CANCELLED", cost = "999.00")
+        val doc = PdfDocuments.purchaseSellingPrices(ctx(), cancelled, emptyList())
+        assertTrue(doc.blocks.filterIsInstance<Note>().first().warning)
+        assertEquals("This purchase has no items", doc.tables().single().emptyText)
+    }
+
+    @Test
+    fun purchaseJobsKeepTheirChoiceInTheRoute() {
+        val full = app.stocklist.app.feature.pdf.PdfJob.Purchase("p1")
+        val selling = app.stocklist.app.feature.pdf.PdfJob.Purchase("p1", sellingOnly = true)
+        assertEquals("pdf?job=PURCHASE&id=p1", full.route)
+        assertEquals("pdf?job=PURCHASE&id=p1&filter=SELLING", selling.route)
+        assertEquals(full, app.stocklist.app.feature.pdf.PdfJob.parse("PURCHASE", "p1", null, null, null))
+        assertEquals(selling, app.stocklist.app.feature.pdf.PdfJob.parse("PURCHASE", "p1", null, null, "SELLING"))
     }
 
     @Test

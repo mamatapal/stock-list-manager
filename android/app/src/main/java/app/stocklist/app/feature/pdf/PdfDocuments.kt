@@ -121,18 +121,20 @@ object PdfDocuments {
             add(Column("#", 0.45f, Align.RIGHT)); add(Column(tr("Item"), 3.4f)); add(Column(tr("Quantity"), 1.35f, Align.RIGHT))
             add(Column(tr("Received"), 1.2f, Align.RIGHT)); add(Column(tr("Unit cost"), 1.3f, Align.RIGHT))
             add(Column(tr("Amount"), 1.45f, Align.RIGHT))
-            if (profit) { add(Column(tr("Selling price"), 1.3f, Align.RIGHT)); add(Column(tr("Expected profit"), 1.4f, Align.RIGHT)) }
+            add(Column(tr("Selling price"), 1.3f, Align.RIGHT))
+            if (profit) add(Column(tr("Expected profit"), 1.4f, Align.RIGHT))
         }
         val rows = lines.sortedBy { it.sortOrder }.mapIndexed { i, l ->
             Row(buildList {
                 add((i + 1).toString()); add(l.itemName.bi()); add(qty(l.quantity, l.unitCode))
                 add(qty(received[l.id]?.toPlainString() ?: "0")); add(unitPrice(l.purchaseUnitPrice)); add(money(l.totalCost))
-                if (profit) { add(unitPrice(l.sellingPrice)); add(money(l.expectedProfit)) }
+                add(unitPrice(l.sellingPrice))
+                if (profit) add(money(l.expectedProfit))
             })
         }
         val totals = listOf(Row(buildList {
-            add(""); add(tr("Total")); add(""); add(""); add(""); add(money(p.totalCost))
-            if (profit) { add(""); add(money(p.totalExpectedProfit)) }
+            add(""); add(tr("Total")); add(""); add(""); add(""); add(money(p.totalCost)); add("")
+            if (profit) add(money(p.totalExpectedProfit))
         }))
         val byDelivery = deliveryLines.groupBy { it.deliveryId }
         val lineName = lines.associate { it.id to (it.itemName.bi() to it.unitCode) }
@@ -174,6 +176,29 @@ object PdfDocuments {
                     Column(tr("Quantity"), 1.3f, Align.RIGHT), Column(tr("Batch"), 1.3f), Column(tr("Expiry"), 1.2f)),
                 deliveryRows) else null,
             if (deliveries.any { it.pending }) Note(tr("Grey rows are saved on this phone and not yet synced.")) else null,
+        )
+    }
+
+    /**
+     * The selling-price list of a purchase: every item bought, its quantity and its selling price, and nothing about
+     * cost, profit, the supplier or the invoice, so it can be shown to anyone.
+     */
+    fun purchaseSellingPrices(ctx: PdfContext, p: PurchaseEntity, lines: List<PurchaseLineEntity>): ReportDoc {
+        val sorted = lines.sortedBy { it.sortOrder }
+        val rows = sorted.mapIndexed { i, l ->
+            val price = unitPrice(l.sellingPrice)
+            Row(listOf((i + 1).toString(), l.itemName.bi(), qty(l.quantity, l.unitCode),
+                if (price == PdfFormat.NONE || l.unitCode.isBlank()) price else "$price / ${l.unitCode}"))
+        }
+        val missing = sorted.any { unitPrice(it.sellingPrice) == PdfFormat.NONE }
+        val cancelled = p.status == "CANCELLED"
+        return doc(ctx, tr("Selling price list"), listOf(date(p.purchaseDate)),
+            PdfFormat.fileName(tr("Selling prices"), p.purchaseDate),
+            if (cancelled) Note(tr("CANCELLED. This purchase is not counted in any total."), warning = true) else null,
+            Facts(listOf(tr("Purchase date") to date(p.purchaseDate), tr("Items") to sorted.size.toString())),
+            Table(listOf(Column("#", 0.45f, Align.RIGHT), Column(tr("Item"), 4f), Column(tr("Quantity"), 1.5f, Align.RIGHT),
+                Column(tr("Selling price"), 1.8f, Align.RIGHT)), rows, emptyText = tr("This purchase has no items")),
+            if (missing) Note(tr("Items marked - have no selling price yet.")) else null,
         )
     }
 

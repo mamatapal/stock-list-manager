@@ -8,7 +8,8 @@ import java.time.LocalDate
 /** Which PDF to make. Travels as navigation arguments, so a preview survives rotation and process death. */
 sealed interface PdfJob {
     data class StockList(val id: String) : PdfJob
-    data class Purchase(val id: String) : PdfJob
+    /** [sellingOnly]: the selling-price list (no cost, no profit) instead of the full purchase document. */
+    data class Purchase(val id: String, val sellingOnly: Boolean = false) : PdfJob
     data class Supplier(val id: String, val from: LocalDate?, val to: LocalDate?) : PdfJob
     data class Item(val id: String, val from: LocalDate?, val to: LocalDate?) : PdfJob
     data class DateRange(val from: LocalDate?, val to: LocalDate?) : PdfJob
@@ -20,7 +21,7 @@ sealed interface PdfJob {
         get() {
             val (kind, id, from, to, filter) = when (this) {
                 is StockList -> Args("LIST", id)
-                is Purchase -> Args("PURCHASE", id)
+                is Purchase -> Args("PURCHASE", id, filter = if (sellingOnly) SELLING_ONLY else null)
                 is Supplier -> Args("SUPPLIER", id, from, to)
                 is Item -> Args("ITEM", id, from, to)
                 is DateRange -> Args("RANGE", null, from, to)
@@ -35,6 +36,7 @@ sealed interface PdfJob {
                             val filter: String? = null)
 
     companion object {
+        const val SELLING_ONLY = "SELLING"
         const val ROUTE = "pdf?job={job}&id={id}&from={from}&to={to}&filter={filter}"
 
         fun parse(job: String?, id: String?, from: String?, to: String?, filter: String?): PdfJob? {
@@ -42,7 +44,7 @@ sealed interface PdfJob {
             val t = to?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
             return when (job) {
                 "LIST" -> id?.let(::StockList)
-                "PURCHASE" -> id?.let(::Purchase)
+                "PURCHASE" -> id?.let { Purchase(it, sellingOnly = filter == SELLING_ONLY) }
                 "SUPPLIER" -> id?.let { Supplier(it, f, t) }
                 "ITEM" -> id?.let { Item(it, f, t) }
                 "RANGE" -> DateRange(f, t)
