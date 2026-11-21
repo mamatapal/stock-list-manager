@@ -236,6 +236,7 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
     var showRevisions by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
+    var choosingPdf by remember { mutableStateOf(false) }
     var correcting by remember { mutableStateOf<DeliveryLineEntity?>(null) }
     val v = view
     val p = v?.purchase
@@ -247,7 +248,7 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
         TopAppBar(title = { Text(tr("Purchase")) },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
-                if (p != null && onPdf != null) IconButton(onClick = { onPdf(app.stocklist.app.feature.pdf.PdfJob.Purchase(p.id)) }) { Icon(Icons.Filled.PictureAsPdf, "PDF") }
+                if (p != null && onPdf != null) IconButton(onClick = { choosingPdf = true }) { Icon(Icons.Filled.PictureAsPdf, "PDF") }
                 if (canEdit) IconButton(onClick = { onEdit(p!!.id) }) { Icon(Icons.Filled.Edit, Bilingual.oneLine(tr("Edit"))) }
                 if (isDraft && (access.has(Permission.PURCHASE_DELETE) || p?.createdBy == vm.me)) {
                     IconButton(onClick = { deleting = true }) { Icon(Icons.Filled.Delete, Bilingual.oneLine(tr("Delete draft"))) }
@@ -374,6 +375,25 @@ fun PurchaseDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) ->
             }
             item { Spacer(Modifier.padding(24.dp)) }
         }
+    }
+    if (choosingPdf && p != null && onPdf != null) {
+        AlertDialog(
+            onDismissRequest = { choosingPdf = false },
+            title = { Text(tr("Choose a PDF")) },
+            text = {
+                Column {
+                    PdfChoice(tr("Cost price and selling price"), tr("What you paid and the selling price of every item.")) {
+                        choosingPdf = false; onPdf(app.stocklist.app.feature.pdf.PdfJob.Purchase(p.id))
+                    }
+                    HorizontalDivider()
+                    PdfChoice(tr("Selling price only"), tr("Only the selling price of every item. No cost, profit or supplier.")) {
+                        choosingPdf = false; onPdf(app.stocklist.app.feature.pdf.PdfJob.Purchase(p.id, sellingOnly = true))
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = { TextButton(onClick = { choosingPdf = false }) { Text(tr("Cancel")) } },
+        )
     }
     if (showRevisions) RevisionsDialog(vm, names, onDismiss = { showRevisions = false })
     if (cancelling) ReasonDialog(tr("Cancel purchase?"),
@@ -553,4 +573,12 @@ private fun RevisionsDialog(vm: PurchaseDetailViewModel, names: Map<String, Stri
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(tr("Close")) } })
+}
+
+@Composable
+private fun PdfChoice(title: String, hint: String, onClick: () -> Unit) {
+    Column(Modifier.fillMaxWidth().clickable(onClick = onClick).heightIn(min = 56.dp).padding(vertical = 10.dp)) {
+        Text(title, style = MaterialTheme.typography.titleSmall)
+        Text(hint, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }

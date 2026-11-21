@@ -90,7 +90,8 @@ class PdfRepository @Inject constructor(
             }
             is PdfJob.Purchase -> {
                 val p = db.purchases().get(job.id)?.takeIf { !it.deleted } ?: throw PdfException(tr("This purchase is no longer available."))
-                PdfDocuments.purchase(ctx, p, db.purchases().lines(p.id), db.purchases().observeDeliveries(p.id).first(),
+                if (job.sellingOnly) PdfDocuments.purchaseSellingPrices(ctx, p, db.purchases().lines(p.id))
+                else PdfDocuments.purchase(ctx, p, db.purchases().lines(p.id), db.purchases().observeDeliveries(p.id).first(),
                     db.purchases().deliveryLines(p.id), db.suppliers().get(p.supplierId))
             }
             is PdfJob.Supplier -> {
