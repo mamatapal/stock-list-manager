@@ -126,6 +126,8 @@ jobs:
             # Back up the database before every update (skipped on the very first deploy).
             if [ -n "$(docker compose -f docker-compose.prod.yml ps -q mysql 2>/dev/null)" ]; then ./backup.sh; else echo "First deploy: nothing to back up yet"; fi
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            # Caddy keeps the web folder open; restarting it makes it pick up the new files every time.
+            docker compose -f docker-compose.prod.yml restart caddy
             docker image prune -f > /dev/null
             grep ^API_DOMAIN= .env | cut -d= -f2' | tee deploy-output.txt
           echo "API_DOMAIN=$(tail -n 1 deploy-output.txt)" >> "$GITHUB_ENV"
