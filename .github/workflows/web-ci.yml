@@ -1,0 +1,43 @@
+name: Web app
+
+on:
+  pull_request:
+    paths: ["web/**", "scripts/export-hindi-catalogue.py", "deploy/Caddyfile", ".github/workflows/web-ci.yml", "**/HindiStrings.kt"]
+  push:
+    branches: [main]
+    paths: ["web/**", "scripts/export-hindi-catalogue.py", "deploy/Caddyfile", ".github/workflows/web-ci.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    name: Web app tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        working-directory: web
+        run: npm ci
+      - name: Hindi texts are up to date with the Android catalogue
+        run: |
+          python3 scripts/export-hindi-catalogue.py
+          git diff --exit-code -- web/src/i18n/hi.generated.json
+      - name: Type check
+        working-directory: web
+        run: npm run typecheck
+      - name: Tests
+        working-directory: web
+        run: npm test
+      - name: Build
+        working-directory: web
+        run: npm run build
+      - name: Server settings are valid
+        run: |
+          docker run --rm -e API_DOMAIN=example.test -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2 caddy validate --config /etc/caddy/Caddyfile

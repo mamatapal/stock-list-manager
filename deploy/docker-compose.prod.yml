@@ -63,6 +63,7 @@ services:
       API_DOMAIN: ${API_DOMAIN:?set API_DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web:/srv/web:ro
       - caddy-data:/data
       - caddy-config:/config
     networks: [internal]
