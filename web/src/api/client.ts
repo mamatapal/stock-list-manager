@@ -21,8 +21,8 @@ async function problem(res: Response): Promise<ApiError> {
   return new ApiError(res.status, body.code ?? 'ERROR', body.detail ?? '', body.errors ?? [])
 }
 
-async function send(method: string, path: string, body: unknown, token: string | null): Promise<Response> {
-  const headers: Record<string, string> = { Accept: 'application/json' }
+async function send(method: string, path: string, body: unknown, token: string | null, extra?: Record<string, string>): Promise<Response> {
+  const headers: Record<string, string> = { Accept: 'application/json', ...extra }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
   try {
@@ -55,16 +55,16 @@ export function refreshSession(): Promise<string | null> {
   return refreshing
 }
 
-export interface RequestOptions { auth?: boolean }
+export interface RequestOptions { auth?: boolean; headers?: Record<string, string> }
 
-export async function request<T>(method: string, path: string, body?: unknown, { auth = true }: RequestOptions = {}): Promise<T> {
+export async function request<T>(method: string, path: string, body?: unknown, { auth = true, headers }: RequestOptions = {}): Promise<T> {
   let token = auth ? getAccessToken() : null
   if (auth && !token && getRefreshToken()) token = await refreshSession()
-  let res = await send(method, path, body, token)
+  let res = await send(method, path, body, token, headers)
   if (res.status === 401 && auth) {
     const fresh = await refreshSession()
     if (!fresh) throw new ApiError(401, 'SESSION_ENDED', tr('Your session has ended. Please sign in again.'))
-    res = await send(method, path, body, fresh)
+    res = await send(method, path, body, fresh, headers)
   }
   if (!res.ok) throw await problem(res)
   if (res.status === 204) return undefined as T
@@ -74,8 +74,10 @@ export async function request<T>(method: string, path: string, body?: unknown, {
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
   post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
-  put: <T>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {}),
-  delete: <T>(path: string) => request<T>('DELETE', path),
+  put: <T>(path: string, body?: unknown, version?: number) =>
+    request<T>('PUT', path, body ?? {}, { headers: version === undefined ? undefined : { 'If-Match': String(version) } }),
+  delete: <T>(path: string, version?: number) =>
+    request<T>('DELETE', path, undefined, { headers: version === undefined ? undefined : { 'If-Match': String(version) } }),
 }
 
 export async function login(username: string, password: string, role: 'OWNER' | 'STAFF'): Promise<SessionResponse> {

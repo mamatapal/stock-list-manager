@@ -132,5 +132,5 @@ The web app is for people who do not have an Android phone. It uses the same bus
 
 - Open `https://<your server address>/app/` in Safari (iPhone) or any browser and sign in with your usual username and password. Choose **Owner sign-in** or **Staff sign-in**.
 - To keep it on the home screen on an iPhone: Share button → **Add to Home Screen**.
-- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Screens are being added step by step; the Android app remains the complete app until all steps are released.
+- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Available now: suppliers, items (with units and categories) and out-of-stock lists. Names fill in Hindi or English by sound while you type, exactly like the Android app. Purchases, PDFs and the owner screens are being added step by step; the Android app remains the complete app until all steps are released.
 - Register a new business on the Android app first. A user with a temporary password must set a new one at first sign-in.
