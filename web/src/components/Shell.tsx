@@ -1,28 +1,21 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
-import { Tr } from '../i18n/Tr'
 import { trLine, useLanguage } from '../i18n/lang'
-import { NAV, visibleNav } from './nav'
 
-/** The signed-in frame: a title bar and a bottom menu that only lists what the user may open. */
+/** The signed-in frame, like the Android app: a title bar (business name, back to Home, My account) and the screen. */
 export function Shell() {
-  const { user, can } = useAuth()
+  const { user } = useAuth()
+  const { pathname } = useLocation()
   useLanguage()
-  const items = visibleNav(NAV, can)
+  const home = pathname === '/'
   return (
     <div className="shell">
       <header className="appbar">
-        <strong>Stock List Manager</strong>
-        <span className="appbar-sub">{user?.businessName}</span>
+        {!home && <Link className="appbar-btn" to="/" aria-label={trLine('Home')}>‹</Link>}
+        <span className="appbar-title">{user?.businessName}</span>
+        {pathname !== '/account' && <Link className="appbar-btn" to="/account" aria-label={trLine('My account')}>👤</Link>}
       </header>
       <main className="content"><Outlet /></main>
-      <nav className="bottomnav" aria-label={trLine('Main navigation')}>
-        {items.map((i) => (
-          <NavLink key={i.to} to={i.to} end className={({ isActive }) => (isActive ? 'navlink active' : 'navlink')}>
-            <Tr k={i.label} />
-          </NavLink>
-        ))}
-      </nav>
     </div>
   )
 }

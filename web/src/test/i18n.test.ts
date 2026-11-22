@@ -60,7 +60,7 @@ describe('Hindi coverage', () => {
   }
   // texts stored by key (menus and similar)
   for (const f of files.filter((x) => x.endsWith('nav.ts'))) {
-    for (const m of readFileSync(f, 'utf8').matchAll(/label: trKey\('([^']+)'\)/g)) literals.add(m[1])
+    for (const m of readFileSync(f, 'utf8').matchAll(/(?:label|subtitle): trKey\('([^']+)'\)/g)) literals.add(m[1])
   }
 
   it('found the texts to check', () => { expect(literals.size).toBeGreaterThan(25) })
@@ -71,8 +71,9 @@ describe('Hindi coverage', () => {
   })
 
   it('uses the same placeholders in English and Hindi', () => {
-    const ph = (s: string) => [...s.matchAll(/%\d+\$s/g)].map((m) => m[0]).sort().join(',')
-    const bad = [...literals].filter((t) => hasHindi(t) && ph(t) !== ph(translate(t, 'hi')))
+    const want = (t: string) => [...t.matchAll(/%(\d+)\$s/g)].map((m) => `{${m[1]}}`).sort().join(',')
+    const got = (t: string) => (translate(t, 'hi', ['{1}', '{2}', '{3}', '{4}']).match(/\{\d\}/g) ?? []).sort().join(',')
+    const bad = [...literals].filter((t) => hasHindi(t) && want(t) !== got(t))
     expect(bad).toEqual([])
   })
 })

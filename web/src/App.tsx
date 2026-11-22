@@ -5,9 +5,11 @@ import { Tr } from './i18n/Tr'
 import { Account } from './pages/Account'
 import { ChangePassword } from './pages/ChangePassword'
 import { Home } from './pages/Home'
+import { ExpiryPage } from './pages/Expiry'
 import { ItemForm, ItemList } from './pages/Items'
 import { ListForm, ListList } from './pages/Lists'
 import { Login } from './pages/Login'
+import { PurchaseList, PurchaseScreen } from './pages/Purchases'
 import { SupplierForm, SupplierList } from './pages/Suppliers'
 import { UnitsPage } from './pages/Units'
 
@@ -45,6 +47,12 @@ export function App() {
             <Route path="items" element={<ItemList />} />
             <Route path="items/new" element={<ItemForm />} />
             <Route path="items/:id" element={<ItemForm />} />
+ 
+            <Route path="purchases" element={<PurchaseList />} />
+            <Route path="purchases/new" element={<PurchaseScreen mode="edit" />} />
+            <Route path="purchases/:id" element={<PurchaseScreen mode="view" />} />
+            <Route path="purchases/:id/edit" element={<PurchaseScreen mode="edit" />} />
+            <Route path="expiry" element={<ExpiryPage />} />
             <Route path="units" element={<UnitsPage />} />
             <Route path="suppliers" element={<SupplierList />} />
             <Route path="suppliers/new" element={<SupplierForm />} />

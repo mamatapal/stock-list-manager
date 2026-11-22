@@ -1,5 +1,5 @@
-import { api } from './client'
-import type { Item, StockList, Supplier, Unit } from './types'
+import { api, request } from './client'
+import type { Batch, ExpiryAlert, Item, Purchase, StockList, Supplier, Unit } from './types'
 
 const qs = (params: Record<string, string | boolean | undefined>) => {
   const p = new URLSearchParams()
@@ -38,4 +38,19 @@ export const stockLists = {
   update: (id: string, version: number, body: unknown) => api.put<StockList>(`/api/v1/stock-lists/${id}`, body, version),
   remove: (id: string, version: number) => api.delete<StockList>(`/api/v1/stock-lists/${id}`, version),
   duplicate: (id: string) => api.post<StockList>(`/api/v1/stock-lists/${id}/duplicate`),
+}
+
+export const purchases = {
+  list: (q?: string, status?: string) => api.get<Purchase[]>('/api/v1/purchases' + qs({ q, status })),
+  get: (id: string) => api.get<Purchase>(`/api/v1/purchases/${id}`),
+  create: (body: unknown) => api.post<Purchase>('/api/v1/purchases', body),
+  update: (id: string, version: number, body: unknown) => api.put<Purchase>(`/api/v1/purchases/${id}`, body, version),
+  removeDraft: (id: string, version: number) => api.delete<Purchase>(`/api/v1/purchases/${id}`, version),
+  cancel: (id: string, version: number, reason: string) => request<Purchase>('POST', `/api/v1/purchases/${id}/cancel`, { reason }, { headers: { 'If-Match': String(version) } }),
+  receive: (id: string, body: unknown) => api.post<Purchase>(`/api/v1/purchases/${id}/deliveries`, body),
+}
+
+export const batches = {
+  list: (expiry?: string, q?: string) => api.get<Batch[]>('/api/v1/batches' + qs({ expiry, q })),
+  alert: () => api.get<ExpiryAlert>('/api/v1/batches/alert'),
 }
