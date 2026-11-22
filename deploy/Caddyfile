@@ -1,10 +1,6 @@
-# HTTPS for the API. Caddy obtains and renews the certificate for {$API_DOMAIN} automatically.
+# HTTPS for the API and the web app. Caddy obtains and renews the certificate for {$API_DOMAIN} automatically.
 {$API_DOMAIN} {
 	encode gzip
-	# Health check stays reachable for monitoring; everything else goes to the API.
-	reverse_proxy backend:8080 {
-		header_up X-Forwarded-Proto {scheme}
-	}
 	header {
 		Strict-Transport-Security "max-age=31536000"
 		X-Content-Type-Options nosniff
@@ -13,4 +9,28 @@
 	# API documentation is switched off in production (SWAGGER_ENABLED=false); block the paths anyway.
 	@docs path /swagger-ui* /v3/api-docs*
 	respond @docs 404
+
+	# The web app (for iPhone and any browser). Same address as the API, so no cross-site access is needed.
+	redir /app /app/ 308
+	handle_path /app/* {
+		root * /srv/web
+		header {
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'"
+			Referrer-Policy no-referrer
+			X-Frame-Options DENY
+			Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		}
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@pages not path /assets/*
+		header @pages Cache-Control "no-cache"
+		file_server
+	}
+
+	# Everything else goes to the API.
+	handle {
+		reverse_proxy backend:8080 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
 }

@@ -125,3 +125,12 @@ the profit you actually made**: the app does not record sales.
 - Numbers typed with a Hindi keyboard (१२३) are read as normal numbers (123).
 - Usernames, mobile numbers, PIN codes and GST numbers use English letters and digits 0-9.
 - PDF file names use the main language, for example `खरीद_K-1_2026-11-16.pdf`.
+
+## Using the web app (iPhone or any browser)
+
+The web app is for people who do not have an Android phone. It uses the same business, the same staff accounts and the same permissions as the Android app, and it shows both Hindi and English.
+
+- Open `https://<your server address>/app/` in Safari (iPhone) or any browser and sign in with your usual username and password. Choose **Owner sign-in** or **Staff sign-in**.
+- To keep it on the home screen on an iPhone: Share button → **Add to Home Screen**.
+- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Screens are being added step by step; the Android app remains the complete app until all steps are released.
+- Register a new business on the Android app first. A user with a temporary password must set a new one at first sign-in.
