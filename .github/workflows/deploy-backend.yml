@@ -111,7 +111,7 @@ jobs:
 
       - name: Copy and start
         run: |
-          $SSH 'rm -rf /opt/stocklist/web && mkdir -p /opt/stocklist/web'
+          $SSH 'mkdir -p /opt/stocklist/web && find /opt/stocklist/web -mindepth 1 -delete'
           scp -i ~/.ssh/deploy_key -o BatchMode=yes -r bundle/* bundle/.env.example "$DEPLOY_USER@$DEPLOY_HOST:/opt/stocklist/"
           $SSH 'set -e
             cd /opt/stocklist
@@ -130,14 +130,6 @@ jobs:
             grep ^API_DOMAIN= .env | cut -d= -f2' | tee deploy-output.txt
           echo "API_DOMAIN=$(tail -n 1 deploy-output.txt)" >> "$GITHUB_ENV"
 
-      - name: Check the web app is served
-        run: |
-          for i in $(seq 1 20); do
-            if curl -fsS --max-time 10 "https://$API_DOMAIN/app/" | grep -q 'id="root"'; then echo "Web app is up"; exit 0; fi
-            sleep 6
-          done
-          echo "::error::https://$API_DOMAIN/app/ did not answer"; exit 1
-
       - name: Wait until the API answers over HTTPS
         run: |
           URL="https://$API_DOMAIN/actuator/health"
@@ -148,6 +140,14 @@ jobs:
           echo "::error::$URL did not answer. Logs:"
           $SSH 'cd /opt/stocklist && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail 80 backend caddy'
           exit 1
+
+      - name: Check the web app is served
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 10 "https://$API_DOMAIN/app/" | grep -q 'id="root"'; then echo "Web app is up"; exit 0; fi
+            sleep 6
+          done
+          echo "::error::https://$API_DOMAIN/app/ did not answer"; exit 1
 
       - name: Summary
         if: always()
