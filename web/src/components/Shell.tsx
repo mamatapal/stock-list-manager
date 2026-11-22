@@ -8,7 +8,7 @@ import { NAV, visibleNav } from './nav'
 export function Shell() {
   const { user, can } = useAuth()
   useLanguage()
-  const items = visibleNav(NAV, can)
+  const items = visibleNav(NAV, can).filter((i) => i.bottom)
   return (
     <div className="shell">
       <header className="appbar">

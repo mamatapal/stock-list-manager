@@ -104,3 +104,12 @@ fieldset.names label { display: block; font-size: 0.85rem; color: var(--muted); 
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .card.line { padding-bottom: 6px; }
 .card.confirm { border-color: var(--error); }
+
+/* Home tiles, purchases and expiry */
+.tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.tile { display: flex; align-items: center; justify-content: center; text-align: center; min-height: 72px; padding: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; color: var(--green); font-weight: 600; text-decoration: none; }
+.tag.bad { background: #fdecea; color: var(--error); }
+.grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+ul.plain { list-style: none; margin: 0; padding: 0; }
+ul.plain li { padding: 4px 0; border-top: 1px solid var(--line); }
+.navlink { font-size: 0.85rem; }
