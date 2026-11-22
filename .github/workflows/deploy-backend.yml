@@ -111,7 +111,7 @@ jobs:
 
       - name: Copy and start
         run: |
-          $SSH 'rm -rf /opt/stocklist/web && mkdir -p /opt/stocklist/web'
+          $SSH 'mkdir -p /opt/stocklist/web && find /opt/stocklist/web -mindepth 1 -delete'
           scp -i ~/.ssh/deploy_key -o BatchMode=yes -r bundle/* bundle/.env.example "$DEPLOY_USER@$DEPLOY_HOST:/opt/stocklist/"
           $SSH 'set -e
             cd /opt/stocklist
