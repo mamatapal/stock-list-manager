@@ -2,7 +2,7 @@ name: Web app
 
 on:
   pull_request:
-    paths: ["web/**", "scripts/export-hindi-catalogue.py", "deploy/Caddyfile", ".github/workflows/web-ci.yml", "**/HindiStrings.kt"]
+    paths: ["web/**", "scripts/export-hindi-catalogue.py", "deploy/Caddyfile", ".github/workflows/web-ci.yml", "**/HindiStrings.kt", "**/Transliterate.kt"]
   push:
     branches: [main]
     paths: ["web/**", "scripts/export-hindi-catalogue.py", "deploy/Caddyfile", ".github/workflows/web-ci.yml"]
@@ -29,6 +29,10 @@ jobs:
         run: |
           python3 scripts/export-hindi-catalogue.py
           git diff --exit-code -- web/src/i18n/hi.generated.json
+      - name: Name word list is up to date with the Android one
+        run: |
+          python3 scripts/export-transliteration-words.py
+          git diff --exit-code -- web/src/i18n/words.generated.json
       - name: Type check
         working-directory: web
         run: npm run typecheck

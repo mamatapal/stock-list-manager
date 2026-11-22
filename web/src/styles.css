@@ -83,3 +83,24 @@ button.ghost { background: transparent; }
 .center { min-height: 100dvh; display: flex; align-items: center; justify-content: center; color: var(--muted); }
 
 @media (prefers-reduced-motion: no-preference) { button { transition: background-color 0.15s; } }
+
+/* Lists, rows and forms for the catalogue screens */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.center-text { text-align: center; padding: 24px 0; }
+.small { font-size: 0.85rem; }
+.rows { list-style: none; margin: 0 0 12px; padding: 0; }
+.row { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-bottom: 8px; color: inherit; text-decoration: none; min-height: 56px; }
+.row.static { display: flex; flex-direction: column; gap: 6px; }
+.row-main { display: block; font-weight: 600; }
+.row-sub { display: block; color: var(--muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+.tag { display: inline-block; margin-top: 4px; padding: 2px 8px; border-radius: 999px; background: #e8efe9; color: var(--green); font-size: 0.8rem; }
+select, textarea { width: 100%; min-height: 48px; padding: 10px 12px; font-size: 16px; font-family: inherit; border: 1px solid var(--line); border-radius: 10px; background: #fff; color: var(--text); }
+fieldset.names { border: 0; padding: 0; margin: 0 0 14px; min-width: 0; }
+fieldset.names legend { font-weight: 600; padding: 0; margin-bottom: 4px; }
+fieldset.names label { display: block; font-size: 0.85rem; color: var(--muted); margin: 6px 0 2px; }
+.field.check { display: flex; align-items: center; gap: 10px; }
+.field.check input { width: 24px; min-height: 24px; }
+.field.check label { margin: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.card.line { padding-bottom: 6px; }
+.card.confirm { border-color: var(--error); }
