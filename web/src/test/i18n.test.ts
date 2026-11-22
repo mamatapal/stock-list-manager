@@ -60,7 +60,7 @@ describe('Hindi coverage', () => {
   }
   // texts stored by key (menus and similar)
   for (const f of files.filter((x) => x.endsWith('nav.ts'))) {
-    for (const m of readFileSync(f, 'utf8').matchAll(/label: trKey\('([^']+)'\)/g)) literals.add(m[1])
+    for (const m of readFileSync(f, 'utf8').matchAll(/(?:label|subtitle): trKey\('([^']+)'\)/g)) literals.add(m[1])
   }
 
   it('found the texts to check', () => { expect(literals.size).toBeGreaterThan(25) })

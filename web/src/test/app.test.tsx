@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -34,8 +34,8 @@ describe('the app', () => {
     await user.type(screen.getByLabelText(/Username/), 'asha')
     await user.type(screen.getAllByLabelText(/Password/)[0], 'secret-pass')
     await user.click(screen.getByRole('button', { name: /^Sign in/ }))
-    expect(await screen.findByText('Asha Sharma')).toBeInTheDocument()
-    expect(screen.getByText('Sharma Store', { selector: 'p' })).toBeInTheDocument()
+    expect(await screen.findByText(/Hello, Asha Sharma/)).toBeInTheDocument()
+    expect(screen.getByText('Sharma Store', { selector: '.appbar-title' })).toBeInTheDocument()
     expect(JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).expectedRole).toBe('OWNER')
   })
 
@@ -48,7 +48,7 @@ describe('the app', () => {
     await user.type(screen.getByLabelText(/Username/), 'ravi')
     await user.type(screen.getAllByLabelText(/Password/)[0], 'secret-pass')
     await user.click(screen.getByRole('button', { name: /^Sign in/ }))
-    await screen.findByText('Asha Sharma')
+    await screen.findByText(/Hello, Asha Sharma/)
     expect(JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string).expectedRole).toBe('STAFF')
   })
 
@@ -78,7 +78,7 @@ describe('the app', () => {
     localStorage.setItem('slm.refresh', 'saved')
     vi.stubGlobal('fetch', vi.fn(async () => json(200, session())))
     render(<App />)
-    expect(await screen.findByText('Asha Sharma')).toBeInTheDocument()
+    expect(await screen.findByText(/Hello, Asha Sharma/)).toBeInTheDocument()
   })
 
   it('makes a user with a temporary password set a new one first', async () => {
@@ -99,8 +99,8 @@ describe('the app', () => {
     localStorage.setItem('slm.refresh', 'saved')
     const user = userEvent.setup()
     render(<App />)
-    await screen.findByText('Asha Sharma')
-    await user.click(within(screen.getByRole('navigation')).getByRole('link', { name: /Account/ }))
+    await screen.findByText(/Hello, Asha Sharma/)
+    await user.click(screen.getByRole('link', { name: /My account/ }))
     expect(await screen.findByRole('heading', { name: /Account/ })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'हिन्दी' }))
     await waitFor(() => expect(document.documentElement.lang).toBe('hi'))
@@ -115,7 +115,7 @@ describe('the app', () => {
 })
 
 describe('menu by permission', () => {
-  const items = [{ to: '/', label: 'Home' }, { to: '/x', label: 'Secret', permission: 'STAFF_MANAGE' }]
+  const items = [{ to: '/', label: 'Home', subtitle: '', icon: '' }, { to: '/x', label: 'Secret', subtitle: '', icon: '', permission: 'STAFF_MANAGE' }]
   it('hides what the user may not open', () => {
     expect(visibleNav(items, () => false).map((i) => i.to)).toEqual(['/'])
     expect(visibleNav(items, (p) => p === 'STAFF_MANAGE').map((i) => i.to)).toEqual(['/', '/x'])

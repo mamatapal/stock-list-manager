@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { App } from '../App'
@@ -49,20 +49,30 @@ function open(hash: string) {
 beforeEach(() => { setLanguage('en'); clearSession() })
 afterEach(() => { vi.unstubAllGlobals(); clearSession() })
 
-describe('menu follows permissions', () => {
-  it('shows only the screens the user may open', async () => {
+describe('home cards follow permissions', () => {
+  it('shows only the cards the user may open, with a line of help', async () => {
     server(['ITEM_VIEW'])
     open('#/')
-    const nav = await screen.findByRole('navigation')
-    expect(within(nav).getByRole('link', { name: /Items/ })).toBeInTheDocument()
-    expect(within(nav).queryByRole('link', { name: /Suppliers/ })).not.toBeInTheDocument()
-    expect(within(nav).queryByRole('link', { name: /Lists/ })).not.toBeInTheDocument()
+    const card = await screen.findByRole('link', { name: /Items/ })
+    expect(card).toHaveTextContent('Catalogue, units and latest prices')
+    expect(screen.queryByRole('link', { name: /Suppliers/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Out-of-stock lists/ })).not.toBeInTheDocument()
+    expect(screen.getByText(/Hello, Asha Sharma/)).toBeInTheDocument()
   })
 
   it('shows lists to someone who can only record purchases', async () => {
     server(['PURCHASE_RECORD'])
     open('#/')
-    expect(await within(await screen.findByRole('navigation')).findByRole('link', { name: /Lists/ })).toBeInTheDocument()
+    expect(await screen.findByRole('link', { name: /Out-of-stock lists/ })).toBeInTheDocument()
+  })
+
+  it('has no bottom tabs, a way back to Home on inner screens, and a My account button', async () => {
+    server(['ITEM_VIEW'])
+    open('#/items')
+    await screen.findByRole('heading', { name: /Items/ })
+    expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Home/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /My account/ })).toBeInTheDocument()
   })
 })
 

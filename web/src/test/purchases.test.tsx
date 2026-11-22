@@ -66,19 +66,14 @@ const writes = (calls: Call[], url: string) => calls.filter((c) => c.method !== 
 beforeEach(() => { setLanguage('en'); clearSession() })
 afterEach(() => { vi.unstubAllGlobals(); clearSession() })
 
-describe('home and menu', () => {
-  it('shows a tile for every screen the user may open', async () => {
+describe('home cards', () => {
+  it('shows a card for every screen the user may open', async () => {
     server(['PURCHASE_HISTORY_VIEW', 'EXPIRY_VIEW', 'SUPPLIER_VIEW'])
     open('#/')
     expect(await screen.findByRole('link', { name: /Expiry/ })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /Suppliers/ })).toBeInTheDocument()
-    expect(screen.queryByRole('link', { name: /Lists/ })).not.toBeInTheDocument()
-  })
-
-  it('shows Purchases in the bottom menu to someone who can only view history', async () => {
-    server(['PURCHASE_HISTORY_VIEW'])
-    open('#/')
-    expect(await within(await screen.findByRole('navigation')).findByRole('link', { name: /Purchases/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Purchases/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Out-of-stock lists/ })).not.toBeInTheDocument()
   })
 })
 

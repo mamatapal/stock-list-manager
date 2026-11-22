@@ -65,6 +65,7 @@ const extra: Record<string, string> = {
   'Selling price is below the cost price.': 'बिक्री कीमत लागत कीमत से कम है।',
   'Reason for cancelling': 'रद्द करने का कारण',
   'Quantity received': 'मिली मात्रा',
+  'Staff, reports and business profile are being added to the web app step by step.': 'स्टाफ, रिपोर्ट और बिज़नेस प्रोफ़ाइल वेब ऐप में धीरे-धीरे जोड़े जा रहे हैं।',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra

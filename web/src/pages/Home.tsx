@@ -1,27 +1,32 @@
-import { useAuth } from '../auth/AuthContext'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../auth/AuthContext'
 import { NAV, visibleNav } from '../components/nav'
 import { Tr } from '../i18n/Tr'
+import { useLanguage } from '../i18n/lang'
 
 export function Home() {
   const { user, can } = useAuth()
+  useLanguage()
   if (!user) return null
+  const cards = visibleNav(NAV, can)
   return (
     <>
-      <h1><Tr k="Welcome" /></h1>
-      <section className="card">
-        <p className="big">{user.fullName}</p>
-        <p>{user.businessName}</p>
-        <p className="muted"><Tr k={user.role === 'OWNER' ? 'Owner' : 'Staff'} /></p>
-      </section>
-      <div className="tiles">
-        {visibleNav(NAV, can).filter((i) => i.to !== '/' && i.to !== '/account').map((i) => (
-          <Link key={i.to} to={i.to} className="tile"><Tr k={i.label} /></Link>
+      <h1><Tr k="Hello, %1$s" args={[user.fullName]} /></h1>
+      <p className="muted"><Tr k={user.role === 'OWNER' ? 'Owner · full access' : 'Staff'} /></p>
+      <div className="cards">
+        {cards.map((c) => (
+          <Link key={c.to} to={c.to} className="dcard">
+            <span className="dcard-icon" aria-hidden="true">{c.icon}</span>
+            <span className="dcard-text">
+              <span className="dcard-title"><Tr k={c.label} /></span>
+              <span className="dcard-sub"><Tr k={c.subtitle} /></span>
+            </span>
+            <span className="dcard-go" aria-hidden="true">›</span>
+          </Link>
         ))}
       </div>
-      <section className="card">
-        <p><Tr k="The web app works the same way as the Android app, but only while you are online. More screens are being added step by step." /></p>
-      </section>
+      {cards.length === 0 && <p className="muted"><Tr k="Your owner has not given you any permissions yet." /></p>}
+      <p className="hint small"><Tr k="Staff, reports and business profile are being added to the web app step by step." /></p>
     </>
   )
 }
