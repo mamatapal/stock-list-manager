@@ -88,6 +88,7 @@ const extra: Record<string, string> = {
   'Who did what, newest first': 'किसने क्या किया, सबसे नया पहले',
   'Yes': 'हाँ',
   'Give this to %1$s. It is shown only once:': 'यह %1$s को दें। यह सिर्फ़ एक बार दिखाई जाती है:',
+  'Choose a list': 'लिस्ट चुनें',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra
