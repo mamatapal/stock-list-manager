@@ -8,7 +8,7 @@ export function Home() {
   const { user, can } = useAuth()
   useLanguage()
   if (!user) return null
-  const cards = visibleNav(NAV, can)
+  const cards = visibleNav(NAV, can, user?.role === 'OWNER')
   return (
     <>
       <h1><Tr k="Hello, %1$s" args={[user.fullName]} /></h1>
