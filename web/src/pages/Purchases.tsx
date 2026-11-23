@@ -253,6 +253,12 @@ function PurchaseView({ purchase: p, reload }: { purchase: Purchase; reload: () 
   return (
     <>
       <h1><Name value={p.supplierName} /></h1>
+      {p.status !== 'DRAFT' && (
+        <div className="pdf-actions">
+          <Link className="button" to={`/pdf/purchase/${p.id}`}><Tr k="Cost price and selling price" inline /></Link>
+          <Link className="button" to={`/pdf/purchase/${p.id}?prices=selling`}><Tr k="Selling price only" inline /></Link>
+        </div>
+      )}
       <section className="card">
         <p><StatusTag status={p.status} /></p>
         <dl>

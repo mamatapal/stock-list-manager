@@ -111,3 +111,11 @@ ul.plain li { padding: 4px 0; border-top: 1px solid var(--line); }
 .dcard-title { font-weight: 600; font-size: 1.05rem; }
 .dcard-sub { color: var(--muted); font-size: 0.85rem; }
 .dcard-go { font-size: 1.6rem; color: var(--muted); }
+
+/* PDF screen */
+.pdf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.pdf-actions .button, .pdf-actions button { flex: 1 1 auto; text-align: center; }
+.pdf-pages { display: flex; flex-direction: column; gap: 12px; }
+.pdf-page { width: 100%; height: auto; border: 1px solid #c9ced6; background: #fff; }
+.button.disabled { opacity: 0.5; pointer-events: none; }
+.stack { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }

@@ -134,6 +134,7 @@ function ListFormBody({ existing, items: itemList, units: unitList, suppliers: s
   return (
     <form onSubmit={save} noValidate>
       <h1><Tr k={existing ? 'Edit list' : 'New list'} /></h1>
+      {existing && <p><Link className="button" to={`/pdf/list/${existing.id}`}><Tr k="Share PDF" inline /></Link></p>}
       <BilingualNameFields value={title} onChange={setTitle} title="List title" required />
       <TextField label="Date" type="date" value={listDate} onChange={setListDate} required />
       <SelectField label="Supplier" value={supplierId} onChange={setSupplierId}>

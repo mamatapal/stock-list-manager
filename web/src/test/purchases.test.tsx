@@ -213,3 +213,31 @@ describe('expiry', () => {
     expect(screen.getByText('4')).toBeInTheDocument()
   })
 })
+
+describe('PDF entry points', () => {
+  it('a purchase offers the two PDFs; the selling-price one is a separate link', async () => {
+    server(['PURCHASE_HISTORY_VIEW'])
+    open('#/purchases/p1')
+    const full = await screen.findByRole('link', { name: /Cost price and selling price/ })
+    expect(full).toHaveAttribute('href', '#/pdf/purchase/p1')
+    expect(screen.getByRole('link', { name: /Selling price only/ })).toHaveAttribute('href', '#/pdf/purchase/p1?prices=selling')
+  })
+  it('the Reports card and screen list the reports; expected profit needs both profit permissions', async () => {
+    server(['PURCHASE_HISTORY_VIEW', 'EXPECTED_PROFIT_VIEW'])
+    open('#/reports')
+    expect(await screen.findByRole('link', { name: /Purchase report/ })).toHaveAttribute('href', expect.stringMatching(/^#\/pdf\/report\/purchases\?from=\d{4}-\d{2}-01&to=\d{4}-\d{2}-\d{2}$/))
+    expect(screen.getByRole('link', { name: /Supplier totals/ })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Item purchase prices/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Expected profit report/ })).not.toBeInTheDocument()
+  })
+  it('shows expected profit report with both permissions', async () => {
+    server(['PURCHASE_HISTORY_VIEW', 'EXPECTED_PROFIT_VIEW', 'PROFIT_REPORT_VIEW'])
+    open('#/reports')
+    expect(await screen.findByRole('link', { name: /Expected profit report/ })).toBeInTheDocument()
+  })
+  it('Home has a Reports card for users who can see purchase history', async () => {
+    server(['PURCHASE_HISTORY_VIEW'])
+    open('#/')
+    expect(await screen.findByRole('link', { name: /Reports/ })).toHaveAttribute('href', '#/reports')
+  })
+})
