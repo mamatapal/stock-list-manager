@@ -1,3 +1,4 @@
+import { stepUpToken } from './stepUp'
 import { clearSession, deviceId, getAccessToken, getRefreshToken, saveSession, type SessionResponse } from '../auth/session'
 import { tr } from '../i18n/lang'
 
@@ -23,6 +24,8 @@ async function problem(res: Response): Promise<ApiError> {
 
 async function send(method: string, path: string, body: unknown, token: string | null, extra?: Record<string, string>): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json', ...extra }
+  const stepUp = method === 'GET' ? null : stepUpToken()
+  if (stepUp) headers['X-Step-Up-Token'] = stepUp
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (token) headers.Authorization = `Bearer ${token}`
   try {

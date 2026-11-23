@@ -5,6 +5,10 @@ import { Tr } from './i18n/Tr'
 import { Account } from './pages/Account'
 import { ChangePassword } from './pages/ChangePassword'
 import { Home } from './pages/Home'
+import { StepUpProvider } from './components/StepUp'
+import { StaffCreate, StaffDetail, StaffList } from './pages/Staff'
+import { BusinessProfilePage } from './pages/BusinessProfile'
+import { ActivityPage } from './pages/Activity'
 import { PdfPage } from './pages/PdfPage'
 import { ReportsPage } from './pages/Reports'
 import { ExpiryPage } from './pages/Expiry'
@@ -21,7 +25,7 @@ function Protected() {
   if (status === 'loading') return <div className="center"><Tr k="Loading…" /></div>
   if (status === 'out') return <Navigate to="/login" replace />
   if (user?.mustChangePassword) return <Navigate to="/change-password" replace />
-  return <Shell />
+  return <StepUpProvider><Shell /></StepUpProvider>
 }
 
 function ForcedPassword() {
@@ -56,6 +60,11 @@ export function App() {
             <Route path="purchases/:id/edit" element={<PurchaseScreen mode="edit" />} />
             <Route path="expiry" element={<ExpiryPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="staff" element={<StaffList />} />
+            <Route path="staff/new" element={<StaffCreate />} />
+            <Route path="staff/:id" element={<StaffDetail />} />
+            <Route path="business" element={<BusinessProfilePage />} />
+            <Route path="activity" element={<ActivityPage />} />
             <Route path="pdf/:kind" element={<PdfPage />} />
             <Route path="pdf/:kind/:id" element={<PdfPage />} />
             <Route path="units" element={<UnitsPage />} />

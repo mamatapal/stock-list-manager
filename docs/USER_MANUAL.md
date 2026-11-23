@@ -132,7 +132,7 @@ The web app is for people who do not have an Android phone. It uses the same bus
 
 - Open `https://<your server address>/app/` in Safari (iPhone) or any browser and sign in with your usual username and password. Choose **Owner sign-in** or **Staff sign-in**.
 - To keep it on the home screen on an iPhone: Share button → **Add to Home Screen**.
-- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Available now: suppliers, items (with units and categories), out-of-stock lists, purchases (record from a list, receive goods with batch and expiry, cancel) and the expiry screen. Names fill in Hindi or English by sound while you type, exactly like the Android app. PDFs and reports are in too (see below); the owner screens (staff, permissions, business profile) are being added step by step, so the Android app remains the complete app until all steps are released.
+- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Available now: suppliers, items (with units and categories), out-of-stock lists, purchases (record from a list, receive goods with batch and expiry, cancel) and the expiry screen. Names fill in Hindi or English by sound while you type, exactly like the Android app. PDFs and reports (see below) and the owner screens (staff and permissions, business profile, activity log) are in too.
 - Register a new business on the Android app first. A user with a temporary password must set a new one at first sign-in.
 
 ### PDFs and reports in the web app
@@ -141,3 +141,11 @@ The web app is for people who do not have an Android phone. It uses the same bus
 - **Reports** card on the Home screen: pick a date range, then **Purchase report**, **Supplier totals**, **Item purchase prices** or (if you may see profit) **Expected profit report**. Pick a supplier or an item below it for its purchase history over the same dates.
 - Every PDF opens as a preview. Tap **Download PDF** to save it, or **Share PDF** to send it with WhatsApp, e-mail and so on (on an iPhone, Share opens the usual share sheet). If your browser cannot share, the PDF is saved instead.
 - Hindi and English are on every PDF, the same as on the Android app. The PDF is a picture of each page, so its text cannot be selected or searched. Expected-profit columns appear only for users who may see profit.
+
+### Owner screens in the web app
+
+- **Staff** card (owner, or a user with *Manage staff accounts*): add staff, edit details, choose permissions, activate or deactivate, reset a password, and sign a person out of all phones. You can only give permissions you hold yourself.
+- Changing staff, permissions or business details asks you to **type your password again**. After that you are not asked again for 5 minutes.
+- When you add staff or reset a password, the temporary password is shown **once**. Tap **Share sign-in details** to send it (WhatsApp, SMS, e-mail). If your browser cannot share, it is copied instead.
+- **Business profile**: everyone can see it; the owner (or *Manage business settings*) can edit it. These details are printed on every PDF.
+- **Activity log** (owner only): who did what, newest first. It cannot be changed or deleted.
