@@ -66,6 +66,14 @@ const extra: Record<string, string> = {
   'Reason for cancelling': 'रद्द करने का कारण',
   'Quantity received': 'मिली मात्रा',
   'Staff, reports and business profile are being added to the web app step by step.': 'स्टाफ, रिपोर्ट और बिज़नेस प्रोफ़ाइल वेब ऐप में धीरे-धीरे जोड़े जा रहे हैं।',
+  'Totals, prices and history as PDF': 'कुल, कीमतें और इतिहास PDF में',
+  'PDF': 'PDF',
+  'Preparing the PDF…': 'PDF तैयार हो रही है…',
+  'Download PDF': 'PDF डाउनलोड करें',
+  'Sharing is not available in this browser, so the PDF was saved instead.': 'इस ब्राउज़र में भेजना उपलब्ध नहीं है, इसलिए PDF सेव कर दी गई।',
+  'Choose a start date that is not after the end date': 'शुरू की तारीख़ अंत की तारीख़ से बाद की न हो',
+  'All with an expiry date': 'एक्सपायरी तारीख़ वाले सभी',
+  'Expected profit is an estimate: selling price minus purchase cost, for lines that have a selling price. It is not realised profit; actual sales are not recorded in this app.': 'अनुमानित मुनाफ़ा एक अनुमान है: बिक्री मूल्य में से खरीद लागत घटाकर, उन लाइनों के लिए जिनमें बिक्री मूल्य है। यह असल कमाया हुआ मुनाफ़ा नहीं है; असली बिक्री इस ऐप में दर्ज नहीं होती।',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra

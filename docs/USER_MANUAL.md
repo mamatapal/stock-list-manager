@@ -132,5 +132,12 @@ The web app is for people who do not have an Android phone. It uses the same bus
 
 - Open `https://<your server address>/app/` in Safari (iPhone) or any browser and sign in with your usual username and password. Choose **Owner sign-in** or **Staff sign-in**.
 - To keep it on the home screen on an iPhone: Share button → **Add to Home Screen**.
-- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Available now: suppliers, items (with units and categories), out-of-stock lists, purchases (record from a list, receive goods with batch and expiry, cancel) and the expiry screen. Names fill in Hindi or English by sound while you type, exactly like the Android app. PDFs, reports and the owner screens are being added step by step; the Android app remains the complete app until all steps are released.
+- The web app needs an internet connection. It does not work offline and does not send expiry reminders. Available now: suppliers, items (with units and categories), out-of-stock lists, purchases (record from a list, receive goods with batch and expiry, cancel) and the expiry screen. Names fill in Hindi or English by sound while you type, exactly like the Android app. PDFs and reports are in too (see below); the owner screens (staff, permissions, business profile) are being added step by step, so the Android app remains the complete app until all steps are released.
 - Register a new business on the Android app first. A user with a temporary password must set a new one at first sign-in.
+
+### PDFs and reports in the web app
+
+- **Out-of-stock list**: open a list and tap **Share PDF**. **Purchase**: open it and choose **Cost price and selling price** (the full document) or **Selling price only** (items, quantities and selling prices, with no cost, profit, supplier or invoice, so you can show it to anyone). **Expiry**: tap **Share PDF** above the list.
+- **Reports** card on the Home screen: pick a date range, then **Purchase report**, **Supplier totals**, **Item purchase prices** or (if you may see profit) **Expected profit report**. Pick a supplier or an item below it for its purchase history over the same dates.
+- Every PDF opens as a preview. Tap **Download PDF** to save it, or **Share PDF** to send it with WhatsApp, e-mail and so on (on an iPhone, Share opens the usual share sheet). If your browser cannot share, the PDF is saved instead.
+- Hindi and English are on every PDF, the same as on the Android app. The PDF is a picture of each page, so its text cannot be selected or searched. Expected-profit columns appear only for users who may see profit.

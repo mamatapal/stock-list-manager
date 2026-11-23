@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useState } from 'react'
 import { batches } from '../api/catalogue'
 import { ErrorText } from '../components/ErrorText'
@@ -29,6 +30,7 @@ export function ExpiryPage() {
   return (
     <>
       <h1><Tr k="Expiry" /></h1>
+      <p><Link className="button" to={`/pdf/expiry?filter=${filter}`}><Tr k="Share PDF" inline /></Link></p>
       {alert.data && (
         <section className="card grid3">
           <div><p className="big">{alert.data.expired}</p><p className="muted small"><Tr k="Expired" /></p></div>

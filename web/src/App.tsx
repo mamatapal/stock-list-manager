@@ -5,6 +5,8 @@ import { Tr } from './i18n/Tr'
 import { Account } from './pages/Account'
 import { ChangePassword } from './pages/ChangePassword'
 import { Home } from './pages/Home'
+import { PdfPage } from './pages/PdfPage'
+import { ReportsPage } from './pages/Reports'
 import { ExpiryPage } from './pages/Expiry'
 import { ItemForm, ItemList } from './pages/Items'
 import { ListForm, ListList } from './pages/Lists'
@@ -53,6 +55,9 @@ export function App() {
             <Route path="purchases/:id" element={<PurchaseScreen mode="view" />} />
             <Route path="purchases/:id/edit" element={<PurchaseScreen mode="edit" />} />
             <Route path="expiry" element={<ExpiryPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="pdf/:kind" element={<PdfPage />} />
+            <Route path="pdf/:kind/:id" element={<PdfPage />} />
             <Route path="units" element={<UnitsPage />} />
             <Route path="suppliers" element={<SupplierList />} />
             <Route path="suppliers/new" element={<SupplierForm />} />

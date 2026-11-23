@@ -16,6 +16,7 @@ export const NAV: NavItem[] = [
   { to: '/lists', label: trKey('Out-of-stock lists'), subtitle: trKey('Create, edit and share lists'), icon: '📋', permission: ['LIST_CREATE', 'LIST_EDIT', 'LIST_DELETE', 'PURCHASE_RECORD'] },
   { to: '/purchases', label: trKey('Purchases'), subtitle: trKey('Bills, goods received and deliveries'), icon: '🧾', permission: PURCHASE_ANY },
   { to: '/expiry', label: trKey('Expiry'), subtitle: trKey('Expired and soon-to-expire stock'), icon: '⏳', permission: 'EXPIRY_VIEW' },
+  { to: '/reports', label: trKey('Reports'), subtitle: trKey('Totals, prices and history as PDF'), icon: '📊', permission: 'PURCHASE_HISTORY_VIEW' },
   { to: '/items', label: trKey('Items'), subtitle: trKey('Catalogue, units and latest prices'), icon: '📦', permission: 'ITEM_VIEW' },
   { to: '/suppliers', label: trKey('Suppliers'), subtitle: trKey('Contacts of the people you buy from'), icon: '🚚', permission: 'SUPPLIER_VIEW' },
 ]
