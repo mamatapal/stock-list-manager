@@ -882,6 +882,11 @@ internal object HindiStrings {
         m["sell %1\$s"] = "बिक्री %1\$s"
         m["since %1\$s"] = "%1\$s से"
         m["tried %1\$s time(s)"] = "%1\$s बार कोशिश की"
+        m["Pick from out-of-stock list"] = "स्टॉक खत्म लिस्ट से चुनें"
+        m["Nothing left to buy on this list"] = "इस लिस्ट में खरीदने को कुछ बाकी नहीं है"
+        m["Select all"] = "सभी चुनें"
+        m["Already added"] = "पहले से जोड़ा गया"
+        m["Remaining %1\$s"] = "बाकी %1\$s"
         m["…"] = "…"
     }
 }

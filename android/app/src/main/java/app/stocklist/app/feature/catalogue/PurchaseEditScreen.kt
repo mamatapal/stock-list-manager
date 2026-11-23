@@ -33,6 +33,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -80,6 +81,7 @@ import app.stocklist.app.data.repository.ItemRepository
 import app.stocklist.app.data.repository.PurchaseHeaderDraft
 import app.stocklist.app.data.repository.PurchaseLineDraft
 import app.stocklist.app.data.repository.PurchaseRepository
+import app.stocklist.app.data.local.StockListLineEntity
 import app.stocklist.app.data.repository.StockListRepository
 import app.stocklist.app.data.repository.SupplierRepository
 import app.stocklist.app.data.repository.UnitRepository
@@ -167,18 +169,33 @@ class PurchaseEditViewModel @Inject constructor(
         }
     }
 
-    /** "Record purchase" from a list: every catalogue item still to come, at its remaining quantity. */
-    private suspend fun prefillFromList(listId: String) {
-        val list = listRepo.get(listId) ?: return
-        stockListId = listId
-        supplierId = list.supplierId
+    /** One line of an out-of-stock list that can be bought now: a catalogue item with something still to come. */
+    class ListPick(val line: StockListLineEntity, val remaining: BigDecimal, val itemName: String, val alreadyAdded: Boolean)
+
+    /** Saved out-of-stock lists to pick from (newest first, as the lists screen shows them). */
+    val pickableLists = listRepo.observe("", "SAVED", "", "", "")
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** The lines of [listId] that can still be bought. Lines without a catalogue item or with nothing left are left out. */
+    suspend fun pickable(listId: String): List<ListPick> {
         val listLines = listRepo.lines(listId)
         val progress = repo.observeListProgress(kotlinx.coroutines.flow.flowOf(listLines)).first()
-        listLines.forEach { l ->
+        return listLines.sortedBy { it.sortOrder }.mapNotNull { l ->
             val remaining = progress[l.id]?.progress?.remaining ?: BigDecimal(l.quantity)
-            if (l.itemId == null || remaining.signum() <= 0) return@forEach
-            val item = itemRepo.observeOne(l.itemId).first()
-            val qty = Decimals.format(remaining) ?: return@forEach
+            if (l.itemId == null || remaining.signum() <= 0) return@mapNotNull null
+            ListPick(l, remaining, itemRepo.observeOne(l.itemId).first()?.name ?: l.itemName, lines.any { it.stockListItemId == l.id })
+        }
+    }
+
+    /** Adds the chosen list lines at their remaining quantity; the supplier and the list link are taken from the list when still empty. */
+    suspend fun addFromList(listId: String, picked: List<ListPick>) {
+        val list = listRepo.get(listId) ?: return
+        if (stockListId == null) { stockListId = listId; listTitle = list.title }
+        if (supplierId == null) supplierId = list.supplierId
+        picked.forEach { p ->
+            val l = p.line
+            val item = itemRepo.observeOne(l.itemId!!).first()
+            val qty = Decimals.format(p.remaining) ?: return@forEach
             lines += PurchaseLineDraft(
                 itemId = l.itemId, itemName = item?.name ?: l.itemName, unitId = l.unitId, quantity = qty,
                 purchasePrice = if (canBuyPrice) item?.latestPurchasePrice.orEmpty() else "",
@@ -186,6 +203,13 @@ class PurchaseEditViewModel @Inject constructor(
                 receivedNow = qty, stockListItemId = l.id,
             )
         }
+        dirty = true
+    }
+
+    /** "Record purchase" from a list: every catalogue item still to come, at its remaining quantity. */
+    private suspend fun prefillFromList(listId: String) {
+        addFromList(listId, pickable(listId))
+        dirty = false
     }
 
     fun addItems(picked: List<ItemEntity>) {
@@ -270,6 +294,7 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
     val units by vm.units.collectAsStateWithLifecycle()
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf(false) }
+    var pickingFromList by remember { mutableStateOf(false) }
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmComplete by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -333,6 +358,12 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
                         Text(tr("No items yet."), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     OutlinedButton(onClick = { picking = true }, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Filled.Add, null); Text(tr("Add items")) }
+                    val pickLists by vm.pickableLists.collectAsStateWithLifecycle()
+                    if (!vm.completed && pickLists.isNotEmpty()) {
+                        OutlinedButton(onClick = { pickingFromList = true }, modifier = Modifier.fillMaxWidth()) {
+                            Icon(Icons.Filled.Add, null); Text(tr("Pick from out-of-stock list"))
+                        }
+                    }
                     TotalsFooter(vm)
                     ErrorText(vm.error)
                     Spacer(Modifier.heightIn(min = 48.dp))
@@ -341,6 +372,7 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
         }
     }
     if (picking) PurchaseItemPicker(vm, onDismiss = { picking = false })
+    if (pickingFromList) PurchaseListPicker(vm, onDismiss = { pickingFromList = false })
     if (confirmLeave) ConfirmDialog(tr("Leave without saving?"), tr("Your changes will be lost. Use \"Save draft\" to keep them."),
         tr("Leave"), onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
     if (confirmComplete) ConfirmDialog(tr("Complete this purchase?"),
@@ -434,6 +466,81 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
             }
         }
     }
+}
+
+/** Choose an out-of-stock list, tick the lines to buy now, add them to this purchase. Can be used again for another list. */
+@Composable
+private fun PurchaseListPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit) {
+    val lists by vm.pickableLists.collectAsStateWithLifecycle()
+    var listId by remember { mutableStateOf<String?>(null) }
+    var picks by remember { mutableStateOf<List<PurchaseEditViewModel.ListPick>?>(null) }
+    val chosen = remember { mutableStateMapOf<String, Boolean>() }
+    val units by vm.units.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(tr("Pick from out-of-stock list")) },
+        text = {
+            val id = listId
+            val shown = picks
+            if (id == null || shown == null) {
+                LazyColumn(Modifier.heightIn(max = 360.dp)) {
+                    items(lists, key = { it.id }) { l ->
+                        Column(Modifier.fillMaxWidth().clickable {
+                            listId = l.id
+                            chosen.clear()
+                            scope.launch {
+                                val found = vm.pickable(l.id)
+                                found.filter { !it.alreadyAdded }.forEach { chosen[it.line.id] = true }
+                                picks = found
+                            }
+                        }.padding(vertical = 10.dp)) {
+                            Text(l.title.bi())
+                            Text(l.listDate, style = MaterialTheme.typography.bodySmall)
+                        }
+                        HorizontalDivider()
+                    }
+                }
+            } else if (shown.isEmpty()) {
+                Text(tr("Nothing left to buy on this list"))
+            } else {
+                Column {
+                    val selectable = shown.filter { !it.alreadyAdded }
+                    TextButton(onClick = {
+                        val all = selectable.all { chosen[it.line.id] == true }
+                        selectable.forEach { chosen[it.line.id] = !all }
+                    }) { Text(tr("Select all")) }
+                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                        items(shown, key = { it.line.id }) { p ->
+                            val unit = units.firstOrNull { it.id == p.line.unitId }?.code.orEmpty()
+                            Row(Modifier.fillMaxWidth().clickable(enabled = !p.alreadyAdded) { chosen[p.line.id] = chosen[p.line.id] != true },
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Checkbox(checked = p.alreadyAdded || chosen[p.line.id] == true, onCheckedChange = null, enabled = !p.alreadyAdded)
+                                Column {
+                                    Text(p.itemName.bi())
+                                    Text(
+                                        listOfNotNull(tr("Remaining %1\$s", "${Decimals.format(p.remaining)} $unit".trim()),
+                                            if (p.alreadyAdded) tr("Already added") else null).joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            val id = listId
+            val shown = picks
+            if (id != null && shown != null) {
+                val ticked = shown.filter { !it.alreadyAdded && chosen[it.line.id] == true }
+                TextButton(onClick = { scope.launch { vm.addFromList(id, ticked); onDismiss() } }, enabled = ticked.isNotEmpty()) {
+                    Text(tr("Add %1\$s", ticked.size))
+                }
+            }
+        },
+        dismissButton = { TextButton(onClick = { if (listId != null) { listId = null; picks = null } else onDismiss() }) { Text(if (listId != null) tr("Back") else tr("Cancel")) } },
+    )
 }
 
 @Composable
