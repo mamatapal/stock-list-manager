@@ -9,6 +9,7 @@ import app.stocklist.app.core.i18n.asciiDigits
 
 import app.stocklist.app.core.i18n.tr
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,7 +24,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -161,8 +165,6 @@ class PurchaseEditViewModel @Inject constructor(
                             it.updateCatalog)
                     }
                 }
-            } else if (fromList != null) {
-                prefillFromList(fromList)
             }
             stockListId?.let { listTitle = listRepo.get(it)?.title }
             loaded = true
@@ -206,11 +208,8 @@ class PurchaseEditViewModel @Inject constructor(
         dirty = true
     }
 
-    /** "Record purchase" from a list: every catalogue item still to come, at its remaining quantity. */
-    private suspend fun prefillFromList(listId: String) {
-        addFromList(listId, pickable(listId))
-        dirty = false
-    }
+    /** "Record purchase" from a list opens the chooser on that list; nothing is added until the person confirms. */
+    val startList: String? get() = if (id == null) fromList else null
 
     fun addItems(picked: List<ItemEntity>) {
         picked.forEach { item ->
@@ -294,7 +293,7 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
     val units by vm.units.collectAsStateWithLifecycle()
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf(false) }
-    var pickingFromList by remember { mutableStateOf(false) }
+    var pickingFromList by remember { mutableStateOf(vm.startList != null) }
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmComplete by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -372,7 +371,7 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
         }
     }
     if (picking) PurchaseItemPicker(vm, onDismiss = { picking = false })
-    if (pickingFromList) PurchaseListPicker(vm, onDismiss = { pickingFromList = false })
+    if (pickingFromList) PurchaseListPicker(vm, startListId = vm.startList, onDismiss = { pickingFromList = false })
     if (confirmLeave) ConfirmDialog(tr("Leave without saving?"), tr("Your changes will be lost. Use \"Save draft\" to keep them."),
         tr("Leave"), onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
     if (confirmComplete) ConfirmDialog(tr("Complete this purchase?"),
@@ -470,13 +469,17 @@ private fun PurchaseLineEditor(vm: PurchaseEditViewModel, i: Int, l: PurchaseLin
 
 /** Choose an out-of-stock list, tick the lines to buy now, add them to this purchase. Can be used again for another list. */
 @Composable
-private fun PurchaseListPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit) {
+private fun PurchaseListPicker(vm: PurchaseEditViewModel, startListId: String? = null, onDismiss: () -> Unit) {
     val lists by vm.pickableLists.collectAsStateWithLifecycle()
     var listId by remember { mutableStateOf<String?>(null) }
     var picks by remember { mutableStateOf<List<PurchaseEditViewModel.ListPick>?>(null) }
     val chosen = remember { mutableStateMapOf<String, Boolean>() }
     val units by vm.units.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
+    // opened from "Record purchase" on a list: go straight to that list's lines, nothing selected yet
+    LaunchedEffect(startListId) {
+        if (startListId != null && listId == null) { chosen.clear(); picks = vm.pickable(startListId); listId = startListId }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(tr("Pick from out-of-stock list")) },
@@ -491,7 +494,6 @@ private fun PurchaseListPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                             chosen.clear()
                             scope.launch {
                                 val found = vm.pickable(l.id)
-                                found.filter { !it.alreadyAdded }.forEach { chosen[it.line.id] = true }
                                 picks = found
                             }
                         }.padding(vertical = 10.dp)) {
@@ -513,9 +515,12 @@ private fun PurchaseListPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit)
                     LazyColumn(Modifier.heightIn(max = 320.dp)) {
                         items(shown, key = { it.line.id }) { p ->
                             val unit = units.firstOrNull { it.id == p.line.unitId }?.code.orEmpty()
-                            Row(Modifier.fillMaxWidth().clickable(enabled = !p.alreadyAdded) { chosen[p.line.id] = chosen[p.line.id] != true },
+                            val on = p.alreadyAdded || chosen[p.line.id] == true
+                            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp).clip(RoundedCornerShape(8.dp))
+                                .background(if (on) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                .clickable(enabled = !p.alreadyAdded) { chosen[p.line.id] = chosen[p.line.id] != true }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = p.alreadyAdded || chosen[p.line.id] == true, onCheckedChange = null, enabled = !p.alreadyAdded)
                                 Column {
                                     Text(p.itemName.bi())
                                     Text(
