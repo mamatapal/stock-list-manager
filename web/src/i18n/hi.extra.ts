@@ -89,6 +89,7 @@ const extra: Record<string, string> = {
   'Yes': 'हाँ',
   'Give this to %1$s. It is shown only once:': 'यह %1$s को दें। यह सिर्फ़ एक बार दिखाई जाती है:',
   'Choose a list': 'लिस्ट चुनें',
+  'Tick the items you are buying now. Leave out items this supplier cannot give.': 'जो आइटम अभी खरीद रहे हैं उन पर टिक करें। जो इस सप्लायर से नहीं मिल सकते उन्हें छोड़ दें।',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra
