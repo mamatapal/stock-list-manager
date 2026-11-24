@@ -197,7 +197,7 @@ describe('recording a purchase', () => {
     await user.click(screen.getByRole('option', { name: /Ram Traders/ }))
     await user.click(screen.getByRole('button', { name: /^Add item/ }))
     await user.click(screen.getByLabelText(/^Item\b/))
-    await user.click(screen.getByRole('button', { name: /Sugar/ }))
+    await user.click(screen.getByRole('option', { name: /Sugar/ }))
     expect(screen.getByLabelText(/^Purchase price/)).toHaveAttribute('readonly')
     expect(screen.getByLabelText(/^Purchase price/)).toHaveValue('')
     await user.type(screen.getByLabelText(/^Quantity/), '5')
