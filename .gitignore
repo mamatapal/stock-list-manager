@@ -14,3 +14,6 @@ crash-log.txt
 .env
 package-log.txt
 **/staging-log.txt
+
+web/node_modules/
+web/dist/

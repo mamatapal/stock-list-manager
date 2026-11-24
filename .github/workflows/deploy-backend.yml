@@ -42,6 +42,23 @@ jobs:
           java-version: "21"
           cache: maven
 
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # The web app is tested and built here; it is served at /app/ next to the API.
+      - name: Test and build the web app
+        working-directory: web
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        run: |
+          npm ci
+          npm test
+          npm run build
+
       # Nothing is deployed unless every backend test passes.
       - name: Test and build the backend
         working-directory: backend
@@ -56,6 +73,7 @@ jobs:
           cp deploy/Dockerfile deploy/docker-compose.prod.yml deploy/Caddyfile deploy/backup.sh deploy/restore.sh deploy/create-admin.sh deploy/.env.example bundle/
           sed -i 's/\r$//' bundle/*.sh
           chmod +x bundle/*.sh
+          cp -r web/dist bundle/web
 
       - name: Connect to the server
         env:
@@ -93,7 +111,8 @@ jobs:
 
       - name: Copy and start
         run: |
-          scp -i ~/.ssh/deploy_key -o BatchMode=yes bundle/* bundle/.env.example "$DEPLOY_USER@$DEPLOY_HOST:/opt/stocklist/"
+          $SSH 'mkdir -p /opt/stocklist/web && find /opt/stocklist/web -mindepth 1 -delete'
+          scp -i ~/.ssh/deploy_key -o BatchMode=yes -r bundle/* bundle/.env.example "$DEPLOY_USER@$DEPLOY_HOST:/opt/stocklist/"
           $SSH 'set -e
             cd /opt/stocklist
             # A free <ip>.sslip.io name follows the server if its public IP changed (e.g. an Elastic IP added later).
@@ -107,6 +126,8 @@ jobs:
             # Back up the database before every update (skipped on the very first deploy).
             if [ -n "$(docker compose -f docker-compose.prod.yml ps -q mysql 2>/dev/null)" ]; then ./backup.sh; else echo "First deploy: nothing to back up yet"; fi
             docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+            # Caddy keeps the web folder open; restarting it makes it pick up the new files every time.
+            docker compose -f docker-compose.prod.yml restart caddy
             docker image prune -f > /dev/null
             grep ^API_DOMAIN= .env | cut -d= -f2' | tee deploy-output.txt
           echo "API_DOMAIN=$(tail -n 1 deploy-output.txt)" >> "$GITHUB_ENV"
@@ -121,6 +142,14 @@ jobs:
           echo "::error::$URL did not answer. Logs:"
           $SSH 'cd /opt/stocklist && docker compose -f docker-compose.prod.yml ps && docker compose -f docker-compose.prod.yml logs --tail 80 backend caddy'
           exit 1
+
+      - name: Check the web app is served
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS --max-time 10 "https://$API_DOMAIN/app/" | grep -q 'id="root"'; then echo "Web app is up"; exit 0; fi
+            sleep 6
+          done
+          echo "::error::https://$API_DOMAIN/app/ did not answer"; exit 1
 
       - name: Summary
         if: always()
