@@ -93,7 +93,7 @@ function PurchaseForm({ existing }: { existing: Purchase | null }) {
   if (supplierList.loading || itemList.loading || unitList.loading || lists.loading) return <Loading />
   const err = supplierList.error ?? itemList.error ?? unitList.error
   if (err) return <ErrorText error={err} />
-  return <PurchaseFormBody existing={existing} suppliers={supplierList.data ?? []} items={itemList.data ?? []} units={(unitList.data ?? []).filter((u) => !u.deleted)} lists={(lists.data ?? []).filter((l) => l.status === 'SAVED')} navigate={navigate} can={can} />
+  return <PurchaseFormBody existing={existing} suppliers={supplierList.data ?? []} items={itemList.data ?? []} units={(unitList.data ?? []).filter((u) => !u.deleted)} lists={(lists.data ?? []).filter((l) => !l.deleted)} navigate={navigate} can={can} />
 }
 
 const remainingOf = (l: ListLine) => (l.remainingQuantity && l.remainingQuantity !== '0' ? l.remainingQuantity : l.quantity)
@@ -109,11 +109,16 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
   const [open, setOpen] = useState(defaultOpen)
   const [ticked, setTicked] = useState<Set<string>>(new Set())
   const groups = lists
-    .map((list) => ({ list, rows: list.lines.filter(buyable) }))
+    .map((list) => ({ list, rows: list.status === 'SAVED' ? list.lines.filter(buyable) : [] }))
     .filter((g) => g.rows.length > 0)
     .sort((a, b) => Number(!!supplierId && !(a.list.supplierId === supplierId || !a.list.supplierId)) - Number(!!supplierId && !(b.list.supplierId === supplierId || !b.list.supplierId)))
   const toggle = (id: string, on: boolean) => setTicked((t) => { const n = new Set(t); if (on) n.add(id); else n.delete(id); return n })
-  if (groups.length === 0) return null
+  if (groups.length === 0) {
+    const why = lists.length === 0 ? 'There are no out-of-stock lists yet.'
+      : lists.every((l) => l.status !== 'SAVED') ? 'Your out-of-stock lists are drafts. Save a list first, then pick from it here.'
+      : 'No out-of-stock list has an item left to buy. Items typed without a catalogue item, or already received, are not offered.'
+    return <p className="muted small"><Tr k="Pick from out-of-stock list" />: <Tr k={why} /></p>
+  }
   if (!open) return <button type="button" onClick={() => setOpen(true)}>{trLine('Pick from out-of-stock list')}</button>
   const picked = groups.flatMap((g) => g.rows.filter((l) => ticked.has(l.id) && !added.has(l.id)).map((line) => ({ list: g.list, line })))
   return (
