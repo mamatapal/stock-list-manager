@@ -89,11 +89,16 @@ const extra: Record<string, string> = {
   'Yes': 'हाँ',
   'Give this to %1$s. It is shown only once:': 'यह %1$s को दें। यह सिर्फ़ एक बार दिखाई जाती है:',
   'Choose a list': 'लिस्ट चुनें',
-  'Tick the items you are buying now. Leave out items this supplier cannot give.': 'जो आइटम अभी खरीद रहे हैं उन पर टिक करें। जो इस सप्लायर से नहीं मिल सकते उन्हें छोड़ दें।',
+  'Tap the items you are buying now. Leave out items this supplier cannot give.': 'जो आइटम अभी खरीद रहे हैं उन पर टिक करें। जो इस सप्लायर से नहीं मिल सकते उन्हें छोड़ दें।',
   'There are no out-of-stock lists yet.': 'अभी कोई स्टॉक खत्म लिस्ट नहीं है।',
   'Your out-of-stock lists are drafts. Save a list first, then pick from it here.': 'आपकी स्टॉक खत्म लिस्टें ड्राफ़्ट हैं। पहले लिस्ट सेव करें, फिर यहाँ से चुनें।',
   'No out-of-stock list has an item left to buy. Items already received are not offered.': 'किसी भी स्टॉक खत्म लिस्ट में खरीदने को आइटम बाकी नहीं है। पहले से मिल चुके आइटम नहीं दिखते।',
   'You do not have permission to add items to the catalogue': 'आपको कैटलॉग में आइटम जोड़ने की अनुमति नहीं है',
+  'Tap to choose or type to search': 'चुनने के लिए टैप करें या खोजने के लिए लिखें',
+  'No items found': 'कोई आइटम नहीं मिला',
+  'No item found for %1$s': '%1$s के लिए कोई आइटम नहीं मिला',
+  'Create item: %1$s': 'आइटम बनाएँ: %1$s',
+  'After you save, you go straight back to your purchase with this item chosen.': 'सेव करने के बाद आप सीधे अपनी खरीद पर लौटेंगे, यह आइटम चुना हुआ होगा।',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra

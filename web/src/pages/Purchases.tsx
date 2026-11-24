@@ -1,9 +1,10 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { items, purchases, stockLists, suppliers, units } from '../api/catalogue'
 import type { Item, ListLine, Purchase, PurchaseLine, StockList, Supplier, Unit } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { BilingualNameFields } from '../components/BilingualNameFields'
+import { ItemCombo } from '../components/ItemCombo'
 import { DeleteButton } from '../components/DeleteButton'
 import { ErrorText } from '../components/ErrorText'
 import { Name, oneLine } from '../components/Name'
@@ -96,6 +97,14 @@ function PurchaseForm({ existing }: { existing: Purchase | null }) {
   return <PurchaseFormBody existing={existing} suppliers={supplierList.data ?? []} items={itemList.data ?? []} units={(unitList.data ?? []).filter((u) => !u.deleted)} lists={(lists.data ?? []).filter((l) => !l.deleted)} navigate={navigate} can={can} />
 }
 
+interface Draft { supplierId: string; invoiceNo: string; purchaseDate: string; notes: string; stockListId: string; lines: LineForm[]; arrived: boolean }
+const DRAFT_KEY = 'slm.purchaseDraft'
+function saveDraft(path: string, d: Draft) { try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ path, ...d })) } catch { /* private mode */ } }
+function readDraft(path: string): Draft | null {
+  try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null'); return d && d.path === path ? d : null } catch { return null }
+}
+function clearDraft() { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } }
+
 const remainingOf = (l: ListLine) => (l.remainingQuantity && l.remainingQuantity !== '0' ? l.remainingQuantity : l.quantity)
 /** A line can be bought when it has a name with something still to come; a name not yet in the catalogue is added on pick. */
 const buyable = (l: ListLine) => !!(l.itemId || l.itemName?.trim()) && !(l.remainingQuantity !== null && Number(l.remainingQuantity) <= 0)
@@ -119,12 +128,14 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
       : 'No out-of-stock list has an item left to buy. Items typed without a catalogue item, or already received, are not offered.'
     return <p className="muted small"><Tr k="Pick from out-of-stock list" />: <Tr k={why} /></p>
   }
-  if (!open) return <button type="button" onClick={() => setOpen(true)}>{trLine('Pick from out-of-stock list')}</button>
+  const count = groups.reduce((n, g) => n + g.rows.filter((l) => !added.has(l.id)).length, 0)
+  if (!open) return <button type="button" className="dropdown-btn" aria-expanded="false" onClick={() => setOpen(true)}>{trLine('Pick from out-of-stock list')} ({count}) ▾</button>
   const picked = groups.flatMap((g) => g.rows.filter((l) => ticked.has(l.id) && !added.has(l.id)).map((line) => ({ list: g.list, line })))
   return (
-    <section className="card" aria-label={trLine('Pick from out-of-stock list')}>
-      <h3><Tr k="Pick from out-of-stock list" /></h3>
-      <p className="muted small"><Tr k="Tick the items you are buying now. Leave out items this supplier cannot give." /></p>
+    <section className="card dropdown-panel" aria-label={trLine('Pick from out-of-stock list')}>
+      <button type="button" className="dropdown-btn" aria-expanded="true" onClick={() => setOpen(false)}>{trLine('Pick from out-of-stock list')} ({picked.length}) ▴</button>
+      <p className="muted small"><Tr k="Tap the items you are buying now. Leave out items this supplier cannot give." /></p>
+      <div className="dropdown-scroll">
       {groups.map(({ list, rows }) => {
         const free = rows.filter((l) => !added.has(l.id))
         const allOn = free.length > 0 && free.every((l) => ticked.has(l.id))
@@ -132,22 +143,26 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
           <fieldset key={list.id} className="perm-group">
             <legend>{oneLine(list.title)} — {list.listDate}</legend>
             {free.length > 1 && <button type="button" onClick={() => setTicked((t) => { const n = new Set(t); free.forEach((l) => (allOn ? n.delete(l.id) : n.add(l.id))); return n })}>{trLine('Select all')}</button>}
-            {rows.map((l) => (
-              <label key={l.id} className="perm-row">
-                <input type="checkbox" checked={added.has(l.id) || ticked.has(l.id)} disabled={added.has(l.id)} onChange={(e) => toggle(l.id, e.target.checked)} />
-                <span>
-                  <Name value={l.itemName} inline /> — <Tr k="Remaining %1$s" args={[remainingOf(l)]} inline />
-                  {added.has(l.id) && <> · <Tr k="Already added" inline /></>}
-                </span>
-              </label>
-            ))}
+            <ul role="listbox" aria-multiselectable="true" className="pick-list">
+              {rows.map((l) => {
+                const on = added.has(l.id) || ticked.has(l.id)
+                return (
+                  <li key={l.id} role="presentation">
+                    <button type="button" role="option" aria-selected={on} className={on ? 'pick-row selected' : 'pick-row'} disabled={added.has(l.id)} onClick={() => toggle(l.id, !ticked.has(l.id))}>
+                      <Name value={l.itemName} inline /> — <Tr k="Remaining %1$s" args={[remainingOf(l)]} inline />
+                      {added.has(l.id) && <> · <Tr k="Already added" inline /></>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           </fieldset>
         )
       })}
+      </div>
       <button type="button" className="primary" disabled={picked.length === 0} onClick={() => { onAdd(picked); setTicked(new Set()); setOpen(false) }}>
         {trLine('Add %1$s', picked.length)}
       </button>
-      <button type="button" onClick={() => setOpen(false)}>{trLine('Cancel')}</button>
     </section>
   )
 }
@@ -158,13 +173,17 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
 }) {
   const [addedItems, setAddedItems] = useState<Item[]>([])
   const itemList = [...loadedItems, ...addedItems]
-  const [supplierId, setSupplierId] = useState(existing?.supplierId ?? '')
-  const [invoiceNo, setInvoiceNo] = useState(existing?.invoiceNo ?? '')
-  const [purchaseDate, setPurchaseDate] = useState(existing?.purchaseDate ?? today())
-  const [notes, setNotes] = useState(existing?.notes ?? '')
-  const [stockListId, setStockListId] = useState(existing?.stockListId ?? '')
-  const [lines, setLines] = useState<LineForm[]>(() => (existing ? existing.lines.map(fromPurchaseLine) : []))
-  const [arrived, setArrived] = useState(false)
+  const { pathname } = useLocation()
+  const [params] = useSearchParams()
+  // coming back from the item page: restore what was typed before leaving
+  const [draft] = useState(() => (params.get('resume') ? readDraft(pathname) : null))
+  const [supplierId, setSupplierId] = useState(draft?.supplierId ?? existing?.supplierId ?? '')
+  const [invoiceNo, setInvoiceNo] = useState(draft?.invoiceNo ?? existing?.invoiceNo ?? '')
+  const [purchaseDate, setPurchaseDate] = useState(draft?.purchaseDate ?? existing?.purchaseDate ?? today())
+  const [notes, setNotes] = useState(draft?.notes ?? existing?.notes ?? '')
+  const [stockListId, setStockListId] = useState(draft?.stockListId ?? existing?.stockListId ?? '')
+  const [lines, setLines] = useState<LineForm[]>(() => draft?.lines ?? (existing ? existing.lines.map(fromPurchaseLine) : []))
+  const [arrived, setArrived] = useState(draft?.arrived ?? false)
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
   const canPrice = can('PURCHASE_PRICE_ENTER')
@@ -182,6 +201,19 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
       priceBasis: 'PER_UNIT',
     })
   }
+
+  /** Leaves for the item page with the typed name; the purchase is kept and restored on return. */
+  function createItem(lineId: string, name: string) {
+    saveDraft(pathname, { supplierId, invoiceNo, purchaseDate, notes, stockListId, lines, arrived })
+    navigate(`/items/new?name=${encodeURIComponent(name)}&return=${encodeURIComponent(pathname)}&line=${encodeURIComponent(lineId)}`)
+  }
+
+  useEffect(() => {
+    const itemId = params.get('newItem'); const lineId = params.get('line')
+    if (itemId && lineId) pickItem(lineId, itemId)
+    if (params.get('resume')) { clearDraft(); navigate(pathname, { replace: true }) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /** Adds the ticked lines at their remaining quantity. The supplier and the list link come from the first list when still empty. */
   async function addPicked(picked: Array<{ list: StockList; line: ListLine }>) {
@@ -253,16 +285,14 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
       <TextField label="Purchase date" type="date" value={purchaseDate} onChange={setPurchaseDate} required />
       <BilingualNameFields value={notes} onChange={setNotes} title="Notes" multiline englishLabel="Notes (English)" hindiLabel="Notes (Hindi)" />
 
-      {!wasCompleted && <ListPicker lists={lists} supplierId={supplierId} added={new Set(lines.map((l) => l.stockListItemId).filter((x): x is string => !!x))} defaultOpen={!existing && lines.length === 0} onAdd={addPicked} />}
+      {!wasCompleted && <ListPicker lists={lists} supplierId={supplierId} added={new Set(lines.map((l) => l.stockListItemId).filter((x): x is string => !!x))} defaultOpen={false} onAdd={addPicked} />}
 
       <h2><Tr k="Items bought" /></h2>
       {lines.length === 0 && <Empty text="No items yet" />}
       {lines.map((l) => (
         <section key={l.id} className="card line">
-          <SelectField label="Item" required value={l.itemId} onChange={(v) => pickItem(l.id, v)}>
-            <option value="">{trLine('Choose an item')}</option>
-            {itemList.filter((i) => i.active || i.id === l.itemId).map((i) => <option key={i.id} value={i.id}>{oneLine(i.name)}</option>)}
-          </SelectField>
+          <ItemCombo label="Item" required value={l.itemId} items={itemList.filter((i) => i.active || i.id === l.itemId)}
+            onSelect={(v) => pickItem(l.id, v)} onCreate={can('ITEM_ADD') ? (name) => createItem(l.id, name) : undefined} />
           <div className="grid2">
             <TextField label="Quantity" inputMode="decimal" value={l.quantity} onChange={(v) => patch(l.id, { quantity: v })} required />
             <SelectField label="Unit" value={l.unitId} onChange={(v) => patch(l.id, { unitId: v })}>

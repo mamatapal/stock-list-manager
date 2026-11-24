@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { items, suppliers, units } from '../api/catalogue'
 import type { Item, Supplier, Unit } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -72,13 +72,16 @@ export function ItemForm() {
 function ItemFormBody({ existing, units: unitList, suppliers: supplierList }: { existing: Item | null; units: Unit[]; suppliers: Supplier[] }) {
   const { can } = useAuth()
   const navigate = useNavigate()
+  const [qs] = useSearchParams()
+  const returnTo = !existing ? qs.get('return') : null
+  const returnLine = qs.get('line')
   useLanguage()
   const usable = unitList.filter((u) => !u.deleted)
   const [f, setF] = useState(() => existing ? {
     name: existing.name, category: existing.category ?? '', defaultUnitId: existing.defaultUnitId,
     purchase: existing.latestPurchasePrice ?? '', selling: existing.latestSellingPrice ?? '',
     preferredSupplierId: existing.preferredSupplierId ?? '', notes: existing.notes ?? '', active: existing.active,
-  } : { ...blank, defaultUnitId: usable[0]?.id ?? '' })
+  } : { ...blank, name: qs.get('name') ?? '', defaultUnitId: usable[0]?.id ?? '' })
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
   const set = <K extends keyof typeof blank>(k: K, v: (typeof blank)[K]) => setF((p) => ({ ...p, [k]: v }))
@@ -98,8 +101,12 @@ function ItemFormBody({ existing, units: unitList, suppliers: supplierList }: { 
       preferredSupplierId: f.preferredSupplierId || null, notes: clean(f.notes), active: f.active,
     }
     try {
-      if (existing) await items.update(existing.id, existing.version, body); else await items.create(body)
-      navigate('/items', { replace: true })
+      if (existing) { await items.update(existing.id, existing.version, body); navigate('/items', { replace: true }) }
+      else {
+        const made = await items.create(body)
+        if (returnTo) navigate(`${returnTo}?resume=1&newItem=${encodeURIComponent(made.id)}&line=${encodeURIComponent(returnLine ?? '')}`, { replace: true })
+        else navigate('/items', { replace: true })
+      }
     } catch (err) { setError(err); setBusy(false) }
   }
 
@@ -112,6 +119,7 @@ function ItemFormBody({ existing, units: unitList, suppliers: supplierList }: { 
   return (
     <form onSubmit={save} noValidate>
       <h1><Tr k={existing ? 'Edit item' : 'Add item'} /></h1>
+      {returnTo && <p className="muted small"><Tr k="After you save, you go straight back to your purchase with this item chosen." /></p>}
       <BilingualNameFields value={f.name} onChange={(v) => set('name', v)} title="Item name" required error={fieldMessage(error, 'name')} />
       <BilingualNameFields value={f.category} onChange={(v) => set('category', v)} title="Category" englishLabel="Category (English)" hindiLabel="Category (Hindi)" />
       <SelectField label="Default unit" required value={f.defaultUnitId} onChange={(v) => set('defaultUnitId', v)}>
@@ -119,15 +127,15 @@ function ItemFormBody({ existing, units: unitList, suppliers: supplierList }: { 
       </SelectField>
       <TextField label="Purchase price" inputMode="decimal" value={f.purchase} onChange={(v) => set('purchase', v)} readOnly={!canPurchase} error={fieldMessage(error, 'latestPurchasePrice')} />
       <TextField label="Selling price" inputMode="decimal" value={f.selling} onChange={(v) => set('selling', v)} readOnly={!canSelling} error={fieldMessage(error, 'latestSellingPrice')} />
-      <SelectField label="Preferred supplier" value={f.preferredSupplierId} onChange={(v) => set('preferredSupplierId', v)}>
+      {!returnTo && <SelectField label="Preferred supplier" value={f.preferredSupplierId} onChange={(v) => set('preferredSupplierId', v)}>
         <option value="">{trLine('None')}</option>
         {supplierList.filter((s) => s.active || s.id === f.preferredSupplierId).map((s) => <option key={s.id} value={s.id}>{oneLine(s.name)}</option>)}
-      </SelectField>
-      <BilingualNameFields value={f.notes} onChange={(v) => set('notes', v)} title="Notes" multiline englishLabel="Notes (English)" hindiLabel="Notes (Hindi)" />
-      <CheckField label="Active" checked={f.active} onChange={(v) => set('active', v)} />
+      </SelectField>}
+      {!returnTo && <BilingualNameFields value={f.notes} onChange={(v) => set('notes', v)} title="Notes" multiline englishLabel="Notes (English)" hindiLabel="Notes (Hindi)" />}
+      {!returnTo && <CheckField label="Active" checked={f.active} onChange={(v) => set('active', v)} />}
       <ErrorText error={hasFieldErrors(error) ? null : error} />
       {canSave && <button type="submit" className="primary" disabled={busy}>{busy ? trLine('Saving…') : trLine('Save')}</button>}
-      <Link className="button" to="/items">{trLine('Cancel')}</Link>
+      <Link className="button" to={returnTo ? `${returnTo}?resume=1` : '/items'}>{trLine('Cancel')}</Link>
       {existing && can('ITEM_DELETE') && <DeleteButton onConfirm={remove} busy={busy} />}
     </form>
   )
