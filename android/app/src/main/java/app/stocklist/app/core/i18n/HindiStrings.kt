@@ -648,6 +648,8 @@ internal object HindiStrings {
         m["Search invoice, supplier or item"] = "बिल, सप्लायर या आइटम खोजें"
         m["Search item, batch, supplier or invoice"] = "आइटम, बैच, सप्लायर या बिल खोजें"
         m["Search items"] = "आइटम खोजें"
+        m["No item found for %1\$s"] = "%1\$s के लिए कोई आइटम नहीं मिला"
+        m["Create item: %1\$s"] = "आइटम बनाएँ: %1\$s"
         m["Search name or category"] = "नाम या कैटेगरी खोजें"
         m["Search name, city, phone"] = "नाम, शहर, फ़ोन खोजें"
         m["Search title, notes or item"] = "नाम, नोट्स या आइटम खोजें"

@@ -261,7 +261,9 @@ class ItemEditViewModel @Inject constructor(
 
     var loaded by mutableStateOf(id == null)
         private set
-    var name by mutableStateOf("")
+    /** Opened from a purchase or list: the typed name is filled in, the short form is shown, and the new item is handed back. */
+    val returning: Boolean = handle.get<Boolean>("return") == true
+    var name by mutableStateOf(if (id == null) handle.get<String>("name").orEmpty() else "")
     var category by mutableStateOf("")
     var unitId by mutableStateOf(BuiltInUnits.PCS)
     var purchasePrice by mutableStateOf("")
@@ -294,7 +296,7 @@ class ItemEditViewModel @Inject constructor(
         e.message
     }
 
-    fun save(onDone: () -> Unit) {
+    fun save(onDone: () -> Unit, onCreated: (String) -> Unit = {}) {
         errors.clear()
         if (name.isBlank()) errors["name"] = tr("Item name is required")
         else if (BilingualName.clean(name).length > 150) errors["name"] = tr("At most 150 characters")
@@ -312,9 +314,10 @@ class ItemEditViewModel @Inject constructor(
                 saving = false
                 return@launch
             }
-            repo.save(id, ItemInput(BilingualName.clean(name), BilingualName.clean(category).ifEmpty { null }, unitId, Decimals.format(purchase),
+            val savedId = repo.save(id, ItemInput(BilingualName.clean(name), BilingualName.clean(category).ifEmpty { null }, unitId, Decimals.format(purchase),
                 Decimals.format(selling), supplierId, notes.trim().ifEmpty { null }, active))
             saving = false
+            if (id == null) onCreated(savedId)
             onDone()
         }
     }
@@ -322,7 +325,7 @@ class ItemEditViewModel @Inject constructor(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = hiltViewModel()) {
+fun ItemEditScreen(access: Access, onDone: () -> Unit, onCreated: (String) -> Unit = {}, vm: ItemEditViewModel = hiltViewModel()) {
     val units by vm.units.collectAsStateWithLifecycle()
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -335,7 +338,7 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
         TopAppBar(title = { Text(if (isNew) tr("Add item") else tr("Edit item")) },
             navigationIcon = { IconButton(onClick = onDone) { Icon(Icons.AutoMirrored.Filled.ArrowBack, Bilingual.oneLine(tr("Back"))) } },
             actions = {
-                TextButton(onClick = { vm.save(onDone) }, enabled = vm.loaded && !vm.saving) {
+                TextButton(onClick = { vm.save(onDone, onCreated) }, enabled = vm.loaded && !vm.saving) {
                     Text(tr("Save"), style = MaterialTheme.typography.titleMedium)
                 }
             })
@@ -366,9 +369,11 @@ fun ItemEditScreen(access: Access, onDone: () -> Unit, vm: ItemEditViewModel = h
                 Text(tr("Price fields you are not allowed to change are locked."), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            DropdownField(tr("Preferred supplier"), vm.supplierId,
-                listOf(Choice(null, tr("None"))) + suppliers.map { Choice(it.id, it.name.bi()) }, { vm.supplierId = it })
-            FormField(vm.notes, { vm.notes = it }, tr("Notes"), singleLine = false)
+            if (!vm.returning) {
+                DropdownField(tr("Preferred supplier"), vm.supplierId,
+                    listOf(Choice(null, tr("None"))) + suppliers.map { Choice(it.id, it.name.bi()) }, { vm.supplierId = it })
+                FormField(vm.notes, { vm.notes = it }, tr("Notes"), singleLine = false)
+            }
             ErrorText(if (vm.errors.isNotEmpty()) tr("Please correct the highlighted fields.") else null)
         }
     }

@@ -235,6 +235,11 @@ class PurchaseEditViewModel @Inject constructor(
         return null
     }
 
+    /** An item just created on the item page becomes a line of this purchase. */
+    suspend fun addCreatedItem(itemId: String) {
+        itemRepo.observeOne(itemId).first()?.let { addItems(listOf(it)) }
+    }
+
     fun update(i: Int, change: (PurchaseLineDraft) -> PurchaseLineDraft) {
         val before = lines[i]
         val after = change(before)
@@ -289,7 +294,12 @@ class PurchaseEditViewModel @Inject constructor(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: PurchaseEditViewModel = hiltViewModel()) {
+fun PurchaseEditScreen(
+    onBack: () -> Unit, onSaved: (String) -> Unit, newItemId: String? = null, onNewItemHandled: () -> Unit = {},
+    onCreateItem: (String) -> Unit = {}, vm: PurchaseEditViewModel = hiltViewModel(),
+) {
+    // back from the item page with a new item: add it as a line (the purchase being typed is kept in the view model)
+    LaunchedEffect(newItemId) { if (newItemId != null) { vm.addCreatedItem(newItemId); onNewItemHandled() } }
     val units by vm.units.collectAsStateWithLifecycle()
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf(false) }
@@ -370,7 +380,7 @@ fun PurchaseEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Purcha
             }
         }
     }
-    if (picking) PurchaseItemPicker(vm, onDismiss = { picking = false })
+    if (picking) PurchaseItemPicker(vm, onCreateItem = onCreateItem, onDismiss = { picking = false })
     if (pickingFromList) PurchaseListPicker(vm, startListId = vm.startList, onDismiss = { pickingFromList = false })
     if (confirmLeave) ConfirmDialog(tr("Leave without saving?"), tr("Your changes will be lost. Use \"Save draft\" to keep them."),
         tr("Leave"), onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
@@ -549,67 +559,34 @@ private fun PurchaseListPicker(vm: PurchaseEditViewModel, startListId: String? =
 }
 
 @Composable
-private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onDismiss: () -> Unit) {
+private fun PurchaseItemPicker(vm: PurchaseEditViewModel, onCreateItem: (String) -> Unit, onDismiss: () -> Unit) {
     val q by vm.itemQuery.collectAsStateWithLifecycle()
     val items by vm.catalogue.collectAsStateWithLifecycle()
-    val units by vm.units.collectAsStateWithLifecycle()
     val chosen = remember { mutableStateMapOf<String, ItemEntity>() }
-    var creating by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf("") }
-    var newCategory by remember { mutableStateOf("") }
-    var newUnit by remember { mutableStateOf(BuiltInUnits.PCS) }
-    var newError by remember { mutableStateOf<String?>(null) }
-    val scope = rememberCoroutineScope()
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (creating) tr("New item") else tr("Add items")) },
+        title = { Text(tr("Add items")) },
         text = {
-            if (creating) {
-                Column {
-                    BilingualNameFields(newName, { newName = it }, title = tr("Item name"), required = true)
-                    BilingualNameFields(newCategory, { newCategory = it }, title = tr("Category"))
-                    DropdownField(tr("Unit"), newUnit, units.map { Choice(it.id, "${it.displayName} (${it.code})") }, { it?.let { u -> newUnit = u } })
-                    ErrorText(newError)
-                }
-            } else {
-                Column {
-                    OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items"), maxLines = 1) },
-                        leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
-                    LazyColumn(Modifier.heightIn(max = 320.dp)) {
-                        items(items, key = { it.id }) { item ->
-                            Row(Modifier.fillMaxWidth().clickable { if (chosen.remove(item.id) == null) chosen[item.id] = item },
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Checkbox(checked = item.id in chosen, onCheckedChange = null)
-                                Column {
-                                    Text(item.name.bi())
-                                    val last = listOfNotNull(item.latestPurchasePrice?.let { tr("buy %1\$s", Decimals.rupees(it)) },
-                                        item.latestSellingPrice?.let { tr("sell %1\$s", Decimals.rupees(it)) }).joinToString(" · ")
-                                    if (last.isNotEmpty()) Text(last, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                    }
-                    if (vm.canAddItem) {
-                        TextButton(onClick = { creating = true; newName = q.trim() }) {
-                            Text(if (q.isBlank()) tr("+ Add a new item") else tr("+ Add \"%1\$s\" as a new item", q.trim()))
+            Column {
+                OutlinedTextField(q, { vm.itemQuery.value = it }, singleLine = true, placeholder = { Text(tr("Search items"), maxLines = 1) },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
+                LazyColumn(Modifier.heightIn(max = 320.dp)) {
+                    items(items, key = { it.id }) { item ->
+                        TapRow(on = item.id in chosen, onClick = { if (chosen.remove(item.id) == null) chosen[item.id] = item }) {
+                            Text(item.name.bi())
+                            val last = listOfNotNull(item.latestPurchasePrice?.let { tr("buy %1\$s", Decimals.rupees(it)) },
+                                item.latestSellingPrice?.let { tr("sell %1\$s", Decimals.rupees(it)) }).joinToString(" · ")
+                            if (last.isNotEmpty()) Text(last, style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }
+                if (items.isEmpty()) NoItemFound(q, vm.canAddItem) { name -> vm.itemQuery.value = ""; onDismiss(); onCreateItem(name) }
             }
         },
         confirmButton = {
-            if (creating) {
-                TextButton(onClick = {
-                    scope.launch {
-                        newError = vm.addNewItem(newName, newCategory, newUnit)
-                        if (newError == null) { vm.itemQuery.value = ""; onDismiss() }
-                    }
-                }) { Text(tr("Create and add")) }
-            } else {
-                TextButton(onClick = { vm.addItems(chosen.values.toList()); vm.itemQuery.value = ""; onDismiss() },
-                    enabled = chosen.isNotEmpty()) { Text(tr("Add %1\$s", chosen.size)) }
-            }
+            TextButton(onClick = { vm.addItems(chosen.values.toList()); vm.itemQuery.value = ""; onDismiss() },
+                enabled = chosen.isNotEmpty()) { Text(tr("Add %1\$s", chosen.size)) }
         },
-        dismissButton = { TextButton(onClick = { if (creating) creating = false else onDismiss() }) { Text(if (creating) tr("Back") else tr("Cancel")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Cancel")) } },
     )
 }

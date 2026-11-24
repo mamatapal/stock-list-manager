@@ -182,8 +182,15 @@ private fun MainNav(user: MeDto, onRefreshProfile: () -> Unit) {
                 ItemDetailScreen(access, onBack = { nav.popBackStack() }, onEdit = { nav.navigate("item-edit?id=$it") },
                     onHistory = { nav.navigate("item-history/$it") }, onBatches = { nav.navigate("batches?itemId=$it") })
             }
-            composable("item-edit?id={id}", arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true })) {
-                ItemEditScreen(access, onDone = { nav.popBackStack() })
+            composable("item-edit?id={id}&name={name}&return={return}", arguments = listOf(
+                navArgument("id") { type = NavType.StringType; nullable = true },
+                navArgument("name") { type = NavType.StringType; nullable = true },
+                navArgument("return") { type = NavType.BoolType; defaultValue = false },
+            )) { entry ->
+                val handBack = entry.arguments?.getBoolean("return") == true
+                ItemEditScreen(access, onDone = { nav.popBackStack() }, onCreated = { id ->
+                    if (handBack) nav.previousBackStackEntry?.savedStateHandle?.set("newItemId", id)
+                })
             }
         }
         if (access.canViewPurchases) {
@@ -202,8 +209,11 @@ private fun MainNav(user: MeDto, onRefreshProfile: () -> Unit) {
             composable("purchase-edit?id={id}&listId={listId}", arguments = listOf(
                 navArgument("id") { type = NavType.StringType; nullable = true },
                 navArgument("listId") { type = NavType.StringType; nullable = true },
-            )) {
-                PurchaseEditScreen(onBack = { nav.popBackStack() }, onSaved = { saved ->
+            )) { entry ->
+                val newItem by entry.savedStateHandle.getStateFlow<String?>("newItemId", null).collectAsStateWithLifecycle()
+                PurchaseEditScreen(onBack = { nav.popBackStack() }, newItemId = newItem,
+                    onNewItemHandled = { entry.savedStateHandle["newItemId"] = null },
+                    onCreateItem = { name -> nav.navigate("item-edit?name=${android.net.Uri.encode(name)}&return=true") }, onSaved = { saved ->
                     nav.popBackStack()
                     val shown = nav.currentBackStackEntry?.takeIf { it.destination.route == "purchase/{id}" }?.arguments?.getString("id")
                     if (shown != saved) nav.navigate("purchase/$saved")
@@ -238,8 +248,11 @@ private fun MainNav(user: MeDto, onRefreshProfile: () -> Unit) {
                     onOpenCopy = { copy -> nav.navigate("list-edit?id=$copy") },
                     onRecordPurchase = { listId -> nav.navigate("purchase-edit?listId=$listId") }, onPdf = pdf)
             }
-            composable("list-edit?id={id}", arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true })) {
-                StockListEditScreen(onBack = { nav.popBackStack() }, onSaved = { saved ->
+            composable("list-edit?id={id}", arguments = listOf(navArgument("id") { type = NavType.StringType; nullable = true })) { entry ->
+                val newItem by entry.savedStateHandle.getStateFlow<String?>("newItemId", null).collectAsStateWithLifecycle()
+                StockListEditScreen(onBack = { nav.popBackStack() }, canCreateItem = access.has(Permission.ITEM_ADD), newItemId = newItem,
+                    onNewItemHandled = { entry.savedStateHandle["newItemId"] = null },
+                    onCreateItem = { name -> nav.navigate("item-edit?name=${android.net.Uri.encode(name)}&return=true") }, onSaved = { saved ->
                     nav.popBackStack()
                     // After creating, show the saved list; after editing, the list screen underneath is already it.
                     val shown = nav.currentBackStackEntry?.takeIf { it.destination.route == "list/{id}" }?.arguments?.getString("id")
