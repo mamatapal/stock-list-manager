@@ -155,7 +155,7 @@ internal object HindiStrings {
         m["Rejected"] = "अस्वीकार किया"
         m["Dispatched"] = "भेज दिया"
         m["Received by the shop"] = "दुकान को मिल गया"
-        m["Cancelled by the shop"] = "दुकान ने रद्द किया"
+        m["Cancelled"] = "रद्द"
         m["Delivery failed"] = "डिलीवरी नहीं हुई"
         m["Accept or reject this order."] = "इस ऑर्डर को स्वीकार या अस्वीकार करें।"
         m["Send the goods, then mark the order as dispatched."] = "माल भेजें, फिर ऑर्डर को 'भेज दिया' पर करें।"

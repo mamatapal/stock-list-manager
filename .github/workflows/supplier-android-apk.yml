@@ -99,6 +99,25 @@ jobs:
       - name: Run unit tests
         run: ./gradlew --stacktrace testDebugUnitTest
 
+      # Gradle does not print test counts: total them from the reports, and fail if any test was skipped
+      # (the end-to-end tests skip themselves here, by design, and run in their own job below).
+      - name: Show unit test results
+        run: |
+          python3 - <<'PY'
+          import glob, xml.etree.ElementTree as ET
+          total = {"tests": 0, "skipped": 0, "failures": 0, "errors": 0}
+          skipped = []
+          for f in sorted(glob.glob("app/build/test-results/testDebugUnitTest/*.xml")):
+              s = ET.parse(f).getroot()
+              n = {k: int(s.get(k, 0)) for k in total}
+              for k in total: total[k] += n[k]
+              print(f"{s.get('name')}: {n['tests']} tests, {n['skipped']} skipped, {n['failures']} failures, {n['errors']} errors")
+              if n["skipped"] and "EndToEnd" not in s.get("name"): skipped.append(s.get("name"))
+          print("TOTAL:", total)
+          if total["tests"] == 0: raise SystemExit("no unit tests ran")
+          if skipped: raise SystemExit(f"skipped tests in {skipped}")
+          PY
+
       - name: Build debug APK
         run: ./gradlew --stacktrace assembleDebug
 

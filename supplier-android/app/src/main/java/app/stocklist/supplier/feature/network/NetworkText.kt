@@ -25,7 +25,8 @@ object NetworkText {
         OrderStatus.REJECTED -> tr("Rejected")
         OrderStatus.DISPATCHED -> tr("Dispatched")
         OrderStatus.RECEIVED -> tr("Received by the shop")
-        OrderStatus.CANCELLED -> tr("Cancelled by the shop")
+        // Cancelled by the shop, or automatically when either side ended the connection: the history says which.
+        OrderStatus.CANCELLED -> tr("Cancelled")
         OrderStatus.DELIVERY_FAILED -> tr("Delivery failed")
         else -> tr("Unknown status")
     }
