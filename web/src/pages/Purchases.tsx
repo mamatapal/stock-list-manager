@@ -4,6 +4,7 @@ import { items, purchases, stockLists, suppliers, units } from '../api/catalogue
 import type { Item, ListLine, Purchase, PurchaseLine, StockList, Supplier, Unit } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { BilingualNameFields } from '../components/BilingualNameFields'
+import { ItemCombo } from '../components/ItemCombo'
 import { DeleteButton } from '../components/DeleteButton'
 import { ErrorText } from '../components/ErrorText'
 import { Name, oneLine } from '../components/Name'
@@ -119,12 +120,14 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
       : 'No out-of-stock list has an item left to buy. Items typed without a catalogue item, or already received, are not offered.'
     return <p className="muted small"><Tr k="Pick from out-of-stock list" />: <Tr k={why} /></p>
   }
-  if (!open) return <button type="button" onClick={() => setOpen(true)}>{trLine('Pick from out-of-stock list')}</button>
+  const count = groups.reduce((n, g) => n + g.rows.filter((l) => !added.has(l.id)).length, 0)
+  if (!open) return <button type="button" className="dropdown-btn" aria-expanded="false" onClick={() => setOpen(true)}>{trLine('Pick from out-of-stock list')} ({count}) ▾</button>
   const picked = groups.flatMap((g) => g.rows.filter((l) => ticked.has(l.id) && !added.has(l.id)).map((line) => ({ list: g.list, line })))
   return (
-    <section className="card" aria-label={trLine('Pick from out-of-stock list')}>
-      <h3><Tr k="Pick from out-of-stock list" /></h3>
+    <section className="card dropdown-panel" aria-label={trLine('Pick from out-of-stock list')}>
+      <button type="button" className="dropdown-btn" aria-expanded="true" onClick={() => setOpen(false)}>{trLine('Pick from out-of-stock list')} ({picked.length}) ▴</button>
       <p className="muted small"><Tr k="Tick the items you are buying now. Leave out items this supplier cannot give." /></p>
+      <div className="dropdown-scroll">
       {groups.map(({ list, rows }) => {
         const free = rows.filter((l) => !added.has(l.id))
         const allOn = free.length > 0 && free.every((l) => ticked.has(l.id))
@@ -144,10 +147,10 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
           </fieldset>
         )
       })}
+      </div>
       <button type="button" className="primary" disabled={picked.length === 0} onClick={() => { onAdd(picked); setTicked(new Set()); setOpen(false) }}>
         {trLine('Add %1$s', picked.length)}
       </button>
-      <button type="button" onClick={() => setOpen(false)}>{trLine('Cancel')}</button>
     </section>
   )
 }
@@ -181,6 +184,14 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
       purchasePrice: canPrice ? item.latestPurchasePrice ?? '' : '', sellingPrice: canSell ? item.latestSellingPrice ?? '' : '',
       priceBasis: 'PER_UNIT',
     })
+  }
+
+  async function createItem(lineId: string, unitId: string, name: string) {
+    try {
+      const item = await items.create({ name, category: null, defaultUnitId: unitId || unitList[0]?.id, latestPurchasePrice: null, latestSellingPrice: null, preferredSupplierId: null, notes: null, active: true })
+      setAddedItems((a) => [...a, item])
+      patch(lineId, { itemId: item.id, unitId: item.defaultUnitId, priceBasis: 'PER_UNIT' })
+    } catch (err) { setError(err) }
   }
 
   /** Adds the ticked lines at their remaining quantity. The supplier and the list link come from the first list when still empty. */
@@ -253,16 +264,14 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
       <TextField label="Purchase date" type="date" value={purchaseDate} onChange={setPurchaseDate} required />
       <BilingualNameFields value={notes} onChange={setNotes} title="Notes" multiline englishLabel="Notes (English)" hindiLabel="Notes (Hindi)" />
 
-      {!wasCompleted && <ListPicker lists={lists} supplierId={supplierId} added={new Set(lines.map((l) => l.stockListItemId).filter((x): x is string => !!x))} defaultOpen={!existing && lines.length === 0} onAdd={addPicked} />}
+      {!wasCompleted && <ListPicker lists={lists} supplierId={supplierId} added={new Set(lines.map((l) => l.stockListItemId).filter((x): x is string => !!x))} defaultOpen={false} onAdd={addPicked} />}
 
       <h2><Tr k="Items bought" /></h2>
       {lines.length === 0 && <Empty text="No items yet" />}
       {lines.map((l) => (
         <section key={l.id} className="card line">
-          <SelectField label="Item" required value={l.itemId} onChange={(v) => pickItem(l.id, v)}>
-            <option value="">{trLine('Choose an item')}</option>
-            {itemList.filter((i) => i.active || i.id === l.itemId).map((i) => <option key={i.id} value={i.id}>{oneLine(i.name)}</option>)}
-          </SelectField>
+          <ItemCombo label="Item" required value={l.itemId} items={itemList.filter((i) => i.active || i.id === l.itemId)}
+            onSelect={(v) => pickItem(l.id, v)} onCreate={can('ITEM_ADD') ? (name) => createItem(l.id, l.unitId, name) : undefined} />
           <div className="grid2">
             <TextField label="Quantity" inputMode="decimal" value={l.quantity} onChange={(v) => patch(l.id, { quantity: v })} required />
             <SelectField label="Unit" value={l.unitId} onChange={(v) => patch(l.id, { unitId: v })}>
