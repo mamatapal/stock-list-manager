@@ -99,6 +99,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -316,7 +317,7 @@ fun StockListDetailScreen(access: Access, onBack: () -> Unit, onEdit: (String) -
 class StockListEditViewModel @Inject constructor(
     private val repo: StockListRepository,
     private val session: SessionStore,
-    items: ItemRepository,
+    private val itemRepo: ItemRepository,
     suppliers: SupplierRepository,
     units: UnitRepository,
     handle: SavedStateHandle,
@@ -325,7 +326,7 @@ class StockListEditViewModel @Inject constructor(
     val units = units.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BuiltInUnits.all)
     val suppliers = suppliers.observe("", false).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val itemQuery = MutableStateFlow("")
-    val catalogue = itemQuery.flatMapLatest { items.observe(it, "", false) }
+    val catalogue = itemQuery.flatMapLatest { itemRepo.observe(it, "", false) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     var loaded by mutableStateOf(id == null)
@@ -361,6 +362,11 @@ class StockListEditViewModel @Inject constructor(
                 enteredPrice = item.latestPurchasePrice.orEmpty())
         }
         dirty = true
+    }
+
+    /** An item just created on the item page becomes a line of this list. */
+    suspend fun addCreatedItem(itemId: String) {
+        itemRepo.observeOne(itemId).first()?.let { addItems(listOf(it)) }
     }
 
     fun addFreeLine(name: String) {
@@ -425,7 +431,12 @@ class StockListEditViewModel @Inject constructor(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StockListEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: StockListEditViewModel = hiltViewModel()) {
+fun StockListEditScreen(
+    onBack: () -> Unit, onSaved: (String) -> Unit, canCreateItem: Boolean = false, newItemId: String? = null,
+    onNewItemHandled: () -> Unit = {}, onCreateItem: (String) -> Unit = {}, vm: StockListEditViewModel = hiltViewModel(),
+) {
+    // back from the item page with a new item: add it as a line (the list being typed is kept in the view model)
+    LaunchedEffect(newItemId) { if (newItemId != null) { vm.addCreatedItem(newItemId); onNewItemHandled() } }
     val units by vm.units.collectAsStateWithLifecycle()
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf(false) }
@@ -483,7 +494,7 @@ fun StockListEditScreen(onBack: () -> Unit, onSaved: (String) -> Unit, vm: Stock
             }
         }
     }
-    if (picking) ItemPickerDialog(vm, onDismiss = { picking = false })
+    if (picking) ItemPickerDialog(vm, canCreateItem, onCreateItem, onDismiss = { picking = false })
     if (confirmLeave) {
         ConfirmDialog(tr("Leave without saving?"), tr("Your changes to this list will be lost. Use \"Save draft\" to keep them."),
             tr("Leave"), onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
@@ -532,7 +543,7 @@ private fun LineEditor(vm: StockListEditViewModel, i: Int, l: ListLineDraft, uni
 }
 
 @Composable
-private fun ItemPickerDialog(vm: StockListEditViewModel, onDismiss: () -> Unit) {
+private fun ItemPickerDialog(vm: StockListEditViewModel, canCreateItem: Boolean, onCreateItem: (String) -> Unit, onDismiss: () -> Unit) {
     val q by vm.itemQuery.collectAsStateWithLifecycle()
     val items by vm.catalogue.collectAsStateWithLifecycle()
     val chosen = remember { androidx.compose.runtime.mutableStateMapOf<String, ItemEntity>() }
@@ -545,21 +556,13 @@ private fun ItemPickerDialog(vm: StockListEditViewModel, onDismiss: () -> Unit) 
                     leadingIcon = { Icon(Icons.Filled.Search, null) }, modifier = Modifier.fillMaxWidth())
                 LazyColumn(Modifier.heightIn(max = 320.dp)) {
                     items(items, key = { it.id }) { item ->
-                        Row(Modifier.fillMaxWidth().clickable { if (chosen.remove(item.id) == null) chosen[item.id] = item },
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Checkbox(checked = item.id in chosen, onCheckedChange = null)
-                            Column {
-                                Text(item.name.bi())
-                                item.category?.let { Text(it.bi(), style = MaterialTheme.typography.bodySmall) }
-                            }
+                        TapRow(on = item.id in chosen, onClick = { if (chosen.remove(item.id) == null) chosen[item.id] = item }) {
+                            Text(item.name.bi())
+                            item.category?.let { Text(it.bi(), style = MaterialTheme.typography.bodySmall) }
                         }
                     }
                 }
-                if (q.isNotBlank() && items.none { it.name.equals(q.trim(), true) }) {
-                    TextButton(onClick = { vm.addFreeLine(q); vm.itemQuery.value = ""; onDismiss() }) {
-                        Text(tr("Add \"%1\$s\" without a catalogue item", q.trim()))
-                    }
-                }
+                if (items.isEmpty()) NoItemFound(q, canCreateItem) { name -> vm.itemQuery.value = ""; onDismiss(); onCreateItem(name) }
             }
         },
         confirmButton = {

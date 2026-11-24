@@ -5,6 +5,8 @@ import app.stocklist.app.core.i18n.Bilingual
 import app.stocklist.app.core.i18n.tr
 import app.stocklist.app.core.i18n.trMessage
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -20,6 +22,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.draw.clip
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import app.stocklist.app.core.i18n.Text
@@ -141,5 +144,32 @@ fun DateField(label: String, value: LocalDate?, onChange: (LocalDate?) -> Unit, 
             },
             dismissButton = { TextButton(onClick = { open = false }) { Text(tr("Cancel")) } },
         ) { DatePicker(state) }
+    }
+}
+
+/** A row that is highlighted while chosen (no tick box); used by the pick lists. */
+@Composable
+fun TapRow(on: Boolean, enabled: Boolean = true, onClick: () -> Unit, content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
+    androidx.compose.foundation.layout.Column(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp))
+            .background(if (on) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        content = content,
+    )
+}
+
+/** Shown when a search finds nothing: says so and, when allowed, offers a button that opens the item page with the name filled in. */
+@Composable
+fun NoItemFound(query: String, canCreate: Boolean, onCreate: (String) -> Unit) {
+    val q = query.trim()
+    if (q.isEmpty()) return
+    androidx.compose.foundation.layout.Column {
+        Text(tr("No item found for %1\$s", q), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = 8.dp))
+        if (canCreate) {
+            androidx.compose.material3.Button(onClick = { onCreate(q) }, modifier = Modifier.fillMaxWidth()) { Text(tr("Create item: %1\$s", q)) }
+        }
     }
 }
