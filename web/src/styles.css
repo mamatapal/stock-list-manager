@@ -141,3 +141,9 @@ ul.plain li { padding: 4px 0; border-top: 1px solid var(--line); }
 .dropdown-panel { padding: 8px 12px; }
 .dropdown-scroll { max-height: 45vh; overflow-y: auto; margin: 4px 0 8px; }
 .dropdown-scroll .perm-row { min-height: 40px; }
+
+.pick-list { list-style: none; margin: 4px 0 0; padding: 0; }
+.pick-list li { margin: 0 0 4px; }
+.pick-row { width: 100%; text-align: left; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.pick-row.selected { background: #dbeafe; border-color: #2563eb; font-weight: 600; }
+.pick-row:disabled { opacity: .6; }

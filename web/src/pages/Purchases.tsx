@@ -126,7 +126,7 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
   return (
     <section className="card dropdown-panel" aria-label={trLine('Pick from out-of-stock list')}>
       <button type="button" className="dropdown-btn" aria-expanded="true" onClick={() => setOpen(false)}>{trLine('Pick from out-of-stock list')} ({picked.length}) ▴</button>
-      <p className="muted small"><Tr k="Tick the items you are buying now. Leave out items this supplier cannot give." /></p>
+      <p className="muted small"><Tr k="Tap the items you are buying now. Leave out items this supplier cannot give." /></p>
       <div className="dropdown-scroll">
       {groups.map(({ list, rows }) => {
         const free = rows.filter((l) => !added.has(l.id))
@@ -135,15 +135,19 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
           <fieldset key={list.id} className="perm-group">
             <legend>{oneLine(list.title)} — {list.listDate}</legend>
             {free.length > 1 && <button type="button" onClick={() => setTicked((t) => { const n = new Set(t); free.forEach((l) => (allOn ? n.delete(l.id) : n.add(l.id))); return n })}>{trLine('Select all')}</button>}
-            {rows.map((l) => (
-              <label key={l.id} className="perm-row">
-                <input type="checkbox" checked={added.has(l.id) || ticked.has(l.id)} disabled={added.has(l.id)} onChange={(e) => toggle(l.id, e.target.checked)} />
-                <span>
-                  <Name value={l.itemName} inline /> — <Tr k="Remaining %1$s" args={[remainingOf(l)]} inline />
-                  {added.has(l.id) && <> · <Tr k="Already added" inline /></>}
-                </span>
-              </label>
-            ))}
+            <ul role="listbox" aria-multiselectable="true" className="pick-list">
+              {rows.map((l) => {
+                const on = added.has(l.id) || ticked.has(l.id)
+                return (
+                  <li key={l.id} role="presentation">
+                    <button type="button" role="option" aria-selected={on} className={on ? 'pick-row selected' : 'pick-row'} disabled={added.has(l.id)} onClick={() => toggle(l.id, !ticked.has(l.id))}>
+                      <Name value={l.itemName} inline /> — <Tr k="Remaining %1$s" args={[remainingOf(l)]} inline />
+                      {added.has(l.id) && <> · <Tr k="Already added" inline /></>}
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
           </fieldset>
         )
       })}
