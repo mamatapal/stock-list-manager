@@ -100,50 +100,49 @@ const remainingOf = (l: ListLine) => (l.remainingQuantity && l.remainingQuantity
 /** A line can be bought when it is a catalogue item with something still to come. */
 const buyable = (l: ListLine) => !!l.itemId && !(l.remainingQuantity !== null && Number(l.remainingQuantity) <= 0)
 
-/** Choose an out-of-stock list, tick the lines to buy now and add them. It can be used again for another list. */
-function ListPicker({ lists, added, onAdd }: { lists: StockList[]; added: Set<string>; onAdd: (list: StockList, picked: ListLine[]) => void }) {
+/**
+ * Every item still to buy from the out-of-stock lists, grouped by list, each with its own tick box, so items this supplier
+ * cannot give can simply be left unticked. Lists of the chosen supplier (or of no supplier) come first.
+ */
+function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: StockList[]; supplierId: string; added: Set<string>; defaultOpen: boolean; onAdd: (picked: Array<{ list: StockList; line: ListLine }>) => void }) {
   useLanguage()
-  const [open, setOpen] = useState(false)
-  const [listId, setListId] = useState('')
+  const [open, setOpen] = useState(defaultOpen)
   const [ticked, setTicked] = useState<Set<string>>(new Set())
-  const list = lists.find((l) => l.id === listId) ?? null
-  const rows = (list?.lines ?? []).filter(buyable)
-  const free = rows.filter((l) => !added.has(l.id))
-
-  function choose(id: string) {
-    setListId(id)
-    const l = lists.find((x) => x.id === id)
-    setTicked(new Set((l?.lines ?? []).filter((x) => buyable(x) && !added.has(x.id)).map((x) => x.id)))
-  }
+  const groups = lists
+    .map((list) => ({ list, rows: list.lines.filter(buyable) }))
+    .filter((g) => g.rows.length > 0)
+    .sort((a, b) => Number(!!supplierId && !(a.list.supplierId === supplierId || !a.list.supplierId)) - Number(!!supplierId && !(b.list.supplierId === supplierId || !b.list.supplierId)))
   const toggle = (id: string, on: boolean) => setTicked((t) => { const n = new Set(t); if (on) n.add(id); else n.delete(id); return n })
+  if (groups.length === 0) return null
   if (!open) return <button type="button" onClick={() => setOpen(true)}>{trLine('Pick from out-of-stock list')}</button>
-  const chosen = free.filter((l) => ticked.has(l.id))
+  const picked = groups.flatMap((g) => g.rows.filter((l) => ticked.has(l.id) && !added.has(l.id)).map((line) => ({ list: g.list, line })))
   return (
     <section className="card" aria-label={trLine('Pick from out-of-stock list')}>
       <h3><Tr k="Pick from out-of-stock list" /></h3>
-      <SelectField label="Out-of-stock lists" value={listId} onChange={choose}>
-        <option value="">{trLine('Choose a list')}</option>
-        {lists.map((l) => <option key={l.id} value={l.id}>{oneLine(l.title)} — {l.listDate}</option>)}
-      </SelectField>
-      {list && rows.length === 0 && <p className="muted"><Tr k="Nothing left to buy on this list" /></p>}
-      {list && rows.length > 0 && (
-        <>
-          <button type="button" onClick={() => setTicked(new Set(chosen.length === free.length ? [] : free.map((l) => l.id)))}>{trLine('Select all')}</button>
-          {rows.map((l) => (
-            <label key={l.id} className="perm-row">
-              <input type="checkbox" checked={added.has(l.id) || ticked.has(l.id)} disabled={added.has(l.id)} onChange={(e) => toggle(l.id, e.target.checked)} />
-              <span>
-                <Name value={l.itemName} inline /> — <Tr k="Remaining %1$s" args={[remainingOf(l)]} inline />
-                {added.has(l.id) && <> · <Tr k="Already added" inline /></>}
-              </span>
-            </label>
-          ))}
-        </>
-      )}
-      <button type="button" className="primary" disabled={chosen.length === 0} onClick={() => { onAdd(list!, chosen); setTicked(new Set()); setListId(''); setOpen(false) }}>
-        {trLine('Add %1$s', chosen.length)}
+      <p className="muted small"><Tr k="Tick the items you are buying now. Leave out items this supplier cannot give." /></p>
+      {groups.map(({ list, rows }) => {
+        const free = rows.filter((l) => !added.has(l.id))
+        const allOn = free.length > 0 && free.every((l) => ticked.has(l.id))
+        return (
+          <fieldset key={list.id} className="perm-group">
+            <legend>{oneLine(list.title)} — {list.listDate}</legend>
+            {free.length > 1 && <button type="button" onClick={() => setTicked((t) => { const n = new Set(t); free.forEach((l) => (allOn ? n.delete(l.id) : n.add(l.id))); return n })}>{trLine('Select all')}</button>}
+            {rows.map((l) => (
+              <label key={l.id} className="perm-row">
+                <input type="checkbox" checked={added.has(l.id) || ticked.has(l.id)} disabled={added.has(l.id)} onChange={(e) => toggle(l.id, e.target.checked)} />
+                <span>
+                  <Name value={l.itemName} inline /> — <Tr k="Remaining %1$s" args={[remainingOf(l)]} inline />
+                  {added.has(l.id) && <> · <Tr k="Already added" inline /></>}
+                </span>
+              </label>
+            ))}
+          </fieldset>
+        )
+      })}
+      <button type="button" className="primary" disabled={picked.length === 0} onClick={() => { onAdd(picked); setTicked(new Set()); setOpen(false) }}>
+        {trLine('Add %1$s', picked.length)}
       </button>
-      <button type="button" onClick={() => { setOpen(false); setListId('') }}>{trLine('Cancel')}</button>
+      <button type="button" onClick={() => setOpen(false)}>{trLine('Cancel')}</button>
     </section>
   )
 }
@@ -177,11 +176,13 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: itemList, 
     })
   }
 
-  /** Adds the ticked lines of an out-of-stock list at their remaining quantity. The supplier and the list link come from the list when still empty. */
-  function addFromList(list: StockList, picked: ListLine[]) {
-    if (!stockListId) setStockListId(list.id)
-    if (list.supplierId && !supplierId) setSupplierId(list.supplierId)
-    setLines((ls) => [...ls, ...picked.map((l) => {
+  /** Adds the ticked lines at their remaining quantity. The supplier and the list link come from the first list when still empty. */
+  function addPicked(picked: Array<{ list: StockList; line: ListLine }>) {
+    if (picked.length === 0) return
+    const first = picked[0].list
+    if (!stockListId) setStockListId(first.id)
+    if (!supplierId) { const withSupplier = picked.find((p) => p.list.supplierId); if (withSupplier) setSupplierId(withSupplier.list.supplierId!) }
+    setLines((ls) => [...ls, ...picked.map(({ line: l }) => {
       const item = itemList.find((i) => i.id === l.itemId)
       return {
         id: newId(), itemId: l.itemId!, quantity: remainingOf(l), unitId: l.unitId, priceBasis: 'PER_UNIT' as const,
@@ -234,6 +235,8 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: itemList, 
       <TextField label="Purchase date" type="date" value={purchaseDate} onChange={setPurchaseDate} required />
       <BilingualNameFields value={notes} onChange={setNotes} title="Notes" multiline englishLabel="Notes (English)" hindiLabel="Notes (Hindi)" />
 
+      {!wasCompleted && <ListPicker lists={lists} supplierId={supplierId} added={new Set(lines.map((l) => l.stockListItemId).filter((x): x is string => !!x))} defaultOpen={!existing && lines.length === 0} onAdd={addPicked} />}
+
       <h2><Tr k="Items bought" /></h2>
       {lines.length === 0 && <Empty text="No items yet" />}
       {lines.map((l) => (
@@ -261,7 +264,6 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: itemList, 
         </section>
       ))}
       <button type="button" onClick={addLine}>{trLine('Add item')}</button>
-      {!wasCompleted && lists.length > 0 && <ListPicker lists={lists} added={new Set(lines.map((l) => l.stockListItemId).filter((x): x is string => !!x))} onAdd={addFromList} />}
 
       {!wasCompleted && <CheckField label="The goods arrived with the bill" checked={arrived} onChange={setArrived} />}
       <ErrorText error={error} />
