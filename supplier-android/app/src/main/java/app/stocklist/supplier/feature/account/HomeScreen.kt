@@ -45,6 +45,8 @@ import app.stocklist.supplier.data.remote.ApiResult
 import app.stocklist.supplier.data.remote.MeDto
 import app.stocklist.supplier.data.remote.OrgStatus
 import app.stocklist.supplier.data.repository.AccountRepository
+import app.stocklist.supplier.navigation.NetworkRoutes
+import androidx.compose.ui.platform.testTag
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -100,7 +102,7 @@ object StatusText {
         OrgStatus.PENDING_APPROVAL ->
             tr("Your email is verified. Our team is checking your business details. You will get an email when there is a decision.")
         OrgStatus.APPROVED ->
-            tr("Your business is approved. Connections with shops, your product catalogue and orders come in the next update of the app.")
+            tr("Your business is approved. Manage your shop connections, product catalogue and orders below.")
         OrgStatus.REJECTED ->
             tr("Your application was not approved. Correct the details and send them again.")
         OrgStatus.SUSPENDED ->
@@ -119,7 +121,7 @@ private fun statusColor(status: String): Color = when (status) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(onDetails: () -> Unit, onCorrect: () -> Unit, onSettings: () -> Unit,
-               vm: HomeViewModel = hiltViewModel()) {
+               onNetwork: (String) -> Unit = {}, vm: HomeViewModel = hiltViewModel()) {
     val state by vm.state.collectAsState()
     val me = (state as? SessionState.SignedIn)?.me ?: return
     LaunchedEffect(Unit) { vm.refresh() }
@@ -143,6 +145,7 @@ fun HomeScreen(onDetails: () -> Unit, onCorrect: () -> Unit, onSettings: () -> U
             if (vm.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             ErrorText(vm.error)
             StatusCard(me, onCorrect, vm)
+            if (me.org.status == OrgStatus.APPROVED) NetworkSection(onNetwork)
             SectionCard(tr("Your business")) {
                 LabelValue(tr("Business name"), me.org.legalName)
                 LabelValue(tr("Contact person"), me.org.contactPerson)
@@ -173,6 +176,27 @@ private fun StatusCard(me: MeDto, onCorrect: () -> Unit, vm: HomeViewModel) {
                     Button(onClick = onCorrect, modifier = Modifier.fillMaxWidth()) { Text(tr("Correct details")) }
                 else -> {}
             }
+        }
+    }
+}
+
+/** Supplier Network: only for approved businesses (the server refuses everyone else as well). */
+@Composable
+fun NetworkSection(onOpen: (String) -> Unit) {
+    SectionCard(tr("Supplier Network")) {
+        Text(tr("Shops using Stock List Manager connect with you, see your catalogue and send purchase orders."),
+            style = MaterialTheme.typography.bodySmall)
+        Button(onClick = { onOpen(NetworkRoutes.ORDERS) }, modifier = Modifier.fillMaxWidth().testTag("open-orders")) {
+            Text(tr("Purchase orders"))
+        }
+        OutlinedButton(onClick = { onOpen(NetworkRoutes.CONNECTIONS) }, modifier = Modifier.fillMaxWidth().testTag("open-connections")) {
+            Text(tr("Shop connections"))
+        }
+        OutlinedButton(onClick = { onOpen(NetworkRoutes.CATALOGUE) }, modifier = Modifier.fillMaxWidth().testTag("open-catalogue")) {
+            Text(tr("Product catalogue"))
+        }
+        OutlinedButton(onClick = { onOpen(NetworkRoutes.LISTING) }, modifier = Modifier.fillMaxWidth().testTag("open-listing")) {
+            Text(tr("Supplier directory"))
         }
     }
 }

@@ -4,6 +4,7 @@ import app.stocklist.supplier.BuildConfig
 import app.stocklist.supplier.core.session.SessionStore
 import app.stocklist.supplier.data.remote.AuthApi
 import app.stocklist.supplier.data.remote.AuthInterceptor
+import app.stocklist.supplier.data.remote.NetworkApi
 import app.stocklist.supplier.data.remote.SupplierApi
 import app.stocklist.supplier.data.remote.TokenAuthenticator
 import dagger.Module
@@ -54,9 +55,11 @@ object AppModule {
     @Singleton
     fun authApi(@Named("plain") retrofit: Retrofit): AuthApi = retrofit.create(AuthApi::class.java)
 
+    /** Calls as the signed-in supplier: the access token is added, and refreshed once when it has expired. */
     @Provides
     @Singleton
-    fun supplierApi(json: Json, session: SessionStore, authApi: dagger.Lazy<AuthApi>): SupplierApi {
+    @Named("signedIn")
+    fun signedInRetrofit(json: Json, session: SessionStore, authApi: dagger.Lazy<AuthApi>): Retrofit {
         val client = baseClient()
             .addInterceptor(AuthInterceptor(session))
             .authenticator(TokenAuthenticator(session) { authApi.get() })
@@ -66,6 +69,13 @@ object AppModule {
             .client(client)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()
-            .create(SupplierApi::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun supplierApi(@Named("signedIn") retrofit: Retrofit): SupplierApi = retrofit.create(SupplierApi::class.java)
+
+    @Provides
+    @Singleton
+    fun networkApi(@Named("signedIn") retrofit: Retrofit): NetworkApi = retrofit.create(NetworkApi::class.java)
 }
