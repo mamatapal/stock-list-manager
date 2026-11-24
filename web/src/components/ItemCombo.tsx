@@ -35,8 +35,8 @@ export function ItemCombo({ label, value, items, required = false, onSelect, onC
       {open && (
         <ul id={`${id}-list`} role="listbox" className="combo-list">
           {matches.map((i) => (
-            <li key={i.id} role="option" aria-selected={i.id === value}>
-              <button type="button" onMouseDown={keep} onClick={() => { onSelect(i.id); setOpen(false) }}>{oneLine(i.name)}</button>
+            <li key={i.id} role="presentation">
+              <button type="button" role="option" aria-selected={i.id === value} className={i.id === value ? 'pick-row selected' : 'pick-row'} onMouseDown={keep} onClick={() => { onSelect(i.id); setOpen(false) }}>{oneLine(i.name)}</button>
             </li>
           ))}
           {matches.length === 0 && (

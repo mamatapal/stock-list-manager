@@ -1,11 +1,12 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { items, stockLists, suppliers, units } from '../api/catalogue'
 import type { Item, ListLine, StockList, Supplier, Unit } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
 import { BilingualNameFields } from '../components/BilingualNameFields'
 import { DeleteButton } from '../components/DeleteButton'
 import { ErrorText } from '../components/ErrorText'
+import { ItemCombo } from '../components/ItemCombo'
 import { Name, oneLine } from '../components/Name'
 import { AddLink, Empty, Loading, SearchBox, SelectField, TextField } from '../components/ui'
 import { useDebounced, useLoad } from '../components/useLoad'
@@ -61,6 +62,14 @@ export function ListList() {
 
 interface LineForm { id: string; itemId: string; itemName: string; description: string; quantity: string; unitId: string; priceBasis: 'PER_UNIT' | 'TOTAL'; enteredPrice: string; progress?: ListLine }
 
+interface ListDraft { title: string; listDate: string; supplierId: string; notes: string; status: 'DRAFT' | 'SAVED'; lines: LineForm[] }
+const DRAFT_KEY = 'slm.listDraft'
+function saveDraft(path: string, d: ListDraft) { try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ path, ...d })) } catch { /* private mode */ } }
+function readDraft(path: string): ListDraft | null {
+  try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null'); return d && d.path === path ? d : null } catch { return null }
+}
+function clearDraft() { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } }
+
 const fromLine = (l: ListLine): LineForm => ({
   id: l.id, itemId: l.itemId ?? '', itemName: l.itemName ?? '', description: l.description ?? '', quantity: l.quantity, unitId: l.unitId,
   priceBasis: l.priceBasis, enteredPrice: l.enteredPrice ?? '', progress: l,
@@ -81,13 +90,17 @@ function ListFormBody({ existing, items: itemList, units: unitList, suppliers: s
   const { can } = useAuth()
   const navigate = useNavigate()
   useLanguage()
+  const { pathname } = useLocation()
+  const [params] = useSearchParams()
+  // coming back from the item page: restore what was typed before leaving
+  const [draft] = useState(() => (params.get('resume') ? readDraft(pathname) : null))
   const usableUnits = unitList.filter((u) => !u.deleted)
-  const [title, setTitle] = useState(existing?.title ?? '')
-  const [listDate, setListDate] = useState(existing?.listDate ?? today())
-  const [supplierId, setSupplierId] = useState(existing?.supplierId ?? '')
-  const [notes, setNotes] = useState(existing?.notes ?? '')
-  const [status, setStatus] = useState<'DRAFT' | 'SAVED'>(existing?.status ?? 'DRAFT')
-  const [lines, setLines] = useState<LineForm[]>(() => existing ? existing.lines.map(fromLine) : [])
+  const [title, setTitle] = useState(draft?.title ?? existing?.title ?? '')
+  const [listDate, setListDate] = useState(draft?.listDate ?? existing?.listDate ?? today())
+  const [supplierId, setSupplierId] = useState(draft?.supplierId ?? existing?.supplierId ?? '')
+  const [notes, setNotes] = useState(draft?.notes ?? existing?.notes ?? '')
+  const [status, setStatus] = useState<'DRAFT' | 'SAVED'>(draft?.status ?? existing?.status ?? 'DRAFT')
+  const [lines, setLines] = useState<LineForm[]>(() => draft?.lines ?? (existing ? existing.lines.map(fromLine) : []))
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
   const canSave = existing ? can('LIST_EDIT') : can('LIST_CREATE')
@@ -99,6 +112,19 @@ function ListFormBody({ existing, items: itemList, units: unitList, suppliers: s
     const item = itemList.find((i) => i.id === itemId)
     patch(lineId, item ? { itemId, itemName: item.name, unitId: item.defaultUnitId } : { itemId: '' })
   }
+
+  /** Leaves for the item page with the typed name; the list is kept and restored on return. */
+  function createItem(lineId: string, name: string) {
+    saveDraft(pathname, { title, listDate, supplierId, notes, status, lines })
+    navigate(`/items/new?name=${encodeURIComponent(name)}&return=${encodeURIComponent(pathname)}&line=${encodeURIComponent(lineId)}`)
+  }
+
+  useEffect(() => {
+    const itemId = params.get('newItem'); const lineId = params.get('line')
+    if (itemId && lineId) pickItem(lineId, itemId)
+    if (params.get('resume')) { clearDraft(); navigate(pathname, { replace: true }) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function save(e: FormEvent) {
     e.preventDefault()
@@ -151,11 +177,9 @@ function ListFormBody({ existing, items: itemList, units: unitList, suppliers: s
       {lines.length === 0 && <Empty text="No items in this list yet" />}
       {lines.map((l, n) => (
         <section key={l.id} className="card line" aria-label={`${n + 1}`}>
-          <SelectField label="Item" value={l.itemId} onChange={(v) => pickItem(l.id, v)}>
-            <option value="">{trLine('Other (type a name)')}</option>
-            {itemList.filter((i) => i.active || i.id === l.itemId).map((i) => <option key={i.id} value={i.id}>{oneLine(i.name)}</option>)}
-          </SelectField>
-          {!l.itemId && <BilingualNameFields value={l.itemName} onChange={(v) => patch(l.id, { itemName: v })} title="Item name" />}
+          <ItemCombo label="Item" required value={l.itemId} items={itemList.filter((i) => i.active || i.id === l.itemId)}
+            onSelect={(v) => pickItem(l.id, v)} onCreate={can('ITEM_ADD') ? (name) => createItem(l.id, name) : undefined} />
+          {!l.itemId && clean(l.itemName) && <p className="muted small"><Tr k="Not in the catalogue yet" inline />: <Name value={l.itemName} inline /></p>}
           <div className="grid2">
             <TextField label="Quantity" inputMode="decimal" value={l.quantity} onChange={(v) => patch(l.id, { quantity: v })} required />
             <SelectField label="Unit" value={l.unitId} onChange={(v) => patch(l.id, { unitId: v })}>

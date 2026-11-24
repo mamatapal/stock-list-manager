@@ -179,7 +179,7 @@ describe('suppliers', () => {
 })
 
 describe('out-of-stock lists', () => {
-  it('saves a list with a catalogue item and a typed item, with ids and the unit of the item', async () => {
+  it('saves a list with catalogue items, with ids and the unit of the item', async () => {
     const calls = server(['LIST_CREATE', 'ITEM_VIEW', 'SUPPLIER_VIEW'])
     const user = userEvent.setup()
     open('#/lists/new')
@@ -188,20 +188,30 @@ describe('out-of-stock lists', () => {
     await user.click(screen.getAllByLabelText(/^Item\b/)[0])
     await user.click(screen.getByRole('option', { name: /Sugar/ }))
     await user.type(screen.getAllByLabelText(/^Quantity/)[0], '25')
-    await user.click(screen.getByRole('button', { name: /Add item to list/ }))
-    await user.type(screen.getAllByLabelText(/English name/)[1], 'Matchbox')
-    await user.type(screen.getAllByLabelText(/^Quantity/)[1], '10')
-    await user.click(screen.getAllByLabelText(/^Unit/)[1])
-    await user.click(screen.getByRole('option', { name: /pcs/ }))
     await user.click(screen.getByRole('button', { name: /^Save/ }))
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.url === '/api/v1/stock-lists')).toBe(true))
     const body = calls.find((c) => c.method === 'POST' && c.url === '/api/v1/stock-lists')!.body as { title: string; status: string; lines: Array<Record<string, unknown>> }
     expect(body.title).toBe('Monday list / मोन्डे लिस्ट')
     expect(body.status).toBe('DRAFT')
-    expect(body.lines).toHaveLength(2)
+    expect(body.lines).toHaveLength(1)
     expect(body.lines[0]).toMatchObject({ itemId: 'i1', itemName: 'Sugar / शुगर', quantity: '25', unitId: 'u-kg', priceBasis: 'PER_UNIT' })
     expect(body.lines[0].id).toMatch(/^[0-9a-f-]{36}$/)
-    expect(body.lines[1]).toMatchObject({ itemId: null, itemName: expect.stringMatching(/^Matchbox \/ [\u0900-\u097F ]+$/), quantity: '10', unitId: 'u-pc' })
+  })
+
+  it('an item not found goes to the item page and comes back to the list with it chosen and the form kept', async () => {
+    server(['LIST_CREATE', 'ITEM_VIEW', 'ITEM_ADD', 'SUPPLIER_VIEW'])
+    const user = userEvent.setup()
+    open('#/lists/new')
+    await user.type(await screen.findByLabelText(/English name/), 'Monday list')
+    await user.click(screen.getByRole('button', { name: /Add item to list/ }))
+    const field = screen.getAllByLabelText(/^Item\b/)[0]
+    await user.click(field)
+    await user.type(field, 'soap')
+    await user.click(screen.getByRole('button', { name: /Create item: soap/ }))
+    await waitFor(() => expect(window.location.hash).toContain('/items/new?name=soap&return=%2Flists%2Fnew'))
+    await user.click(await screen.findByRole('button', { name: /^Save/ }))
+    await waitFor(() => expect(screen.getByLabelText(/English name/)).toHaveValue('Monday list'))
+    expect(screen.getAllByLabelText(/^Item\b/)).toHaveLength(1)
   })
 
   it('does not call the server when a line has no quantity', async () => {

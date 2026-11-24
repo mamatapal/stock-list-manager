@@ -99,6 +99,7 @@ const extra: Record<string, string> = {
   'No item found for %1$s': '%1$s के लिए कोई आइटम नहीं मिला',
   'Create item: %1$s': 'आइटम बनाएँ: %1$s',
   'After you save, you go straight back to your purchase with this item chosen.': 'सेव करने के बाद आप सीधे अपनी खरीद पर लौटेंगे, यह आइटम चुना हुआ होगा।',
+  'Not in the catalogue yet': 'अभी कैटलॉग में नहीं है',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra
