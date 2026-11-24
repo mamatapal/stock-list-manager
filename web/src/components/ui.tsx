@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react'
+import { Children, Fragment, isValidElement, useId, useState, type ReactElement, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Tr } from '../i18n/Tr'
 import { useLanguage } from '../i18n/lang'
@@ -36,15 +36,46 @@ export function TextField({ label, value, onChange, error, type = 'text', inputM
   )
 }
 
+type Opt = { value: string; label: string }
+function readOptions(children: ReactNode, out: Opt[] = []): Opt[] {
+  Children.forEach(children, (c) => {
+    if (!isValidElement(c)) return
+    const el = c as ReactElement<{ value?: string; children?: ReactNode }>
+    if (el.type === Fragment) readOptions(el.props.children, out)
+    else out.push({ value: String(el.props.value ?? ''), label: Children.toArray(el.props.children).join('') })
+  })
+  return out
+}
+
+/**
+ * A drop-down that does not use the phone's own pick list (which draws radio circles): tap the field, tap a row, the
+ * chosen row is highlighted. Takes <option> children like a normal select.
+ */
 export function SelectField({ label, value, onChange, children, required = false }: {
   label: string; value: string; onChange: (v: string) => void; children: ReactNode; required?: boolean
 }) {
   const id = useId()
   useLanguage()
+  const [open, setOpen] = useState(false)
+  const opts = readOptions(children)
+  const current = opts.find((o) => o.value === value)
   return (
-    <div className="field">
+    <div className="field combo">
       <label htmlFor={id}><Tr k={label} inline />{required ? ' *' : ''}</label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>{children}</select>
+      <button id={id} type="button" className="select-btn" aria-haspopup="listbox" aria-expanded={open}
+        onClick={() => setOpen((o) => !o)} onBlur={() => setOpen(false)}>
+        <span>{current?.label ?? ''}</span><span aria-hidden="true"> ▾</span>
+      </button>
+      {open && (
+        <ul role="listbox" className="combo-list">
+          {opts.map((o) => (
+            <li key={o.value} role="presentation">
+              <button type="button" role="option" aria-selected={o.value === value} className={o.value === value ? 'pick-row selected' : 'pick-row'}
+                onMouseDown={(e) => e.preventDefault()} onClick={() => { onChange(o.value); setOpen(false) }}>{o.label || '—'}</button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

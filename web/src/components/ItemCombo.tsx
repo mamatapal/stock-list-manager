@@ -10,13 +10,12 @@ import { oneLine } from './Name'
  */
 export function ItemCombo({ label, value, items, required = false, onSelect, onCreate }: {
   label: string; value: string; items: Item[]; required?: boolean
-  onSelect: (id: string) => void; onCreate?: (name: string) => Promise<void>
+  onSelect: (id: string) => void; onCreate?: (name: string) => void
 }) {
   useLanguage()
   const id = useId()
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const [busy, setBusy] = useState(false)
   const selected = items.find((i) => i.id === value)
   const q = query.trim().toLowerCase()
   const matches = items.filter((i) => !q || oneLine(i.name).toLowerCase().includes(q))
@@ -40,12 +39,13 @@ export function ItemCombo({ label, value, items, required = false, onSelect, onC
               <button type="button" onMouseDown={keep} onClick={() => { onSelect(i.id); setOpen(false) }}>{oneLine(i.name)}</button>
             </li>
           ))}
-          {matches.length === 0 && !(onCreate && q) && <li className="muted small combo-empty"><Tr k="No items found" /></li>}
+          {matches.length === 0 && (
+            <li className="combo-none muted small"><Tr k="No item found for %1$s" args={[query.trim()]} inline /></li>
+          )}
           {onCreate && q && !exact && (
-            <li role="option" aria-selected={false}>
-              <button type="button" className="combo-create" disabled={busy} onMouseDown={keep}
-                onClick={() => { setBusy(true); void onCreate(query.trim()).finally(() => { setBusy(false); setOpen(false) }) }}>
-                {trLine('Create new item: %1$s', query.trim())}
+            <li role="presentation">
+              <button type="button" className="primary" onMouseDown={keep} onClick={() => { setOpen(false); onCreate(query.trim()) }}>
+                {trLine('Create item: %1$s', query.trim())}
               </button>
             </li>
           )}

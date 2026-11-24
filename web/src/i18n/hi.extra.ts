@@ -95,8 +95,10 @@ const extra: Record<string, string> = {
   'No out-of-stock list has an item left to buy. Items already received are not offered.': 'किसी भी स्टॉक खत्म लिस्ट में खरीदने को आइटम बाकी नहीं है। पहले से मिल चुके आइटम नहीं दिखते।',
   'You do not have permission to add items to the catalogue': 'आपको कैटलॉग में आइटम जोड़ने की अनुमति नहीं है',
   'Tap to choose or type to search': 'चुनने के लिए टैप करें या खोजने के लिए लिखें',
-  'Create new item: %1$s': 'नया आइटम बनाएँ: %1$s',
   'No items found': 'कोई आइटम नहीं मिला',
+  'No item found for %1$s': '%1$s के लिए कोई आइटम नहीं मिला',
+  'Create item: %1$s': 'आइटम बनाएँ: %1$s',
+  'After you save, you go straight back to your purchase with this item chosen.': 'सेव करने के बाद आप सीधे अपनी खरीद पर लौटेंगे, यह आइटम चुना हुआ होगा।',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra

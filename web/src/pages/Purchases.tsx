@@ -1,5 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { items, purchases, stockLists, suppliers, units } from '../api/catalogue'
 import type { Item, ListLine, Purchase, PurchaseLine, StockList, Supplier, Unit } from '../api/types'
 import { useAuth } from '../auth/AuthContext'
@@ -97,6 +97,14 @@ function PurchaseForm({ existing }: { existing: Purchase | null }) {
   return <PurchaseFormBody existing={existing} suppliers={supplierList.data ?? []} items={itemList.data ?? []} units={(unitList.data ?? []).filter((u) => !u.deleted)} lists={(lists.data ?? []).filter((l) => !l.deleted)} navigate={navigate} can={can} />
 }
 
+interface Draft { supplierId: string; invoiceNo: string; purchaseDate: string; notes: string; stockListId: string; lines: LineForm[]; arrived: boolean }
+const DRAFT_KEY = 'slm.purchaseDraft'
+function saveDraft(path: string, d: Draft) { try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ path, ...d })) } catch { /* private mode */ } }
+function readDraft(path: string): Draft | null {
+  try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null'); return d && d.path === path ? d : null } catch { return null }
+}
+function clearDraft() { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } }
+
 const remainingOf = (l: ListLine) => (l.remainingQuantity && l.remainingQuantity !== '0' ? l.remainingQuantity : l.quantity)
 /** A line can be bought when it has a name with something still to come; a name not yet in the catalogue is added on pick. */
 const buyable = (l: ListLine) => !!(l.itemId || l.itemName?.trim()) && !(l.remainingQuantity !== null && Number(l.remainingQuantity) <= 0)
@@ -165,13 +173,17 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
 }) {
   const [addedItems, setAddedItems] = useState<Item[]>([])
   const itemList = [...loadedItems, ...addedItems]
-  const [supplierId, setSupplierId] = useState(existing?.supplierId ?? '')
-  const [invoiceNo, setInvoiceNo] = useState(existing?.invoiceNo ?? '')
-  const [purchaseDate, setPurchaseDate] = useState(existing?.purchaseDate ?? today())
-  const [notes, setNotes] = useState(existing?.notes ?? '')
-  const [stockListId, setStockListId] = useState(existing?.stockListId ?? '')
-  const [lines, setLines] = useState<LineForm[]>(() => (existing ? existing.lines.map(fromPurchaseLine) : []))
-  const [arrived, setArrived] = useState(false)
+  const { pathname } = useLocation()
+  const [params] = useSearchParams()
+  // coming back from the item page: restore what was typed before leaving
+  const [draft] = useState(() => (params.get('resume') ? readDraft(pathname) : null))
+  const [supplierId, setSupplierId] = useState(draft?.supplierId ?? existing?.supplierId ?? '')
+  const [invoiceNo, setInvoiceNo] = useState(draft?.invoiceNo ?? existing?.invoiceNo ?? '')
+  const [purchaseDate, setPurchaseDate] = useState(draft?.purchaseDate ?? existing?.purchaseDate ?? today())
+  const [notes, setNotes] = useState(draft?.notes ?? existing?.notes ?? '')
+  const [stockListId, setStockListId] = useState(draft?.stockListId ?? existing?.stockListId ?? '')
+  const [lines, setLines] = useState<LineForm[]>(() => draft?.lines ?? (existing ? existing.lines.map(fromPurchaseLine) : []))
+  const [arrived, setArrived] = useState(draft?.arrived ?? false)
   const [error, setError] = useState<unknown>(null)
   const [busy, setBusy] = useState(false)
   const canPrice = can('PURCHASE_PRICE_ENTER')
@@ -190,13 +202,18 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
     })
   }
 
-  async function createItem(lineId: string, unitId: string, name: string) {
-    try {
-      const item = await items.create({ name, category: null, defaultUnitId: unitId || unitList[0]?.id, latestPurchasePrice: null, latestSellingPrice: null, preferredSupplierId: null, notes: null, active: true })
-      setAddedItems((a) => [...a, item])
-      patch(lineId, { itemId: item.id, unitId: item.defaultUnitId, priceBasis: 'PER_UNIT' })
-    } catch (err) { setError(err) }
+  /** Leaves for the item page with the typed name; the purchase is kept and restored on return. */
+  function createItem(lineId: string, name: string) {
+    saveDraft(pathname, { supplierId, invoiceNo, purchaseDate, notes, stockListId, lines, arrived })
+    navigate(`/items/new?name=${encodeURIComponent(name)}&return=${encodeURIComponent(pathname)}&line=${encodeURIComponent(lineId)}`)
   }
+
+  useEffect(() => {
+    const itemId = params.get('newItem'); const lineId = params.get('line')
+    if (itemId && lineId) pickItem(lineId, itemId)
+    if (params.get('resume')) { clearDraft(); navigate(pathname, { replace: true }) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /** Adds the ticked lines at their remaining quantity. The supplier and the list link come from the first list when still empty. */
   async function addPicked(picked: Array<{ list: StockList; line: ListLine }>) {
@@ -275,7 +292,7 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
       {lines.map((l) => (
         <section key={l.id} className="card line">
           <ItemCombo label="Item" required value={l.itemId} items={itemList.filter((i) => i.active || i.id === l.itemId)}
-            onSelect={(v) => pickItem(l.id, v)} onCreate={can('ITEM_ADD') ? (name) => createItem(l.id, l.unitId, name) : undefined} />
+            onSelect={(v) => pickItem(l.id, v)} onCreate={can('ITEM_ADD') ? (name) => createItem(l.id, name) : undefined} />
           <div className="grid2">
             <TextField label="Quantity" inputMode="decimal" value={l.quantity} onChange={(v) => patch(l.id, { quantity: v })} required />
             <SelectField label="Unit" value={l.unitId} onChange={(v) => patch(l.id, { unitId: v })}>
