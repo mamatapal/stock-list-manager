@@ -97,8 +97,8 @@ function PurchaseForm({ existing }: { existing: Purchase | null }) {
 }
 
 const remainingOf = (l: ListLine) => (l.remainingQuantity && l.remainingQuantity !== '0' ? l.remainingQuantity : l.quantity)
-/** A line can be bought when it is a catalogue item with something still to come. */
-const buyable = (l: ListLine) => !!l.itemId && !(l.remainingQuantity !== null && Number(l.remainingQuantity) <= 0)
+/** A line can be bought when it has a name with something still to come; a name not yet in the catalogue is added on pick. */
+const buyable = (l: ListLine) => !!(l.itemId || l.itemName?.trim()) && !(l.remainingQuantity !== null && Number(l.remainingQuantity) <= 0)
 
 /**
  * Every item still to buy from the out-of-stock lists, grouped by list, each with its own tick box, so items this supplier
@@ -152,10 +152,12 @@ function ListPicker({ lists, supplierId, added, defaultOpen, onAdd }: { lists: S
   )
 }
 
-function PurchaseFormBody({ existing, suppliers: supplierList, items: itemList, units: unitList, lists, navigate, can }: {
+function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItems, units: unitList, lists, navigate, can }: {
   existing: Purchase | null; suppliers: Supplier[]; items: Item[]; units: Unit[]; lists: StockList[]
   navigate: ReturnType<typeof useNavigate>; can: (p: string) => boolean
 }) {
+  const [addedItems, setAddedItems] = useState<Item[]>([])
+  const itemList = [...loadedItems, ...addedItems]
   const [supplierId, setSupplierId] = useState(existing?.supplierId ?? '')
   const [invoiceNo, setInvoiceNo] = useState(existing?.invoiceNo ?? '')
   const [purchaseDate, setPurchaseDate] = useState(existing?.purchaseDate ?? today())
@@ -182,19 +184,30 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: itemList, 
   }
 
   /** Adds the ticked lines at their remaining quantity. The supplier and the list link come from the first list when still empty. */
-  function addPicked(picked: Array<{ list: StockList; line: ListLine }>) {
+  async function addPicked(picked: Array<{ list: StockList; line: ListLine }>) {
     if (picked.length === 0) return
     const first = picked[0].list
     if (!stockListId) setStockListId(first.id)
     if (!supplierId) { const withSupplier = picked.find((p) => p.list.supplierId); if (withSupplier) setSupplierId(withSupplier.list.supplierId!) }
-    setLines((ls) => [...ls, ...picked.map(({ line: l }) => {
-      const item = itemList.find((i) => i.id === l.itemId)
-      return {
-        id: newId(), itemId: l.itemId!, quantity: remainingOf(l), unitId: l.unitId, priceBasis: 'PER_UNIT' as const,
-        purchasePrice: canPrice ? l.effectiveUnitPrice ?? item?.latestPurchasePrice ?? '' : '',
-        sellingPrice: canSell ? item?.latestSellingPrice ?? '' : '', stockListItemId: l.id, updateCatalog: false,
+    // A list line typed without a catalogue item is matched by name, or added to the catalogue now.
+    const known = [...itemList]
+    const resolved: Array<{ line: ListLine; item: Item | undefined }> = []
+    try {
+      for (const { line: l } of picked) {
+        let item = known.find((i) => (l.itemId ? i.id === l.itemId : i.name.trim().toLowerCase() === (l.itemName ?? '').trim().toLowerCase()))
+        if (!item && !l.itemId) {
+          if (!can('ITEM_ADD')) { setError('You do not have permission to add items to the catalogue'); continue }
+          item = await items.create({ name: (l.itemName ?? '').trim(), category: null, defaultUnitId: l.unitId, latestPurchasePrice: null, latestSellingPrice: null, preferredSupplierId: null, notes: null, active: true })
+          known.push(item); setAddedItems((a) => [...a, item!])
+        }
+        if (item) resolved.push({ line: l, item })
       }
-    })])
+    } catch (err) { setError(err) }
+    setLines((ls) => [...ls, ...resolved.map(({ line: l, item }) => ({
+      id: newId(), itemId: item!.id, quantity: remainingOf(l), unitId: l.unitId, priceBasis: 'PER_UNIT' as const,
+      purchasePrice: canPrice ? l.effectiveUnitPrice ?? item?.latestPurchasePrice ?? '' : '',
+      sellingPrice: canSell ? item?.latestSellingPrice ?? '' : '', stockListItemId: l.id, updateCatalog: false,
+    }))])
   }
 
   async function save(complete: boolean) {

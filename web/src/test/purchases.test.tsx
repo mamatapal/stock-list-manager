@@ -40,6 +40,7 @@ function server(permissions: string[], p = purchase()) {
     const path = url.split('?')[0]
     if (path === '/api/v1/auth/refresh') return json(200, { accessToken: 'a', accessTokenExpiresAt: '2030-01-01T00:00:00Z', refreshToken: 'r', refreshTokenExpiresAt: '2030-02-01T00:00:00Z', user: { ...ME, permissions } })
     if (path === '/api/v1/units') return json(200, [KG])
+    if (path === '/api/v1/items' && call.method === 'POST') return json(200, { ...SUGAR, id: 'i-new', name: (call.body as { name: string }).name, version: 1 })
     if (path === '/api/v1/items') return json(200, [SUGAR])
     if (path === '/api/v1/suppliers') return json(200, [SUPPLIER])
     if (path === '/api/v1/stock-lists') return json(200, [LIST])
@@ -110,7 +111,7 @@ describe('recording a purchase', () => {
     open('#/purchases/new')
     const sugar = await screen.findByRole('checkbox', { name: /Sugar/ })
     expect(sugar).not.toBeChecked()
-    expect(screen.queryByText(/Matchbox/)).not.toBeInTheDocument()
+    expect(screen.getByRole('checkbox', { name: /Matchbox/ })).not.toBeChecked()
     await user.click(sugar)
     await user.click(screen.getByRole('button', { name: /^Add 1/ }))
     expect(screen.getByLabelText(/^Supplier/)).toHaveValue('s1')
@@ -124,6 +125,17 @@ describe('recording a purchase', () => {
     expect(b.lines).toHaveLength(1)
     expect(b.lines[0]).toMatchObject({ itemId: 'i1', quantity: '20', unitId: 'u-kg', stockListItemId: 'll1', purchasePrice: '41', sellingPrice: '45', priceBasis: 'PER_UNIT' })
     expect(b.receive.lines[0]).toMatchObject({ purchaseLineId: b.lines[0].id, kind: 'RECEIPT', quantity: '20' })
+  })
+
+  it('picking a list item that is not in the catalogue adds it to the catalogue and uses it', async () => {
+    const calls = server(['PURCHASE_RECORD', 'ITEM_ADD'])
+    const user = userEvent.setup()
+    open('#/purchases/new')
+    await user.click(await screen.findByRole('checkbox', { name: /Matchbox/ }))
+    await user.click(screen.getByRole('button', { name: /^Add 1/ }))
+    await waitFor(() => expect(screen.getByLabelText(/^Quantity/)).toHaveValue('10'))
+    expect(writes(calls, '/api/v1/items')[0].body).toMatchObject({ name: 'Matchbox', defaultUnitId: 'u-kg' })
+    expect(screen.getByLabelText(/^Item/)).toHaveValue('i-new')
   })
 
   it('shows the items of every list at once, nothing added until ticked, and marks added ones', async () => {
