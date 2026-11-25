@@ -173,6 +173,22 @@ describe('recording a purchase', () => {
     expect(screen.getByLabelText(/^Item\b/)).toBeInTheDocument()
   })
 
+  it('keeps what is typed on a new purchase and puts it back after a reload; Start over clears it', async () => {
+    localStorage.removeItem('slm.purchaseAuto')
+    server(['PURCHASE_RECORD'])
+    const user = userEvent.setup()
+    const first = open('#/purchases/new')
+    await user.type(await screen.findByLabelText(/Invoice number/), 'INV-77')
+    await waitFor(() => expect(localStorage.getItem('slm.purchaseAuto') ?? '').toContain('INV-77'))
+    first.unmount()
+    open('#/purchases/new')
+    await waitFor(() => expect(screen.getByLabelText(/Invoice number/)).toHaveValue('INV-77'))
+    expect(screen.getByText(/Your unsaved entries were restored/)).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Start over/ }))
+    expect(screen.getByLabelText(/Invoice number/)).toHaveValue('')
+    expect(localStorage.getItem('slm.purchaseAuto')).toBeNull()
+  })
+
   it('shows the items of every list at once, nothing added until ticked, and marks added ones', async () => {
     server(['PURCHASE_RECORD'])
     const user = userEvent.setup()

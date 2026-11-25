@@ -100,6 +100,8 @@ const extra: Record<string, string> = {
   'Create item: %1$s': 'आइटम बनाएँ: %1$s',
   'After you save, you go straight back to your purchase with this item chosen.': 'सेव करने के बाद आप सीधे अपनी खरीद पर लौटेंगे, यह आइटम चुना हुआ होगा।',
   'Not in the catalogue yet': 'अभी कैटलॉग में नहीं है',
+  'Your unsaved entries were restored.': 'आपकी बिना सेव की हुई एंट्रियाँ वापस आ गई हैं।',
+  'Start over': 'नए सिरे से शुरू करें',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra
