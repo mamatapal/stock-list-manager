@@ -103,6 +103,15 @@ function saveDraft(path: string, d: Draft) { try { sessionStorage.setItem(DRAFT_
 function readDraft(path: string): Draft | null {
   try { const d = JSON.parse(sessionStorage.getItem(DRAFT_KEY) ?? 'null'); return d && d.path === path ? d : null } catch { return null }
 }
+/** Entries of a new purchase are also kept in the browser as they are typed, so a crash or closed tab loses nothing. */
+const AUTO_KEY = 'slm.purchaseAuto'
+function readAuto(who: string): Draft | null {
+  try { const d = JSON.parse(localStorage.getItem(AUTO_KEY) ?? 'null'); return d && d.who === who ? d : null } catch { return null }
+}
+function writeAuto(who: string, d: Draft) { try { localStorage.setItem(AUTO_KEY, JSON.stringify({ who, ...d })) } catch { /* storage full or blocked */ } }
+function clearAuto() { try { localStorage.removeItem(AUTO_KEY) } catch { /* ignore */ } }
+const hasContent = (d: Draft) => d.lines.length > 0 || !!d.supplierId || !!d.invoiceNo.trim() || !!d.notes.trim()
+
 function clearDraft() { try { sessionStorage.removeItem(DRAFT_KEY) } catch { /* ignore */ } }
 
 const remainingOf = (l: ListLine) => (l.remainingQuantity && l.remainingQuantity !== '0' ? l.remainingQuantity : l.quantity)
@@ -176,7 +185,10 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
   const { pathname } = useLocation()
   const [params] = useSearchParams()
   // coming back from the item page: restore what was typed before leaving
-  const [draft] = useState(() => (params.get('resume') ? readDraft(pathname) : null))
+  const { user } = useAuth()
+  const who = user ? `${user.businessId ?? ''}:${user.userId ?? ''}` : ''
+  const [draft] = useState(() => (params.get('resume') ? readDraft(pathname) : !existing && who ? readAuto(who) : null))
+  const [restoredAuto, setRestoredAuto] = useState(() => !existing && !params.get('resume') && draft !== null && hasContent(draft))
   const [supplierId, setSupplierId] = useState(draft?.supplierId ?? existing?.supplierId ?? '')
   const [invoiceNo, setInvoiceNo] = useState(draft?.invoiceNo ?? existing?.invoiceNo ?? '')
   const [purchaseDate, setPurchaseDate] = useState(draft?.purchaseDate ?? existing?.purchaseDate ?? today())
@@ -200,6 +212,21 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
       purchasePrice: canPrice ? item.latestPurchasePrice ?? '' : '', sellingPrice: canSell ? item.latestSellingPrice ?? '' : '',
       priceBasis: 'PER_UNIT',
     })
+  }
+
+  // every change is written to the browser shortly after it is made (new purchases only)
+  useEffect(() => {
+    if (existing || !who) return
+    const d: Draft = { supplierId, invoiceNo, purchaseDate, notes, stockListId, lines, arrived }
+    if (!hasContent(d)) return
+    const t = setTimeout(() => writeAuto(who, d), 400)
+    return () => clearTimeout(t)
+  }, [existing, who, supplierId, invoiceNo, purchaseDate, notes, stockListId, lines, arrived])
+
+  function startOver() {
+    clearAuto()
+    setSupplierId(''); setInvoiceNo(''); setPurchaseDate(today()); setNotes(''); setStockListId(''); setLines([]); setArrived(false)
+    setRestoredAuto(false)
   }
 
   /** Leaves for the item page with the typed name; the purchase is kept and restored on return. */
@@ -262,6 +289,7 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
     }
     try {
       const saved = existing ? await purchases.update(existing.id, existing.version, body) : await purchases.create(body)
+      clearAuto()
       navigate(`/purchases/${saved.id}`, { replace: true })
     } catch (e) { setError(e); setBusy(false) }
   }
@@ -277,6 +305,11 @@ function PurchaseFormBody({ existing, suppliers: supplierList, items: loadedItem
   return (
     <form onSubmit={submit} noValidate>
       <h1><Tr k={existing ? 'Edit purchase' : 'New purchase'} /></h1>
+      {restoredAuto && (
+        <p className="muted small" role="status">
+          <Tr k="Your unsaved entries were restored." inline /> <button type="button" className="link" onClick={startOver}><Tr k="Start over" inline /></button>
+        </p>
+      )}
       <SelectField label="Supplier" required value={supplierId} onChange={setSupplierId}>
         <option value="">{trLine('Choose a supplier')}</option>
         {supplierList.filter((s) => s.active || s.id === supplierId).map((s) => <option key={s.id} value={s.id}>{oneLine(s.name)}</option>)}
