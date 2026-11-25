@@ -102,6 +102,7 @@ const extra: Record<string, string> = {
   'Not in the catalogue yet': 'अभी कैटलॉग में नहीं है',
   'Your unsaved entries were restored.': 'आपकी बिना सेव की हुई एंट्रियाँ वापस आ गई हैं।',
   'Start over': 'नए सिरे से शुरू करें',
+  'No selling price': 'बिक्री कीमत नहीं',
   'Main navigation': 'मुख्य मेन्यू',
 }
 export default extra
