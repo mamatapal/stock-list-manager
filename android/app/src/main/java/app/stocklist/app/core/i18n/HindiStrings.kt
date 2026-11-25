@@ -648,6 +648,7 @@ internal object HindiStrings {
         m["Search invoice, supplier or item"] = "बिल, सप्लायर या आइटम खोजें"
         m["Search item, batch, supplier or invoice"] = "आइटम, बैच, सप्लायर या बिल खोजें"
         m["Search items"] = "आइटम खोजें"
+        m["No selling price"] = "बिक्री कीमत नहीं"
         m["Your unsaved entries were restored."] = "आपकी बिना सेव की हुई एंट्रियाँ वापस आ गई हैं।"
         m["Start over"] = "नए सिरे से शुरू करें"
         m["Leave this purchase?"] = "यह खरीद छोड़ें?"

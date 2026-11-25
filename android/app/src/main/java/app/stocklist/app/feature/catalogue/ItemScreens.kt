@@ -82,6 +82,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -97,8 +98,15 @@ class ItemListViewModel @Inject constructor(repo: ItemRepository, units: UnitRep
     val query = MutableStateFlow("")
     val category = MutableStateFlow("")
     val showInactive = MutableStateFlow(false)
-    val items = combine(query, category, showInactive) { q, c, i -> Triple(q, c, i) }
-        .flatMapLatest { (q, c, i) -> repo.observe(q, c, i) }
+    /** Only items that have no selling price yet. */
+    val noSellPrice = MutableStateFlow(false)
+    val items = combine(query, category, showInactive, noSellPrice) { q, c, i, n -> listOf(q, c, i, n) }
+        .flatMapLatest { f ->
+            val onlyUnpriced = f[3] as Boolean
+            repo.observe(f[0] as String, f[1] as String, f[2] as Boolean).map { all ->
+                if (onlyUnpriced) all.filter { it.latestSellingPrice.isNullOrBlank() } else all
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     val categories = repo.categories().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     val units = units.observe().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BuiltInUnits.all)
@@ -112,6 +120,7 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
     val q by vm.query.collectAsStateWithLifecycle()
     val cat by vm.category.collectAsStateWithLifecycle()
     val inactive by vm.showInactive.collectAsStateWithLifecycle()
+    val noSell by vm.noSellPrice.collectAsStateWithLifecycle()
     val cats by vm.categories.collectAsStateWithLifecycle()
     val units by vm.units.collectAsStateWithLifecycle()
     Scaffold(
@@ -133,6 +142,7 @@ fun ItemListScreen(access: Access, onBack: () -> Unit, onAdd: () -> Unit, onOpen
                 placeholder = { Text(tr("Search name or category"), maxLines = 1) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
             Row(Modifier.padding(horizontal = 16.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected = inactive, onClick = { vm.showInactive.value = !inactive }, label = { Text(tr("Show inactive"), maxLines = 1) })
+                FilterChip(selected = noSell, onClick = { vm.noSellPrice.value = !noSell }, label = { Text(tr("No selling price"), maxLines = 1) })
                 FilterChip(selected = cat.isEmpty(), onClick = { vm.category.value = "" }, label = { Text(tr("All categories"), maxLines = 1) })
                 cats.forEach { c -> FilterChip(selected = cat == c, onClick = { vm.category.value = c }, label = { Text(c.bi(), maxLines = 1) }) }
             }

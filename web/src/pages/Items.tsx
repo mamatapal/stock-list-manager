@@ -19,9 +19,11 @@ export function ItemList() {
   const { can } = useAuth()
   const [q, setQ] = useState('')
   const [category, setCategory] = useState('')
+  const [noPrice, setNoPrice] = useState(false)
   const dq = useDebounced(q)
   const cats = useLoad(() => items.categories(), [])
   const { data, error, loading } = useLoad(() => items.list(dq, category), [dq, category])
+  const shown = noPrice ? data?.filter((i) => !i.latestSellingPrice) : data
   const unitList = useLoad(() => units.list(), [])
   const unitById = useMemo(() => new Map((unitList.data ?? []).map((u) => [u.id, u])), [unitList.data])
   return (
@@ -36,10 +38,13 @@ export function ItemList() {
           {cats.data.map((c) => <option key={c} value={c}>{oneLine(c)}</option>)}
         </SelectField>
       )}
+      <button type="button" className={noPrice ? 'pick-row selected' : 'pick-row'} aria-pressed={noPrice} onClick={() => setNoPrice(!noPrice)}>
+        <Tr k="No selling price" inline />{noPrice && shown ? ` (${shown.length})` : ''}
+      </button>
       <ErrorText error={error} />
-      {loading && !data ? <Loading /> : data && data.length === 0 ? <Empty text="No items yet" /> : (
+      {loading && !data ? <Loading /> : shown && shown.length === 0 ? <Empty text={noPrice ? 'No item matches the search.' : 'No items yet'} /> : (
         <ul className="rows">
-          {data?.map((i) => (
+          {shown?.map((i) => (
             <li key={i.id}>
               <Link to={`/items/${i.id}`} className="row">
                 <span className="row-main"><Name value={i.name} /></span>
