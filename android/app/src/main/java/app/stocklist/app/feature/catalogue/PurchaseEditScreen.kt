@@ -82,6 +82,8 @@ import app.stocklist.app.core.session.SessionStore
 import app.stocklist.app.data.local.ItemEntity
 import app.stocklist.app.data.remote.ItemInput
 import app.stocklist.app.data.repository.ItemRepository
+import app.stocklist.app.data.repository.PurchaseDraftSnapshot
+import app.stocklist.app.data.repository.PurchaseDraftStore
 import app.stocklist.app.data.repository.PurchaseHeaderDraft
 import app.stocklist.app.data.repository.PurchaseLineDraft
 import app.stocklist.app.data.repository.PurchaseRepository
@@ -94,7 +96,12 @@ import app.stocklist.app.domain.catalogue.Decimals
 import app.stocklist.app.domain.catalogue.PurchaseCalculator
 import app.stocklist.app.domain.permission.Permission
 import dagger.hilt.android.lifecycle.HiltViewModel
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.first
@@ -105,13 +112,14 @@ import java.math.BigDecimal
 import java.time.LocalDate
 import javax.inject.Inject
 
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class PurchaseEditViewModel @Inject constructor(
     private val repo: PurchaseRepository,
     private val itemRepo: ItemRepository,
     private val listRepo: StockListRepository,
     private val session: SessionStore,
+    private val drafts: PurchaseDraftStore,
     suppliers: SupplierRepository,
     units: UnitRepository,
     handle: SavedStateHandle,
@@ -144,6 +152,24 @@ class PurchaseEditViewModel @Inject constructor(
     var saving by mutableStateOf(false)
         private set
     var dirty by mutableStateOf(false)
+    /** True when entries from an earlier, unfinished session were put back on the screen. */
+    var restored by mutableStateOf(false)
+        private set
+
+    /** Auto-save applies to a new purchase; the key is per signed-in user. */
+    private val draftKey: String? get() =
+        if (id != null) null else (session.state.value as? SessionState.SignedIn)?.user?.let { "new_${it.businessId}_${it.userId}" }
+
+    private fun snapshot() = PurchaseDraftSnapshot(supplierId, invoiceNo, purchaseDate.toString(), receivedDate.toString(), notes,
+        stockListId, listTitle, receiveNow, lines.toList())
+
+    /** Clears the screen and the saved copy: a fresh start. */
+    fun startOver() {
+        draftKey?.let { drafts.clear(it) }
+        supplierId = null; invoiceNo = ""; purchaseDate = LocalDate.now(); receivedDate = LocalDate.now(); notes = ""
+        stockListId = null; listTitle = null; receiveNow = true; lines.clear()
+        dirty = false; restored = false
+    }
 
     private fun can(p: Permission) = access?.has(p) == true
     val canBuyPrice get() = can(Permission.PURCHASE_PRICE_ENTER)
@@ -167,7 +193,26 @@ class PurchaseEditViewModel @Inject constructor(
                 }
             }
             stockListId?.let { listTitle = listRepo.get(it)?.title }
+            draftKey?.let { key ->
+                drafts.load(key)?.takeIf { it.hasContent }?.let { d ->
+                    supplierId = d.supplierId; invoiceNo = d.invoiceNo; notes = d.notes; stockListId = d.stockListId; listTitle = d.listTitle
+                    receiveNow = d.receiveNow
+                    runCatching { LocalDate.parse(d.purchaseDate) }.getOrNull()?.let { purchaseDate = it }
+                    runCatching { LocalDate.parse(d.receivedDate) }.getOrNull()?.let { receivedDate = it }
+                    lines.clear(); lines.addAll(d.lines)
+                    restored = true; dirty = true
+                }
+            }
             loaded = true
+        }
+        // every change is written to disk shortly after it is made
+        viewModelScope.launch {
+            snapshotFlow { if (loaded && dirty && !saving) snapshot() else null }
+                .debounce(400)
+                .collect { d ->
+                    val key = draftKey ?: return@collect
+                    if (d != null && d.hasContent) withContext(Dispatchers.IO) { drafts.save(key, d) }
+                }
         }
     }
 
@@ -209,7 +254,7 @@ class PurchaseEditViewModel @Inject constructor(
     }
 
     /** "Record purchase" from a list opens the chooser on that list; nothing is added until the person confirms. */
-    val startList: String? get() = if (id == null) fromList else null
+    val startList: String? get() = if (id == null && !restored) fromList else null
 
     fun addItems(picked: List<ItemEntity>) {
         picked.forEach { item ->
@@ -281,6 +326,7 @@ class PurchaseEditViewModel @Inject constructor(
                 val me = (session.state.value as? SessionState.SignedIn)?.user?.userId
                 val saved = repo.save(id, PurchaseHeaderDraft(supplierId, invoiceNo, purchaseDate, receivedDate, stockListId, notes),
                     lines.toList(), complete, receiveNow && !completed, me, showProfit)
+                draftKey?.let { drafts.clear(it) }
                 dirty = false
                 onDone(saved)
             } catch (e: IllegalArgumentException) {
@@ -303,7 +349,9 @@ fun PurchaseEditScreen(
     val units by vm.units.collectAsStateWithLifecycle()
     val suppliers by vm.suppliers.collectAsStateWithLifecycle()
     var picking by remember { mutableStateOf(false) }
-    var pickingFromList by remember { mutableStateOf(vm.startList != null) }
+    var pickingFromList by remember { mutableStateOf(false) }
+    // opened from "Record purchase" on a list (unless an earlier unfinished entry was restored)
+    LaunchedEffect(vm.loaded) { if (vm.loaded && vm.startList != null) pickingFromList = true }
     var confirmLeave by remember { mutableStateOf(false) }
     var confirmComplete by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
@@ -333,6 +381,12 @@ fun PurchaseEditScreen(
         val unitChoices = units.map { Choice(it.id, it.code) }
         LazyColumn(Modifier.fillMaxSize().padding(padding).padding(horizontal = 16.dp).imePadding(),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (vm.restored) item {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Your unsaved entries were restored."), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { vm.startOver() }) { Text(tr("Start over")) }
+                }
+            }
             item {
                 Column {
                     DropdownField(tr("Supplier *"), vm.supplierId, suppliers.map { Choice(it.id, it.name.bi()) }, { vm.supplierId = it; vm.dirty = true })
@@ -382,7 +436,7 @@ fun PurchaseEditScreen(
     }
     if (picking) PurchaseItemPicker(vm, onCreateItem = onCreateItem, onDismiss = { picking = false })
     if (pickingFromList) PurchaseListPicker(vm, startListId = vm.startList, onDismiss = { pickingFromList = false })
-    if (confirmLeave) ConfirmDialog(tr("Leave without saving?"), tr("Your changes will be lost. Use \"Save draft\" to keep them."),
+    if (confirmLeave) ConfirmDialog(tr("Leave this purchase?"), tr("Your entries are saved on this phone. Open New purchase to continue where you left off."),
         tr("Leave"), onConfirm = { confirmLeave = false; onBack() }, onDismiss = { confirmLeave = false })
     if (confirmComplete) ConfirmDialog(tr("Complete this purchase?"),
         if (vm.receiveNow) tr("It goes into purchase history and the goods are recorded as received. Afterwards it can only be edited by someone with permission, and earlier versions are kept.")

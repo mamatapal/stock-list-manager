@@ -32,6 +32,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /** One line as the purchase editor holds it. Numbers are the text the user typed. */
+@kotlinx.serialization.Serializable
 data class PurchaseLineDraft(
     val id: String = UUID.randomUUID().toString(),
     val itemId: String,
